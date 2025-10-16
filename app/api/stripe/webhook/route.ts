@@ -1,0 +1,84 @@
+import { NextResponse } from "next/server"
+import Stripe from "stripe"
+import { createClient } from "@/lib/supabase/server"
+
+export async function POST(request: Request) {
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("[v0] Missing Stripe environment variables")
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-11-20.acacia",
+  })
+
+  const body = await request.text()
+  const signature = request.headers.get("stripe-signature")
+
+  if (!signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 })
+  }
+
+  let event: Stripe.Event
+
+  try {
+    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
+  } catch (error) {
+    console.error("[v0] Webhook signature verification failed:", error)
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+  }
+
+  try {
+    const supabase = await createClient()
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session
+        const customerId = session.customer as string
+
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: "active",
+            stripe_subscription_id: session.subscription as string,
+          })
+          .eq("stripe_customer_id", customerId)
+
+        break
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
+
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: subscription.status,
+          })
+          .eq("stripe_customer_id", customerId)
+
+        break
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription
+        const customerId = subscription.customer as string
+
+        await supabase
+          .from("users")
+          .update({
+            subscription_status: "cancelled",
+          })
+          .eq("stripe_customer_id", customerId)
+
+        break
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  } catch (error) {
+    console.error("[v0] Webhook handler error:", error)
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
+  }
+}
