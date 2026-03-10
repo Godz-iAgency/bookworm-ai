@@ -1,282 +1,270 @@
-"use client"
-import { useState, useEffect } from "react"
-import type React from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import Link from "next/link"
-import { Mic, Search, Flame } from "lucide-react"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
-import { SubscriptionGuard } from "@/components/subscription-guard"
-import { isDemoMode, getDemoUser } from "@/lib/demo-auth"
+"use client";
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useBookwormContext, Course } from "@/lib/BookwormContext";
+
+// Dashboard Tab Types
+export type Tab = "course" | "chat" | "flashcards";
+
+// Components
+import CourseTab from "./components/CourseTab";
+import ChatTab from "./components/ChatTab";
+import FlashcardTab from "./components/FlashcardTab";
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [bookInput, setBookInput] = useState("")
-  const [isListening, setIsListening] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [suggestedBook, setSuggestedBook] = useState<{ title: string; author: string } | null>(null)
-  const [loading, setLoading] = useState(true)
-
+  const router = useRouter();
+  const { courses, activeCourseId, setActiveCourseId } = useBookwormContext();
+  const [activeTab, setActiveTab] = useState<Tab>("course");
+  
+  // Real-time recalculation of expirations (simulated checking logic)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
+  
   useEffect(() => {
-    checkAuth()
-  }, [])
+    setCurrentTime(new Date()); // Set on client mount to match SSR hydration
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // UI update every minute
+    return () => clearInterval(timer);
+  }, []);
 
-  const checkAuth = async () => {
-    if (isDemoMode()) {
-      const demoUser = getDemoUser()
-      if (demoUser) {
-        setUser({
-          name: demoUser.name,
-          email: demoUser.email,
-          genres: demoUser.genres,
-          last_read: demoUser.last_read,
-          streak_count: demoUser.streak,
-        })
-        setLoading(false)
-        return
-      }
-    }
+  const MAX_COURSES = 3;
+  const isLibraryFull = courses.length >= MAX_COURSES;
+  
+  const activeCourse = courses.find((c) => c.id === activeCourseId);
 
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) {
-      console.log("[v0] Supabase not configured, redirecting to login")
-      router.push("/login")
-      return
-    }
+  // Expiration logic check
+  const isCourseExpired = (expiresAt: string) => {
+    if (!currentTime) return false;
+    return new Date(expiresAt) < currentTime;
+  };
 
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser()
-
-    if (!authUser) {
-      router.push("/login")
-      return
-    }
-
-    loadUserData()
+  if (!activeCourse && courses.length > 0) {
+    // Failsafe auto-select
+    setActiveCourseId(courses[0].id);
+  } else if (courses.length === 0) {
+    // No courses at all -> back to start
+    useEffect(() => { router.push("/search") }, [router])
+    return null;
   }
 
-  const loadUserData = async () => {
-    try {
-      const response = await fetch("/api/user/profile")
-      const data = await response.json()
-
-      if (data.user) {
-        setUser(data.user)
-        updateStreak(data.user)
-      }
-    } catch (error) {
-      console.error("[v0] Error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const updateStreak = async (userData: any) => {
-    const today = new Date().toISOString().split("T")[0]
-    const lastActive = userData.last_active
-
-    if (lastActive !== today) {
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayStr = yesterday.toISOString().split("T")[0]
-
-      const newStreak = lastActive === yesterdayStr ? userData.streak_count + 1 : 1
-
-      await fetch("/api/user/streak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ streakCount: newStreak }),
-      })
-
-      setUser({ ...userData, streak_count: newStreak, last_active: today })
-    }
-  }
-
-  const handleVoiceInput = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      alert("Voice input is not supported in your browser")
-      return
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    const recognition = new SpeechRecognition()
-
-    recognition.lang = "en-US"
-    recognition.continuous = false
-    recognition.interimResults = false
-
-    recognition.onstart = () => {
-      setIsListening(true)
-    }
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript
-      setBookInput(transcript)
-      setIsListening(false)
-    }
-
-    recognition.onerror = () => {
-      setIsListening(false)
-      alert("Error with voice recognition. Please try again.")
-    }
-
-    recognition.onend = () => {
-      setIsListening(false)
-    }
-
-    recognition.start()
-  }
-
-  const handleBookSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!bookInput.trim()) {
-      alert("Please enter a book title")
-      return
-    }
-
-    // Simulate book lookup and confirmation
-    // In production, this would call an API to verify the book
-    setSuggestedBook({
-      title: bookInput,
-      author: "Unknown Author",
-    })
-    setShowConfirmation(true)
-  }
-
-  const handleConfirmBook = async (confirmed: boolean) => {
-    if (confirmed && suggestedBook) {
-      router.push(
-        `/course/generate?title=${encodeURIComponent(suggestedBook.title)}&author=${encodeURIComponent(suggestedBook.author)}`,
-      )
-    } else {
-      setShowConfirmation(false)
-      setSuggestedBook(null)
-    }
-  }
-
-  if (loading) {
+  if (!currentTime) {
     return (
-      <div className="min-h-screen bg-[#FFFDD0] flex items-center justify-center">
-        <div className="text-[#008080] text-xl">Loading...</div>
+      <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-t-2 border-[#00D4FF] animate-spin" />
       </div>
-    )
+    );
   }
+
+  if (!activeCourse && courses.length > 0) {
+    // Failsafe auto-select
+    setActiveCourseId(courses[0].id);
+  } else if (courses.length === 0) {
+    // No courses at all -> back to start
+    useEffect(() => { router.push("/search") }, [router])
+    return null;
+  }
+
+  const renderTabContent = () => {
+    if (!activeCourse) return null;
+    
+    // EXPIRED RULE: Expired courses cannot be accessed
+    if (isCourseExpired(activeCourse.expiresAt)) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+          <div className="text-6xl mb-4">⏳</div>
+          <h2 className="text-2xl font-bold text-[#FF006E] mb-2">Course Expired</h2>
+          <p className="text-white/60 max-w-md">
+            The 8-day sprint for this book has ended. To retain focus, you must delete this course to start a new one, or select another active course.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full w-full relative">
+        <div className={activeTab === "course" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
+          <CourseTab course={activeCourse} />
+        </div>
+        <div className={activeTab === "chat" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
+          <ChatTab course={activeCourse} />
+        </div>
+        <div className={activeTab === "flashcards" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
+          <FlashcardTab course={activeCourse} />
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <SubscriptionGuard>
-      <div className="min-h-screen bg-[#FFFDD0]">
-        {/* Top Bar */}
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Oct%205%2C%202025%2C%2010_40_41%20PM-H6XfD24mrebcr7PyZI2hKrfdpYpiFW.png"
-                alt="Bookworm.AI Logo"
-                width={50}
-                height={50}
-              />
-              <h1 className="text-2xl font-bold text-[#008080]">Bookworm.AI</h1>
-            </div>
+    <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col font-sans">
+      <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
+      
+      <div className="relative z-10 flex flex-col h-screen w-full">
+        {/* TOP BAR - My Library */}
+        <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center justify-between shadow-xl z-20">
+          <div className="flex items-center gap-6">
+            <Image src="/bookworm-logo.png" alt="Logo" width={100} height={26} className="hidden md:block opacity-80" />
+            
+            <div className="flex gap-4 overflow-x-auto pb-2 md:pb-0 hide-scrollbar snap-x">
+              {courses.map((course) => {
+                const expired = isCourseExpired(course.expiresAt);
+                const isActive = course.id === activeCourseId;
+                
+                // Calculate days remaining (max 8)
+                const msLeft = new Date(course.expiresAt).getTime() - currentTime!.getTime();
+                const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+                const completedCount = course.days.filter(d => d.isCompleted).length;
+                const progressPct = (completedCount / 7) * 100;
 
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 bg-[#FFFDD0] px-4 py-2 rounded-full">
-                <Flame className="w-5 h-5 text-[#D4AF37]" fill="#D4AF37" />
-                <span className="font-bold text-[#008080]">{user?.streak_count || 0}</span>
-              </div>
-              <span className="text-[#008080] font-medium">{user?.name}</span>
-              <Link href="/settings" className="text-[#008080] hover:text-[#006666] font-medium underline">
-                Settings
-              </Link>
-            </div>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-[#008080] mb-4">Welcome back, {user?.name}!</h2>
-            <p className="text-lg text-gray-700">Transform any book into a personalized 7-day learning journey</p>
-          </div>
-
-          {!showConfirmation ? (
-            <form onSubmit={handleBookSubmit} className="mb-12">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={bookInput}
-                  onChange={(e) => setBookInput(e.target.value)}
-                  placeholder="Type a book title..."
-                  className="w-full px-6 py-6 text-xl rounded-2xl bg-white shadow-lg border-2 border-transparent focus:border-[#008080] focus:outline-none transition-all"
-                />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3">
+                return (
                   <button
-                    type="button"
-                    onClick={handleVoiceInput}
-                    className={`p-3 rounded-full transition-all ${
-                      isListening
-                        ? "bg-[#CC5500] text-white animate-pulse"
-                        : "bg-[#FFFDD0] text-[#008080] hover:bg-[#008080] hover:text-white"
-                    }`}
+                    key={course.id}
+                    onClick={() => setActiveCourseId(course.id)}
+                    className={`
+                      snap-start shrink-0 flex items-center gap-3 w-64 p-2 rounded-xl border text-left transition-all relative overflow-hidden group
+                      ${isActive ? 'bg-[#1a1a1a] border-cyan-500/50 shadow-[0_0_15px_rgba(0,212,255,0.15)]' : 'bg-transparent border-white/10 hover:bg-white/5'}
+                      ${expired ? 'opacity-60 grayscale-[0.5]' : ''}
+                    `}
                   >
-                    <Mic className="w-6 h-6" />
+                    {isActive && !expired && (
+                      <div className="absolute inset-0 rounded-xl p-[1px] bg-gradient-to-r from-[#00D4FF] to-[#FF006E] [mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-composite:destination-out] [mask-composite:exclude]" />
+                    )}
+                    
+                    <div className="w-10 h-14 relative shrink-0 rounded shadow-sm overflow-hidden bg-black">
+                      <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="font-bold text-sm truncate pr-2">{course.book.title}</p>
+                        {expired ? (
+                          <span className="text-[10px] font-bold text-[#FF006E] uppercase border border-[#FF006E]/30 bg-[#FF006E]/10 px-1.5 py-0.5 rounded shrink-0">Expired</span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-[#00D4FF] uppercase border border-[#00D4FF]/30 bg-[#00D4FF]/10 px-1.5 py-0.5 rounded shrink-0">{daysLeft}d left</span>
+                        )}
+                      </div>
+                      
+                      {/* Mini Progress Bar */}
+                      <div className="h-1.5 w-full bg-black rounded-full overflow-hidden mt-2 border border-white/5">
+                        <div 
+                          className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
                   </button>
-                  <button
-                    type="submit"
-                    className="p-3 rounded-full bg-[#CC5500] text-white hover:bg-[#b34900] transition-all"
-                  >
-                    <Search className="w-6 h-6" />
-                  </button>
+                );
+              })}
+              
+              {/* Add New / Locked Slot */}
+              {isLibraryFull ? (
+                <div className="shrink-0 flex items-center justify-center w-64 p-3 rounded-xl border border-white/5 bg-black/40 text-center relative group">
+                  <p className="text-xs text-white/40">Complete or remove a course<br/>to start a new one</p>
+                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                    <span className="text-2xl">🔒</span>
+                  </div>
                 </div>
-              </div>
-              {isListening && <p className="text-center text-[#008080] mt-4 animate-pulse">Listening...</p>}
-            </form>
-          ) : (
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-12">
-              <h3 className="text-2xl font-bold text-[#008080] mb-4">Did you mean this book?</h3>
-              <div className="bg-[#FFFDD0] rounded-xl p-6 mb-6">
-                <p className="text-xl font-bold text-[#008080] mb-2">{suggestedBook?.title}</p>
-                <p className="text-gray-700">by {suggestedBook?.author}</p>
-              </div>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => handleConfirmBook(true)}
-                  className="flex-1 bg-[#008080] text-white py-4 rounded-xl font-bold hover:bg-[#006666] transition-all"
+              ) : (
+                <Link 
+                  href="/search"
+                  className="shrink-0 flex items-center justify-center gap-2 w-32 p-3 rounded-xl border border-dashed border-white/20 text-white/50 hover:text-white/90 hover:border-white/40 hover:bg-white/5 transition-all"
                 >
-                  Yes, that's it!
-                </button>
-                <button
-                  onClick={() => handleConfirmBook(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-300 transition-all"
-                >
-                  No, try again
-                </button>
-              </div>
+                  <span className="text-xl">+</span> Add Course
+                </Link>
+              )}
             </div>
-          )}
-
-          {/* Recent Courses or Suggestions */}
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <h3 className="text-2xl font-bold text-[#008080] mb-6">Your Favorite Genres</h3>
-            <div className="flex flex-wrap gap-3">
-              {user?.genres?.map((genre: string) => (
-                <span key={genre} className="px-4 py-2 bg-[#008080] text-white rounded-full font-medium">
-                  {genre}
-                </span>
-              ))}
-            </div>
-            {user?.last_read && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <p className="text-gray-700">
-                  <span className="font-bold text-[#008080]">Last book you read:</span> {user.last_read}
-                </p>
-              </div>
-            )}
           </div>
-        </main>
+        </div>
+
+        {/* MAIN LAYOUT */}
+        <div className="flex-1 flex overflow-hidden">
+          
+          {/* LEFT SIDEBAR - Navigation (Desktop) */}
+          <div className="hidden md:flex flex-col w-64 border-r border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md p-4 pt-8 gap-2 shrink-0">
+            <NavButton 
+              icon="📅" 
+              label="7-Day Course" 
+              isActive={activeTab === "course"} 
+              onClick={() => setActiveTab("course")} 
+            />
+            <NavButton 
+              icon="🤖" 
+              label="AI Chat" 
+              isActive={activeTab === "chat"} 
+              onClick={() => setActiveTab("chat")} 
+            />
+            <NavButton 
+              icon="🗂️" 
+              label="Flashcards" 
+              isActive={activeTab === "flashcards"} 
+              onClick={() => setActiveTab("flashcards")} 
+            />
+          </div>
+
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 overflow-y-auto relative bg-transparent">
+             {renderTabContent()}
+          </div>
+        </div>
+
+        {/* BOTTOM NAV (Mobile) */}
+        <div className="md:hidden w-full bg-[#111] border-t border-white/10 flex justify-around p-3 shrink-0 z-20">
+            <MobileNavButton 
+              icon="📅" 
+              label="Course" 
+              isActive={activeTab === "course"} 
+              onClick={() => setActiveTab("course")} 
+            />
+            <MobileNavButton 
+              icon="🤖" 
+              label="Chat" 
+              isActive={activeTab === "chat"} 
+              onClick={() => setActiveTab("chat")} 
+            />
+            <MobileNavButton 
+              icon="🗂️" 
+              label="Learn" 
+              isActive={activeTab === "flashcards"} 
+              onClick={() => setActiveTab("flashcards")} 
+            />
+        </div>
+
       </div>
-    </SubscriptionGuard>
-  )
+    </div>
+  );
+}
+
+// Nav Helpers
+function NavButton({ icon, label, isActive, onClick }: { icon: string, label: string, isActive: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all text-left
+        ${isActive 
+          ? 'bg-white/10 text-white border border-white/10 shadow-[inset_2px_0_0_0_#00D4FF]' 
+          : 'text-white/60 hover:bg-white/5 hover:text-white'}
+      `}
+    >
+      <span className="text-xl">{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function MobileNavButton({ icon, label, isActive, onClick }: { icon: string, label: string, isActive: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex flex-col items-center gap-1 w-16 transition-all
+        ${isActive ? 'text-[#00D4FF]' : 'text-white/50 hover:text-white/80'}
+      `}
+    >
+      <span className="text-2xl">{icon}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+      {isActive && <div className="h-1 w-1 bg-[#00D4FF] rounded-full mt-1" />}
+    </button>
+  );
 }

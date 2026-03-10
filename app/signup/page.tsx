@@ -141,10 +141,10 @@ export default function SignUpPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
-    console.log("[v0] Form submitted", formData)
+    // Form validation and API submission logic would go here
 
     if (demoSignup(formData.name, formData.email, formData.password)) {
-      console.log("[v0] Demo signup successful")
+      // Handle success
       setUserId("demo-user-123")
       setStep("genres")
       setLoading(false)

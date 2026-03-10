@@ -120,10 +120,10 @@ export default function LoginPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
-    console.log("[v0] Login form submitted", formData)
+    // Validate data and submit to API
 
     if (demoLogin(formData.email, formData.password)) {
-      console.log("[v0] Demo login successful")
+      // Handle success
       router.push("/dashboard")
       return
     }
