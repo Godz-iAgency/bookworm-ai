@@ -1,13 +1,23 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, User } from "firebase/auth";
-import { auth, db } from "@/lib/firebase/config";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth } from "@/lib/firebase/config";
+import {
+  signInWithGoogle,
+  signInWithEmail,
+  signUpWithEmail,
+  resetPassword,
+  logout,
+  ensureUserDocument,
+} from "@/lib/firebase/auth";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<User | null>;
+  signInWithEmail: (email: string, password: string) => Promise<User>;
+  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<User>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -20,19 +30,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userRef = doc(db, "users", firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
-            plan: "free",
-            activeBookCount: 0,
-            createdAt: serverTimestamp(),
-          });
-        }
+        // Covers the mobile/Kindle redirect flow where the doc wasn't yet made.
+        await ensureUserDocument(firebaseUser);
         setUser(firebaseUser);
       } else {
         setUser(null);
@@ -42,19 +41,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Tablet/i.test(navigator.userAgent);
-    try {
-      if (isMobileOrTablet) await signInWithRedirect(auth, provider);
-      else await signInWithPopup(auth, provider);
-    } catch (error) { console.error("Auth Error:", error); }
-  };
-
-  const logout = () => signOut(auth);
-
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

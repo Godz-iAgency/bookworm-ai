@@ -1,44 +1,15 @@
-import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
-  const demoMode = request.cookies.get("demo_mode")?.value === "true"
-
-  if (demoMode) {
-    return NextResponse.next()
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next()
-  }
-
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({
-          request,
-        })
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-      },
-    },
-  })
-
-  await supabase.auth.getUser()
-
-  return response
+// Auth is handled client-side via Firebase (see context/AuthContext.tsx).
+// Firebase persists its session in IndexedDB rather than cookies, so the
+// middleware cannot read the auth state here. Protection for /dashboard,
+// /course/*, /library and /settings is therefore enforced client-side in
+// those routes (a logged-out user is redirected to /auth).
+//
+// (A later phase may introduce a Firebase session cookie so this middleware
+// can block protected routes at the edge before the page renders.)
+export function middleware(_request: NextRequest) {
+  return NextResponse.next()
 }
 
 export const config = {

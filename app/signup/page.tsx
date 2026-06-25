@@ -4,8 +4,9 @@ import type React from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Ripple, AuthTabs, TechOrbitDisplay } from "@/components/auth/modern-animated-sign-in"
-import { getSupabaseBrowserClient } from "@/lib/supabase/client"
-import { demoSignup } from "@/lib/demo-auth"
+import { signUpWithEmail, signInWithGoogle } from "@/lib/firebase/auth"
+import { db } from "@/lib/firebase/config"
+import { doc, updateDoc } from "firebase/firestore"
 
 type FormData = {
   name: string
@@ -116,13 +117,14 @@ export default function SignUpPage() {
   const [step, setStep] = useState<"signup" | "genres">("signup")
   const [userId, setUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>({
-    name: "Demo User",
-    email: "demo@bookworm.ai",
-    password: "demo123",
+    name: "",
+    email: "",
+    password: "",
   })
   const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   const [lastBook, setLastBook] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const goToSignIn = (event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
     event.preventDefault()
@@ -141,50 +143,36 @@ export default function SignUpPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
-    // Form validation and API submission logic would go here
+    setError(null)
 
-    if (demoSignup(formData.name, formData.email, formData.password)) {
-      // Handle success
-      setUserId("demo-user-123")
-      setStep("genres")
-      setLoading(false)
-      return
-    }
-
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) {
-      alert("Using demo mode. Continue to genre selection.")
-      setUserId("demo-user-123")
-      setStep("genres")
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters.")
       setLoading(false)
       return
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-          },
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || window.location.origin,
-        },
-      })
-
-      if (error) {
-        alert(`Error: ${error.message}`)
-        setLoading(false)
-        return
-      }
-
-      setUserId(data.user?.id || null)
+      const user = await signUpWithEmail(formData.email, formData.password, formData.name)
+      setUserId(user.uid)
       setStep("genres")
-    } catch (error) {
-      console.error("[v0] Signup error:", error)
-      alert("An error occurred during signup. Please try again.")
+    } catch (err) {
+      console.error("Signup error:", err)
+      setError("Couldn't create your account. That email may already be in use.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoogle = async () => {
+    setError(null)
+    try {
+      const user = await signInWithGoogle()
+      // Desktop returns a user immediately; mobile/Kindle redirects and resumes
+      // after reload. New users land on reading-level onboarding.
+      if (user) router.push("/reading-level")
+    } catch (err) {
+      console.error("Google signup error:", err)
+      setError("Google sign-in failed. Please try again.")
     }
   }
 
@@ -212,44 +200,24 @@ export default function SignUpPage() {
     }
 
     setLoading(true)
+    setError(null)
 
-    if (userId === "demo-user-123") {
-      const demoUser = JSON.parse(localStorage.getItem("demo_user") || "{}")
-      demoUser.genres = selectedGenres
-      demoUser.last_read = lastBook
-      localStorage.setItem("demo_user", JSON.stringify(demoUser))
-      router.push("/dashboard")
-      return
-    }
-
-    const supabase = getSupabaseBrowserClient()
-    if (!supabase) {
-      alert("Database not configured")
+    if (!userId) {
+      setError("Your session expired. Please sign up again.")
       setLoading(false)
       return
     }
 
     try {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          genres: selectedGenres,
-          last_read: lastBook,
-        })
-        .eq("id", userId)
-
-      if (error) {
-        console.error("[v0] Error updating preferences:", error)
-        alert(`Error: ${error.message}`)
-        setLoading(false)
-        return
-      }
-
-      router.push("/dashboard")
-    } catch (error) {
-      console.error("[v0] Genre submission error:", error)
-      alert("An error occurred. Please try again.")
-    } finally {
+      await updateDoc(doc(db, "users", userId), {
+        genrePreferences: selectedGenres,
+        lastBookRead: lastBook,
+      })
+      // New users continue to reading-level onboarding before the dashboard.
+      router.push("/reading-level")
+    } catch (err) {
+      console.error("Genre submission error:", err)
+      setError("Something went wrong saving your preferences. Please try again.")
       setLoading(false)
     }
   }
@@ -308,9 +276,24 @@ export default function SignUpPage() {
       <span className="w-1/2 min-h-screen flex flex-col justify-center items-center max-lg:w-full max-lg:px-[10%]">
         {step === "signup" ? (
           <>
-            <div className="mb-4 px-6 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm max-w-md text-center">
-              Demo credentials prefilled for 7-day free trial
-            </div>
+            {error && (
+              <div className="mb-4 px-6 py-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm max-w-md text-center">
+                {error}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleGoogle}
+              className="mb-4 w-full max-w-md flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-800 rounded-lg font-medium hover:bg-gray-100 transition-colors min-h-[48px]"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z" />
+                <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z" />
+                <path fill="#FBBC05" d="M3.97 10.72A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z" />
+                <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z" />
+              </svg>
+              Continue with Google
+            </button>
             <AuthTabs formFields={formFields} goTo={goToSignIn} handleSubmit={handleSubmit} />
           </>
         ) : (
