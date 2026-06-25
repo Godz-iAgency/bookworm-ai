@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { Suspense } from "react"
 import { BookwormProvider } from "@/lib/BookwormContext"
+import { AuthProvider } from "@/context/AuthContext"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -21,13 +22,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <BookwormProvider>
-          <Suspense fallback={<div>Loading...</div>}>
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} bg-[#080808]`}>
+        <AuthProvider>
+          <BookwormProvider>
+            <Suspense fallback={<div>Loading...</div>}>
             {children}
             <Analytics />
           </Suspense>
-        </BookwormProvider>
+          </BookwormProvider>
+        </AuthProvider>
       </body>
     </html>
   )

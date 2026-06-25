@@ -4,14 +4,18 @@ export async function searchGoogleBooks(query: string): Promise<Book | null> {
   if (!query) return null;
   
   try {
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1`);
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_BOOKS_API_KEY;
+    const url = apiKey 
+      ? `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1&key=${apiKey}`
+      : `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1`;
+
+    const res = await fetch(url);
     
     if (!res.ok) {
       if (res.status === 429) {
-        console.warn("Google Books API 429 Rate Limit hit. Using mock data fallback.");
-        return getMockBook(query);
+        throw new Error("Google Books API rate limit reached. Please try again later.");
       }
-      throw new Error("Failed to fetch book data");
+      throw new Error(`Failed to fetch book data. Status: ${res.status}`);
     }
 
     const data = await res.json();
@@ -19,8 +23,8 @@ export async function searchGoogleBooks(query: string): Promise<Book | null> {
       const volumeInfo = data.items[0].volumeInfo;
       return {
         title: volumeInfo.title || "Unknown Title",
-        author: volumeInfo.authors ? volumeInfo.authors.join(", ") : "Unknown Author",
-        coverUrl: volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || "/placeholder-book.png",
+        author: volumeInfo.authors && volumeInfo.authors.length > 0 ? volumeInfo.authors[0] : "Unknown Author",
+        coverUrl: volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:") || "/placeholder.jpg",
         description: volumeInfo.description 
           ? volumeInfo.description.substring(0, 150) + "..." 
           : "No description available for this book.",
@@ -28,17 +32,7 @@ export async function searchGoogleBooks(query: string): Promise<Book | null> {
     }
     return null;
   } catch (error) {
-    console.warn("API request failed. Reserving to mock data for Phase 1.", error);
-    return getMockBook(query);
+    console.error("API request failed:", error);
+    throw error;
   }
-}
-
-// Fallback logic implemented to preserve the demo capability if Google API rate limits us (429)
-function getMockBook(query: string): Book {
-  return {
-    title: query.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
-    author: "Demonstration Author",
-    coverUrl: "/placeholder.svg?height=300&width=200",
-    description: "A profound book filled with wisdom and insights designed to elevate your thinking and transform your approach to daily life and career.",
-  };
 }

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBookwormContext, Book } from "@/lib/BookwormContext";
 import { searchGoogleBooks } from "@/lib/api";
+import { db } from "@/lib/firebase/config";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function SearchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchedBook, setSearchedBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +42,28 @@ export default function SearchPage() {
     }
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (searchedBook) {
-      setCurrentBook(searchedBook);
-      // LOOP RULE: ONLY navigate forward when this button is clicked
-      router.push("/reading-level");
+      setIsSaving(true);
+      setError(null);
+      
+      try {
+        await addDoc(collection(db, "books"), {
+          title: searchedBook.title,
+          author: searchedBook.author,
+          coverUrl: searchedBook.coverUrl,
+          description: searchedBook.description,
+          createdAt: serverTimestamp(),
+        });
+        
+        setCurrentBook(searchedBook);
+        // LOOP RULE: ONLY navigate forward when this button is clicked
+        router.push("/reading-level");
+      } catch (err) {
+        console.error("Error saving book:", err);
+        setError("Failed to save book to database. Please try again.");
+        setIsSaving(false);
+      }
     }
   };
 
@@ -110,8 +130,8 @@ export default function SearchPage() {
             </div>
             
             <h2 className="text-3xl font-bold mb-2 tracking-tight">{searchedBook.title}</h2>
-            <p className="text-xl mb-4 text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E] font-medium">
-              by {searchedBook.author}
+            <p className="text-xl mb-4 font-medium text-white/80">
+              by <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E]">{searchedBook.author || "Unknown Author"}</span>
             </p>
             
             <p className="text-white/70 mb-8 max-w-sm">
@@ -121,9 +141,10 @@ export default function SearchPage() {
             <div className="flex flex-col gap-3 w-full">
               <Button 
                 onClick={handleConfirm}
-                className="w-full h-14 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-lg rounded-xl transition-transform hover:scale-105"
+                disabled={isSaving}
+                className="w-full h-14 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-lg rounded-xl transition-transform hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
               >
-                Yes, that's it!
+                {isSaving ? "Saving..." : "Yes, that's it!"}
               </Button>
               <Button 
                 onClick={handleDecline}
