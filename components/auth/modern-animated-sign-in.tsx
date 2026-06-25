@@ -303,6 +303,7 @@ type AnimatedFormProps = {
   fieldPerRow?: number
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   googleLogin?: string
+  onGoogleClick?: () => void
   goTo?: (event: React.MouseEvent<HTMLButtonElement>) => void
 }
 
@@ -320,6 +321,7 @@ const AnimatedForm = memo(function AnimatedForm({
   fieldPerRow = 1,
   onSubmit,
   googleLogin,
+  onGoogleClick,
   goTo,
 }: AnimatedFormProps) {
   const [visible, setVisible] = useState<boolean>(false)
@@ -377,7 +379,7 @@ const AnimatedForm = memo(function AnimatedForm({
             <button
               className="group/btn bg-[hsl(219,63%,16%)] w-full rounded-lg border border-[hsl(217,32.6%,17.5%)] h-10 font-medium outline-hidden hover:cursor-pointer hover:bg-[hsl(219,63%,18%)] transition-colors text-white"
               type="button"
-              onClick={() => console.log("Google login clicked")}
+              onClick={onGoogleClick ?? (() => console.log("Google login clicked"))}
             >
               <span className="flex items-center justify-center w-full h-full gap-3">
                 <Image
