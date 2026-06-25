@@ -12,6 +12,7 @@ export default function LandingPage() {
   const router = useRouter()
   // Responsive entropy sizing
   const [entropySize, setEntropySize] = useState(800)
+  const [showTop, setShowTop] = useState(false)
   
   useEffect(() => {
     const updateSize = () => {
@@ -22,8 +23,21 @@ export default function LandingPage() {
     return () => window.removeEventListener('resize', updateSize)
   }, [])
 
-  const scrollToFeatures = () => {
-    document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })
+  // Show the back-to-top button once the user has scrolled down a bit.
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 300)
+    window.addEventListener("scroll", onScroll)
+    onScroll()
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
+
+  const scrollToBenefits = () => {
+    // Scroll all the way to the bottom so every feature card is reachable.
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+  }
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   return (
@@ -34,10 +48,10 @@ export default function LandingPage() {
         {/* Left — jumps down to the feature cards (so mobile users don't have to discover the scroll) */}
         <button
           type="button"
-          onClick={scrollToFeatures}
+          onClick={scrollToBenefits}
           className="rounded-full border border-[#00D4FF]/40 bg-white/5 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10"
         >
-          Explore Features ↓
+          Explore Benefits ↓
         </button>
         {/* Right — returning users sign in here */}
         <Link
@@ -105,6 +119,31 @@ export default function LandingPage() {
           />
         </div>
       </div>
+
+      {/* Back-to-top button — appears after scrolling down */}
+      {showTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          aria-label="Back to top"
+          className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] text-white shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-transform hover:scale-110"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 19V5" />
+            <path d="m5 12 7-7 7 7" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }
