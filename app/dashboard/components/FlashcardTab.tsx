@@ -33,7 +33,8 @@ export default function FlashcardTab({ course }: { course: Course }) {
       const data = await res.json();
       
       if (res.ok && data.cards) {
-        const generatedCards = data.cards.map((card: any, index: number) => ({
+        // Cap the daily deck at 10 cards.
+        const generatedCards = data.cards.slice(0, 10).map((card: any, index: number) => ({
           id: index.toString(),
           front: card.front || card.question,
           back: card.back || card.answer,
@@ -115,15 +116,18 @@ export default function FlashcardTab({ course }: { course: Course }) {
           <div className="text-lg font-bold">{masteredCount} / {cards.length} Mastered</div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={resetProgress} className="border-white/20 hover:bg-white/10 text-white">Reset</Button>
+          <Button variant="outline" size="sm" onClick={resetProgress} className="bg-transparent border-white/20 hover:bg-white/10 text-white">Reset</Button>
         </div>
       </div>
 
       {/* 3D Flashcard Container */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-[400px]">
         
-        <div className="text-sm font-bold text-white/40 uppercase tracking-widest mb-6">
-          Card {currentIndex + 1} of {cards.length}
+        <div className="mb-6 flex items-center gap-3">
+          <span className="text-xs font-bold text-white/40 uppercase tracking-widest">Card</span>
+          <span className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-5 py-1.5 text-lg font-black tabular-nums text-white shadow-[0_0_20px_rgba(0,212,255,0.3)]">
+            {currentIndex + 1} / {cards.length}
+          </span>
         </div>
 
         {/* The Card - Uses Tailwind arbitrary values for 3D transforms */}
@@ -141,22 +145,26 @@ export default function FlashcardTab({ course }: { course: Course }) {
           >
             
             {/* Front of card */}
-            <div 
-              className="absolute inset-0 w-full h-full bg-[#111] border-2 border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-2xl group-hover:border-[#00D4FF]/50 transition-colors"
+            <div
+              className="absolute inset-0 w-full h-full bg-[#111] border-2 border-white/10 rounded-3xl overflow-hidden flex flex-col text-center shadow-2xl group-hover:border-[#00D4FF]/50 transition-colors"
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             >
-              <span className="absolute top-6 left-6 text-xs font-bold text-[#00D4FF] uppercase tracking-widest bg-[#00D4FF]/10 px-3 py-1 rounded-full">Question</span>
-              <h3 className="text-2xl md:text-3xl font-bold leading-tight">{activeCard.front}</h3>
-              <p className="absolute bottom-6 text-sm text-white/30 italic">Click to flip</p>
+              <span className="absolute top-5 left-5 z-10 text-xs font-bold text-[#00D4FF] uppercase tracking-widest bg-[#00D4FF]/10 px-3 py-1 rounded-full">Question</span>
+              <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pt-16 pb-12">
+                <h3 className="text-xl md:text-2xl font-bold leading-snug">{activeCard.front}</h3>
+              </div>
+              <p className="absolute bottom-5 left-0 right-0 text-sm text-white/30 italic">Click to flip</p>
             </div>
 
             {/* Back of card */}
-            <div 
-              className="absolute inset-0 w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-2 border-[#FF006E]/50 rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-[0_0_30px_rgba(255,0,110,0.15)]"
+            <div
+              className="absolute inset-0 w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-2 border-[#FF006E]/50 rounded-3xl overflow-hidden flex flex-col text-center shadow-[0_0_30px_rgba(255,0,110,0.15)]"
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
             >
-              <span className="absolute top-6 left-6 text-xs font-bold text-[#FF006E] uppercase tracking-widest bg-[#FF006E]/10 px-3 py-1 rounded-full">Answer</span>
-              <div className="text-xl md:text-2xl text-white/90 leading-relaxed">{activeCard.back}</div>
+              <span className="absolute top-5 left-5 z-10 text-xs font-bold text-[#FF006E] uppercase tracking-widest bg-[#FF006E]/10 px-3 py-1 rounded-full">Answer</span>
+              <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pt-16 pb-8">
+                <div className="text-base md:text-lg text-white/90 leading-relaxed">{activeCard.back}</div>
+              </div>
             </div>
 
           </div>

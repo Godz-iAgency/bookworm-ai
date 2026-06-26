@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 
@@ -9,6 +9,7 @@ export default function CourseTab({ course }: { course: Course }) {
   const [openDay, setOpenDay] = useState<number | null>(null);
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<number | null>(null);
+  const dayRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Days 2–7 have their full lesson generated on demand (the outline call only
   // produces Day 1). Open a day — fetching its lesson first if we don't have it.
@@ -67,7 +68,6 @@ export default function CourseTab({ course }: { course: Course }) {
   };
 
   const handleMarkComplete = (dayLevel: number) => {
-    // Progressive unlock logic: mark day complete, unlock next day
     const updatedCourses = courses.map(c => {
       if (c.id === course.id) {
         const newDays = c.days.map(d => {
@@ -85,6 +85,13 @@ export default function CourseTab({ course }: { course: Course }) {
     });
 
     setCourses(updatedCourses);
+    setOpenDay(null);
+
+    // Scroll to the next day after React re-renders
+    const nextDay = dayLevel + 1;
+    setTimeout(() => {
+      dayRefs.current[nextDay]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
   };
 
   return (
@@ -109,21 +116,29 @@ export default function CourseTab({ course }: { course: Course }) {
 
           const isOpen = openDay === day.dayNumber;
 
+          // Active day gets a true gradient border (padding-box keeps the
+          // interior dark; border-box paints the gradient only on the edge).
+          const cardStyle = isCurrent
+            ? {
+                border: "1.5px solid transparent",
+                background:
+                  "linear-gradient(#1a1a1a,#1a1a1a) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+              }
+            : undefined;
+
           return (
             <div
               key={day.dayNumber}
+              ref={(el) => { dayRefs.current[day.dayNumber] = el; }}
+              style={cardStyle}
               className={`
                 relative rounded-2xl p-6 transition-all duration-300 border overflow-hidden group
-                ${day.isCompleted ? 'bg-[#111] border-[#00D4FF]/30 opacity-80' : ''}
-                ${isCurrent ? 'bg-[#1a1a1a] border-white/20 shadow-lg' : ''}
+                ${day.isCompleted ? 'bg-[#111] border-[#00D4FF]/30' : ''}
+                ${isCurrent ? 'shadow-lg' : ''}
                 ${isLocked ? 'bg-black/40 border-white/5 opacity-50 backdrop-blur-sm' : ''}
               `}
             >
-              {/* Active Gradient Border */}
-              {isCurrent && (
-                <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-[#00D4FF] to-[#FF006E] [mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-composite:destination-out] [mask-composite:exclude]" />
-              )}
-              
+
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 relative z-10">
                 {/* Left side content */}
                 <div className="flex-1">
@@ -139,6 +154,11 @@ export default function CourseTab({ course }: { course: Course }) {
                     <h3 className={`text-xl font-bold ${isLocked ? 'text-white/40' : 'text-white'}`}>
                       {day.title}
                     </h3>
+                    {day.isCompleted && (
+                      <span className="flex items-center gap-1 rounded-full bg-[#00D4FF]/15 px-2 py-0.5 text-xs font-bold text-[#00D4FF]">
+                        ✓ Done
+                      </span>
+                    )}
                   </div>
 
                   {!isLocked && (
@@ -155,7 +175,7 @@ export default function CourseTab({ course }: { course: Course }) {
                 </div>
 
                 {/* Right side interactions */}
-                <div className="shrink-0 flex items-center md:items-start justify-between md:flex-col md:w-40 gap-4 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
+                <div className="shrink-0 flex flex-wrap items-center gap-3 md:flex-col md:items-stretch md:w-44 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6">
                   {!isLocked && (
                     <div className="text-xs text-white/50 bg-white/5 px-2 py-1 rounded">
                       ⏱️ ~15 min
@@ -166,12 +186,18 @@ export default function CourseTab({ course }: { course: Course }) {
                     <Button
                       onClick={() => openLesson(day.dayNumber)}
                       disabled={loadingDay === day.dayNumber}
-                      className="w-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold transition-all hover:scale-105 disabled:opacity-70"
+                      className={`flex-1 min-w-[130px] md:w-full font-bold transition-all hover:scale-105 disabled:opacity-70 ${
+                        day.isCompleted
+                          ? "border border-[#00D4FF]/40 bg-transparent text-[#00D4FF] hover:bg-[#00D4FF]/10"
+                          : "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white"
+                      }`}
                     >
                       {loadingDay === day.dayNumber
-                        ? "Generating..."
+                        ? "Opening…"
                         : isOpen
                         ? "Close"
+                        : day.isCompleted
+                        ? "Review"
                         : "Read Lesson"}
                     </Button>
                   )}
@@ -179,19 +205,16 @@ export default function CourseTab({ course }: { course: Course }) {
                   {isCurrent && (
                     <Button
                       onClick={() => handleMarkComplete(day.dayNumber)}
-                      className="w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105"
+                      className="flex-1 min-w-[130px] md:w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105"
                     >
                       Mark Complete
                     </Button>
                   )}
-
-                  {day.isCompleted && (
-                    <div className="flex items-center gap-2 text-[#00D4FF] font-bold">
-                      <span className="text-xl">✓</span> Completed
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {/* Animated loader while this day's lesson is being written */}
+              {loadingDay === day.dayNumber && <DayLoader dayNumber={day.dayNumber} />}
 
               {/* Inline error if generation failed */}
               {loadError === day.dayNumber && (
@@ -213,10 +236,7 @@ export default function CourseTab({ course }: { course: Course }) {
 
                   {isCurrent && (
                     <Button
-                      onClick={() => {
-                        handleMarkComplete(day.dayNumber);
-                        setOpenDay(null);
-                      }}
+                      onClick={() => handleMarkComplete(day.dayNumber)}
                       className="mt-6 w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105 md:w-auto md:px-10"
                     >
                       ✓ Mark Day {day.dayNumber} Complete
@@ -228,6 +248,48 @@ export default function CourseTab({ course }: { course: Course }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Friendly animated loader shown inline while a day's lesson is generated.
+// The cycling messages + shimmer make the ~10s wait feel purposeful.
+function DayLoader({ dayNumber }: { dayNumber: number }) {
+  const messages = [
+    "Opening the book…",
+    `Day ${dayNumber} coming up…`,
+    "Gathering the key ideas…",
+    "Almost ready…",
+  ];
+  const [i, setI] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setI((p) => (p + 1) % messages.length), 1600);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="relative z-10 mt-6 flex flex-col items-center border-t border-white/10 pt-8 pb-4 text-center animate-in fade-in duration-300">
+      <style>{`
+        @keyframes dl-slide { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes dl-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+      `}</style>
+
+      <div className="mb-5 text-5xl" style={{ animation: "dl-float 1.6s ease-in-out infinite" }}>
+        📖
+      </div>
+
+      <div className="mb-5 h-2.5 w-full max-w-xs overflow-hidden rounded-full border border-white/5 bg-[#0a0a0a]">
+        <div
+          className="h-full w-full rounded-full bg-gradient-to-r from-[#00D4FF] via-[#FF006E] to-[#00D4FF]"
+          style={{ backgroundSize: "200% auto", animation: "dl-slide 1.5s linear infinite" }}
+        />
+      </div>
+
+      <p className="animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-bold text-transparent">
+        {messages[i]}
+      </p>
     </div>
   );
 }

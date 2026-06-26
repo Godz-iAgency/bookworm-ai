@@ -121,16 +121,22 @@ export default function DashboardPage() {
                   <button
                     key={course.id}
                     onClick={() => setActiveCourseId(course.id)}
+                    style={
+                      isActive && !expired
+                        ? {
+                            border: "1.5px solid transparent",
+                            background:
+                              "linear-gradient(#1a1a1a,#1a1a1a) padding-box, linear-gradient(to right,#00D4FF,#FF006E) border-box",
+                          }
+                        : undefined
+                    }
                     className={`
                       snap-start shrink-0 flex items-center gap-3 w-64 p-2 rounded-xl border text-left transition-all relative overflow-hidden group
-                      ${isActive ? 'bg-[#1a1a1a] border-cyan-500/50 shadow-[0_0_15px_rgba(0,212,255,0.15)]' : 'bg-transparent border-white/10 hover:bg-white/5'}
+                      ${isActive ? 'shadow-[0_0_15px_rgba(0,212,255,0.15)]' : 'bg-transparent border-white/10 hover:bg-white/5'}
                       ${expired ? 'opacity-60 grayscale-[0.5]' : ''}
                     `}
                   >
-                    {isActive && !expired && (
-                      <div className="absolute inset-0 rounded-xl p-[1px] bg-gradient-to-r from-[#00D4FF] to-[#FF006E] [mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-composite:destination-out] [mask-composite:exclude]" />
-                    )}
-                    
+
                     <div className="w-10 h-14 relative shrink-0 rounded shadow-sm overflow-hidden bg-black">
                       <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
                     </div>

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
     const { title, author, readingLevel } = await req.json();
 
-    const prompt = `Generate 15 flashcards for '${title}' by '${author}' at ${readingLevel} level. Each card has a clear question and a concise answer based on the book's core principles. Return ONLY a valid JSON array with 'question' and 'answer' fields. No extra text.`;
+    const prompt = `Generate 10 flashcards for '${title}' by '${author}' at ${readingLevel} level. Each card has a clear question and a concise answer based on the book's core principles. Return ONLY a valid JSON array with 'question' and 'answer' fields. No extra text.`;
 
     const payload = {
       contents: [
