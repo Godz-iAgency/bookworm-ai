@@ -9,10 +9,21 @@ export interface Book {
   description: string;
 }
 
+export interface Flashcard {
+  front: string;
+  back: string;
+}
+
 export interface Day {
   dayNumber: number;
   title: string;
   previewText: string;
+  /** Full 800–1200 word AI-generated lesson (Phase 4). */
+  lesson: string;
+  /** Exactly 3 flashcards for this day. */
+  flashcards: Flashcard[];
+  /** 3 conversational starter questions to prime BookPal chat. */
+  chatSeed: string[];
   isUnlocked: boolean;
   isCompleted: boolean;
 }

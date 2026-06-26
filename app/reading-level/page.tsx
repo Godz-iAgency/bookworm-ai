@@ -4,146 +4,159 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/back-button";
+import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext, Course, Day } from "@/lib/BookwormContext";
+import { db } from "@/lib/firebase/config";
+import { doc, updateDoc } from "firebase/firestore";
 
-const levels = [
-  { id: "Beginner", icon: "🌱", desc: "New to this topic. Simple language, foundational ideas." },
-  { id: "Intermediate", icon: "📖", desc: "Some familiarity. Balanced depth with clear context." },
-  { id: "Advanced", icon: "🧠", desc: "Deep knowledge. Dense analysis, full nuance." },
-  { id: "Deep Dive", icon: "🔬", desc: "Expert mode. Exhaustive breakdown, every principle." },
+/**
+ * Reading levels saved to the user's Firestore profile as lowercase ids.
+ * These drive the voice/persona the AI writes each course in (Phase 4).
+ */
+const LEVELS = [
+  {
+    id: "explorer",
+    label: "Explorer",
+    icon: "🌱",
+    desc: "Simple and fun. Written at a 3rd–5th grade level with everyday analogies.",
+  },
+  {
+    id: "scholar",
+    label: "Scholar",
+    icon: "📖",
+    desc: "In the author's own voice. Balanced depth, real context, true to the book.",
+  },
+  {
+    id: "architect",
+    label: "Architect",
+    icon: "🧠",
+    desc: "Direct and action-first, Alex Hormozi style. Every idea ends with a step to take today.",
+  },
+] as const;
+
+const GENERATION_STEPS = [
+  "Reading the book's core ideas...",
+  "Breaking it into 7 concepts...",
+  "Writing your daily lessons...",
+  "Building your flashcards...",
+  "Almost ready...",
 ];
 
 export default function ReadingLevelPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const { currentBook, setCurrentReadingLevel, courses, setCourses, setActiveCourseId } = useBookwormContext();
-  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStep, setGenerationStep] = useState(0);
+  const [genStep, setGenStep] = useState(0);
 
-  const GENERATION_STEPS = [
-    "Searching for book content...",
-    "Analyzing core principles...",
-    "Building your 7-day course...",
-    "Creating your flashcards...",
-    "Almost ready...",
-  ];
-
+  // Guard step order: must be signed in (Step 0) and have a confirmed book (Step 1).
   useEffect(() => {
-    // If user somehow gets here without a book selected, redirect them back to search
-    if (!currentBook) {
+    if (loading) return;
+    if (!user) {
+      router.push("/login");
+    } else if (!currentBook) {
       router.push("/search");
     }
-  }, [currentBook, router]);
+  }, [loading, user, currentBook, router]);
 
-  if (!currentBook) return null; // Avoid rendering flash before redirect
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  const generateMockDays = (): Day[] => {
-    return Array.from({ length: 7 }, (_, i) => ({
-      dayNumber: i + 1,
-      title: `Day ${i + 1} Principles from ${currentBook.title}`,
-      previewText: "This is a placeholder for the AI-generated curriculum detailing the book's core concepts tailored to your chosen reading level.",
-      isUnlocked: i === 0, // Day 1 is unlocked by default
-      isCompleted: false,
-    }));
-  };
-
-  const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-  const handleGenerateCourse = async () => {
-    if (!selectedLevel) return;
-    
+  const handleContinue = async () => {
+    if (!selected || !user || !currentBook) return;
+    setError(null);
     setIsGenerating(true);
+    setGenStep(0);
 
-    // Launch API generation in parallel
-    const generateTask = fetch("/api/generate/course", {
+    // Save the chosen level to the user's profile (don't block generation on it).
+    updateDoc(doc(db, "users", user.uid), { readingLevel: selected }).catch((e) =>
+      console.error("Could not save reading level:", e)
+    );
+    setCurrentReadingLevel(selected);
+
+    // Kick off the real generation and the step animation in parallel.
+    const genTask = fetch("/api/course/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: currentBook.title,
         author: currentBook.author,
-        readingLevel: selectedLevel
-      })
+        readingLevel: selected,
+      }),
     })
-    .then(res => res.json())
-    .catch(err => {
-      console.error(err);
-      return null;
-    });
+      .then((res) => res.json())
+      .catch((e) => ({ error: e.message }));
 
-    // Full-screen Animation Cycle (at least 7.5s visual buffer)
-    for (let i = 0; i < GENERATION_STEPS.length; i++) {
-      setGenerationStep(i);
-      await sleep(1500);
+    // Cycle the status messages while we wait (each step shows briefly).
+    for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
+      setGenStep(i);
+      await sleep(1800);
+    }
+    setGenStep(GENERATION_STEPS.length - 1);
+
+    const data = await genTask;
+
+    if (!data || data.error || !Array.isArray(data.days) || data.days.length === 0) {
+      console.error("Generation error:", data?.error);
+      setError(
+        "We couldn't build your course right now. Please try again in a moment."
+      );
+      setIsGenerating(false);
+      return;
     }
 
-    const data = await generateTask;
-    let generatedDays = [];
-    
-    if (data && data.days && Array.isArray(data.days)) {
-      generatedDays = data.days.map((day: any) => ({
-        dayNumber: day.dayNumber || 1,
-        title: day.title || "Lesson",
-        previewText: day.previewText || day.summary || "",
-        isUnlocked: !!day.isUnlocked,
-        isCompleted: false, // Ensure fresh state
-      }));
-    } else {
-      // Fallback if API key missing or error
-      generatedDays = generateMockDays();
-    }
+    const days: Day[] = data.days.slice(0, 7).map((d: any, i: number) => ({
+      dayNumber: d.dayNumber ?? i + 1,
+      title: d.title ?? `Day ${i + 1}`,
+      previewText: d.previewText ?? "",
+      lesson: d.lesson ?? "",
+      flashcards: Array.isArray(d.flashcards) ? d.flashcards.slice(0, 3) : [],
+      chatSeed: Array.isArray(d.chatSeed) ? d.chatSeed.slice(0, 3) : [],
+      isUnlocked: i === 0,
+      isCompleted: false,
+    }));
 
-    setCurrentReadingLevel(selectedLevel);
-    
-    // Create new course scaffold
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 8);
-
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 8);
     const newCourse: Course = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).slice(2, 11),
       book: currentBook,
-      readingLevel: selectedLevel,
-      status: 'active',
-      days: generatedDays,
-      expiresAt: expirationDate.toISOString(),
+      readingLevel: selected,
+      status: "active",
+      days,
+      expiresAt: expiresAt.toISOString(),
     };
-
     setCourses([...courses, newCourse]);
     setActiveCourseId(newCourse.id);
-    
+
     router.push("/dashboard");
   };
 
+  // Avoid a flash before auth/book checks resolve.
+  if (loading || !user || !currentBook) return null;
+
+  // Full-screen generation animation.
   if (isGenerating) {
     return (
-      <div className="fixed inset-0 z-50 min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
-        <style>{`
-          @keyframes slide-gradient { 
-            0% { background-position: 0% 50%; } 
-            100% { background-position: 200% 50%; } 
-          }
-        `}</style>
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-0 pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col items-center max-w-md w-full text-center">
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={240} height={60} priority className="mb-16 drop-shadow-2xl light-glow" />
-          
-          {/* Animated gradient progress bar */}
-          <div className="w-full h-3 bg-[#1a1a1a] rounded-full overflow-hidden mb-8 border border-white/5 shadow-inner">
-             <div 
-               className="h-full bg-gradient-to-r from-[#00D4FF] via-[#FF006E] to-[#00D4FF] rounded-full"
-               style={{ 
-                 backgroundSize: "200% auto",
-                 animation: "slide-gradient 2s linear infinite",
-                 width: `${((generationStep + 1) / GENERATION_STEPS.length) * 100}%`,
-                 transition: "width 1.5s linear"
-               }}
-             />
+      <div className="fixed inset-0 z-50 flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+        <style>{`@keyframes slide-gradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`}</style>
+        <div className="flex w-full max-w-md flex-col items-center text-center">
+          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={220} height={56} priority className="mb-14 drop-shadow-2xl" />
+          <div className="mb-8 h-3 w-full overflow-hidden rounded-full border border-white/5 bg-[#1a1a1a] shadow-inner">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#00D4FF] via-[#FF006E] to-[#00D4FF]"
+              style={{
+                backgroundSize: "200% auto",
+                animation: "slide-gradient 2s linear infinite",
+                width: `${((genStep + 1) / GENERATION_STEPS.length) * 100}%`,
+                transition: "width 1.5s linear",
+              }}
+            />
           </div>
-
-          {/* Rotating Status Message */}
-          <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E] animate-pulse h-10">
-            {GENERATION_STEPS[generationStep]}
+          <h2 className="h-10 animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-xl font-bold text-transparent md:text-2xl">
+            {GENERATION_STEPS[genStep]}
           </h2>
         </div>
       </div>
@@ -151,87 +164,82 @@ export default function ReadingLevelPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col items-center py-8 relative overflow-x-hidden">
-      {/* Background overlay */}
-      <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
-      
-      {/* Header */}
-      <div className="w-full max-w-5xl px-6 flex justify-between items-center z-10 mb-8">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={120} height={32} priority className="opacity-90" />
-        
-        {/* Memory Pill (Confirmed Book) */}
-        <div className="hidden md:flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 shadow-lg backdrop-blur-sm">
-          <div className="w-6 h-8 relative rounded overflow-hidden">
-            <Image src={currentBook.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
-          </div>
-          <span className="text-sm font-semibold truncate max-w-[200px]">{currentBook.title}</span>
-          <span className="text-sm text-white/50">by {currentBook.author.split(",")[0]}</span>
-        </div>
+    <div className="relative flex min-h-screen w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
+      <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-        <div className="text-sm font-medium tracking-widest text-[#00D4FF] uppercase">
-          Step 2 of 2
+      {/* Header — back arrow returns to the book step */}
+      <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-5">
+        <div className="flex items-center gap-2">
+          <BackButton to="/search" label="Back to book search" />
+          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
         </div>
+        <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">Step 2 of 2</span>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 w-full max-w-3xl px-4 flex flex-col items-center justify-center z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
-        {/* Mobile memory pill */}
-        <div className="md:hidden flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full border border-white/20 shadow-lg backdrop-blur-sm mb-6">
-          <span className="text-xs font-semibold truncate max-w-[150px]">{currentBook.title}</span>
+      {/* Main */}
+      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-4">
+        {/* Reminder of the book they picked */}
+        <div className="mb-3 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-sm">
+          <span className="text-xs font-semibold text-white/90">📖 {currentBook.title}</span>
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center tracking-tight">
-          How do you want to learn?
-        </h1>
-        <p className="text-lg text-white/60 mb-12 text-center max-w-lg">
-          We'll customize your 7-day course based on your level.
+        <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight">How do you want to learn?</h1>
+        <p className="mb-4 max-w-md text-center text-sm text-white/60">
+          Pick the depth that fits you. You can change it anytime.
         </p>
 
-        {/* 2x2 Grid Selection */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-12">
-          {levels.map((level) => {
-            const isSelected = selectedLevel === level.id;
+        {/* Level cards */}
+        <div className="mb-4 grid w-full grid-cols-1 gap-2.5">
+          {LEVELS.map((level) => {
+            const isSelected = selected === level.id;
             return (
-              <div 
+              <button
                 key={level.id}
-                onClick={() => setSelectedLevel(level.id)}
-                className={`
-                  cursor-pointer p-6 rounded-2xl border transition-all duration-300 relative overflow-hidden group
-                  ${isSelected ? 'bg-[#1a1a1a] border-transparent shadow-[0_0_20px_rgba(0,212,255,0.3)]' : 'bg-[#1a1a1a]/50 border-white/10 hover:border-white/30'}
-                `}
+                type="button"
+                onClick={() => setSelected(level.id)}
+                aria-pressed={isSelected}
+                className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all duration-300 ${
+                  isSelected
+                    ? "border-transparent bg-[#1a1a1a] shadow-[0_0_20px_rgba(0,212,255,0.25)] ring-2 ring-[#00D4FF]"
+                    : "border-white/10 bg-[#1a1a1a]/50 hover:border-white/30"
+                }`}
               >
-                {/* Gradient Border for Selected State */}
-                {isSelected && (
-                  <div className="absolute inset-0 rounded-2xl p-[2px] bg-gradient-to-br from-[#00D4FF] to-[#FF006E] [mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-image:linear-gradient(#fff_0_0)] [-webkit-mask-composite:destination-out] [mask-composite:exclude]" />
-                )}
-                
-                <div className="text-4xl mb-3">{level.icon}</div>
-                <h3 className={`text-xl font-bold mb-2 ${isSelected ? 'text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E]' : 'text-white'}`}>
-                  {level.id}
-                </h3>
-                <p className="text-sm text-white/70 leading-relaxed">
-                  {level.desc}
-                </p>
-              </div>
+                <div className="text-3xl">{level.icon}</div>
+                <div>
+                  <h3
+                    className={`text-lg font-bold ${
+                      isSelected
+                        ? "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-transparent"
+                        : "text-white"
+                    }`}
+                  >
+                    {level.label}
+                  </h3>
+                  <p className="text-[13px] leading-snug text-white/70">{level.desc}</p>
+                </div>
+              </button>
             );
           })}
         </div>
 
+        {error && (
+          <div className="mb-3 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-6 py-2.5 text-center text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
         <Button
-          onClick={handleGenerateCourse}
-          disabled={!selectedLevel}
-          className={`
-            h-16 px-12 text-lg font-bold rounded-full transition-all duration-300
-            ${selectedLevel 
-              ? 'bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white hover:scale-105 shadow-lg shadow-pink-500/20' 
-              : 'bg-white/10 text-white/40 cursor-not-allowed'}
-          `}
+          onClick={handleContinue}
+          disabled={!selected}
+          className={`h-12 w-full max-w-xs rounded-full px-12 text-base font-bold transition-all duration-300 ${
+            selected
+              ? "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white hover:scale-105 shadow-lg shadow-pink-500/20"
+              : "cursor-not-allowed bg-white/10 text-white/40"
+          }`}
         >
           Generate My Course →
         </Button>
       </div>
-
     </div>
   );
 }

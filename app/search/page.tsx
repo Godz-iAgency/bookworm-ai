@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBookwormContext, Book } from "@/lib/BookwormContext";
 import { searchGoogleBooks } from "@/lib/api";
-import { db } from "@/lib/firebase/config";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { BackButton } from "@/components/back-button";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -42,28 +41,10 @@ export default function SearchPage() {
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (searchedBook) {
-      setIsSaving(true);
-      setError(null);
-      
-      try {
-        await addDoc(collection(db, "books"), {
-          title: searchedBook.title,
-          author: searchedBook.author,
-          coverUrl: searchedBook.coverUrl,
-          description: searchedBook.description,
-          createdAt: serverTimestamp(),
-        });
-        
-        setCurrentBook(searchedBook);
-        // LOOP RULE: ONLY navigate forward when this button is clicked
-        router.push("/reading-level");
-      } catch (err) {
-        console.error("Error saving book:", err);
-        setError("Failed to save book to database. Please try again.");
-        setIsSaving(false);
-      }
+      setCurrentBook(searchedBook);
+      router.push("/reading-level");
     }
   };
 
@@ -80,7 +61,10 @@ export default function SearchPage() {
       
       {/* Header with logo and step indicator */}
       <div className="w-full max-w-4xl px-6 py-8 flex justify-between items-center z-10">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={150} height={40} priority className="opacity-90" />
+        <div className="flex items-center gap-3">
+          <BackButton to="/" />
+          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={150} height={40} priority className="opacity-90" />
+        </div>
         <div className="text-sm font-medium tracking-widest text-[#00D4FF] uppercase">
           Step 1 of 2
         </div>

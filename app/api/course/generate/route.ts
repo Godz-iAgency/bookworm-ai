@@ -1,13 +1,31 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import { buildOutlineMessages } from "@/lib/course-prompts";
+import { generateJson } from "@/lib/generate";
 
-// Course generation is being rebuilt on Google Gemini Flash (Phase 4).
-// The previous implementation (OpenAI GPT-4o + DALL-E + Supabase) was removed
-// during the Firebase migration. The new version will produce all 7 days,
-// flashcards, and template questions in one structured Gemini call and write
-// them to Firestore. Until then this endpoint is intentionally disabled.
-export async function POST() {
-  return NextResponse.json(
-    { error: "Course generation is being rebuilt on Gemini (Phase 4) and is not yet available." },
-    { status: 501 },
-  )
+// Outline + Day 1 is a smaller call, but allow headroom.
+export const maxDuration = 60;
+
+export async function POST(req: Request) {
+  try {
+    const { title, author, readingLevel } = await req.json();
+    if (!title) {
+      return NextResponse.json({ error: "Missing book title." }, { status: 400 });
+    }
+
+    const { system, user } = buildOutlineMessages(title, author, readingLevel);
+
+    const parsed = await generateJson(user, system, 16384);
+
+    if (!parsed?.days || !Array.isArray(parsed.days) || parsed.days.length === 0) {
+      throw new Error("Generation returned no days.");
+    }
+
+    return NextResponse.json({ days: parsed.days, familiar: parsed.familiar !== false });
+  } catch (error: any) {
+    console.error("Course generation failed:", error);
+    return NextResponse.json(
+      { error: error.message || "Course generation failed." },
+      { status: 500 }
+    );
+  }
 }

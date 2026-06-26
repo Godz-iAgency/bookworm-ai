@@ -7,6 +7,7 @@ import { signUpWithEmail, signInWithGoogle } from "@/lib/firebase/auth"
 import { db } from "@/lib/firebase/config"
 import { doc, updateDoc } from "firebase/firestore"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
+import { BackButton } from "@/components/back-button"
 
 type FormData = {
   name: string
@@ -75,9 +76,9 @@ export default function SignUpPage() {
     setError(null)
     try {
       const user = await signInWithGoogle()
-      // New users continue to reading-level onboarding (mobile/Kindle redirects
-      // and resumes after reload).
-      if (user) router.push("/reading-level")
+      // New users pick their first book next (Step 1); reading level is Step 2.
+      // Mobile/Kindle redirects and resumes after reload.
+      if (user) router.push("/search")
     } catch (err) {
       console.error("Google signup error:", err)
       setError("Google sign-in failed. Please try again.")
@@ -113,7 +114,8 @@ export default function SignUpPage() {
         genrePreferences: selectedGenres,
         lastBookRead: lastBook,
       })
-      router.push("/reading-level")
+      // Onboarding done — go pick the first book (Step 1).
+      router.push("/search")
     } catch (err) {
       console.error("Genre submission error:", err)
       setError("Something went wrong saving your preferences. Please try again.")
@@ -152,7 +154,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+    <section className="relative flex min-h-screen items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+      <div className="absolute left-4 top-4 z-10">
+        <BackButton to="/" label="Back to home" />
+      </div>
       {step === "signup" ? (
         <div className="flex w-full max-w-md flex-col items-center">
           <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={110} height={110} className="mb-6" priority />

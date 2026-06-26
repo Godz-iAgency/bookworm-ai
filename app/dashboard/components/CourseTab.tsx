@@ -1,10 +1,70 @@
 "use client";
 
+import { useState } from "react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 
 export default function CourseTab({ course }: { course: Course }) {
   const { courses, setCourses } = useBookwormContext();
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [loadingDay, setLoadingDay] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<number | null>(null);
+
+  // Days 2–7 have their full lesson generated on demand (the outline call only
+  // produces Day 1). Open a day — fetching its lesson first if we don't have it.
+  const openLesson = async (dayNumber: number) => {
+    if (openDay === dayNumber) {
+      setOpenDay(null);
+      return;
+    }
+
+    const day = course.days.find((d) => d.dayNumber === dayNumber);
+    if (day?.lesson) {
+      setOpenDay(dayNumber);
+      return;
+    }
+
+    setLoadingDay(dayNumber);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/course/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: course.book.title,
+          author: course.book.author,
+          readingLevel: course.readingLevel,
+          dayNumber,
+          dayTitle: day?.title ?? `Day ${dayNumber}`,
+          allTitles: course.days.map((d) => d.title),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.lesson) throw new Error(data.error || "No lesson returned");
+
+      // Cache the generated content into the course so we don't regenerate it.
+      setCourses(
+        courses.map((c) =>
+          c.id === course.id
+            ? {
+                ...c,
+                days: c.days.map((d) =>
+                  d.dayNumber === dayNumber
+                    ? { ...d, lesson: data.lesson, flashcards: data.flashcards, chatSeed: data.chatSeed }
+                    : d
+                ),
+              }
+            : c
+        )
+      );
+      setOpenDay(dayNumber);
+    } catch (err) {
+      console.error("Lesson load failed:", err);
+      setLoadError(dayNumber);
+    } finally {
+      setLoadingDay(null);
+    }
+  };
 
   const handleMarkComplete = (dayLevel: number) => {
     // Progressive unlock logic: mark day complete, unlock next day
@@ -47,8 +107,10 @@ export default function CourseTab({ course }: { course: Course }) {
           const isLocked = !day.isUnlocked;
           const isCurrent = day.isUnlocked && !day.isCompleted;
 
+          const isOpen = openDay === day.dayNumber;
+
           return (
-            <div 
+            <div
               key={day.dayNumber}
               className={`
                 relative rounded-2xl p-6 transition-all duration-300 border overflow-hidden group
@@ -99,9 +161,23 @@ export default function CourseTab({ course }: { course: Course }) {
                       ⏱️ ~15 min
                     </div>
                   )}
-                  
+
+                  {!isLocked && (
+                    <Button
+                      onClick={() => openLesson(day.dayNumber)}
+                      disabled={loadingDay === day.dayNumber}
+                      className="w-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold transition-all hover:scale-105 disabled:opacity-70"
+                    >
+                      {loadingDay === day.dayNumber
+                        ? "Generating..."
+                        : isOpen
+                        ? "Close"
+                        : "Read Lesson"}
+                    </Button>
+                  )}
+
                   {isCurrent && (
-                    <Button 
+                    <Button
                       onClick={() => handleMarkComplete(day.dayNumber)}
                       className="w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105"
                     >
@@ -116,6 +192,38 @@ export default function CourseTab({ course }: { course: Course }) {
                   )}
                 </div>
               </div>
+
+              {/* Inline error if generation failed */}
+              {loadError === day.dayNumber && (
+                <p className="relative z-10 mt-4 text-sm text-[#FF006E]">
+                  Couldn&apos;t generate this lesson. Please tap Read Lesson to try again.
+                </p>
+              )}
+
+              {/* Expanded lesson reader */}
+              {isOpen && !isLocked && (
+                <div className="relative z-10 mt-6 border-t border-white/10 pt-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {day.lesson ? (
+                    <article className="whitespace-pre-wrap text-[15px] leading-7 text-white/85">
+                      {day.lesson}
+                    </article>
+                  ) : (
+                    <p className="text-white/50 italic">No lesson content available for this day.</p>
+                  )}
+
+                  {isCurrent && (
+                    <Button
+                      onClick={() => {
+                        handleMarkComplete(day.dayNumber);
+                        setOpenDay(null);
+                      }}
+                      className="mt-6 w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105 md:w-auto md:px-10"
+                    >
+                      ✓ Mark Day {day.dayNumber} Complete
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
