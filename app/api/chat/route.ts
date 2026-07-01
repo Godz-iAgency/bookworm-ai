@@ -3,11 +3,17 @@ import { generateGeminiContent } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   try {
-    const { title, author, message } = await req.json();
+    const { title, author, message, lesson, dayTitle, dayNumber } = await req.json();
 
     const prompt = message;
-    
-    const systemPrompt = `You are an expert on the book '${title}' by '${author}'. Answer all questions based on the book's principles, lessons, and concepts. Be engaging, clear, and educational. Limit every response to a maximum of 25 words. Responses should be concise, direct, and on-topic.`;
+
+    // Ground BookPal in the exact lesson the reader just studied, when we have
+    // it. Falls back to general book knowledge if no lesson was passed.
+    const lessonContext = lesson
+      ? `\n\nThe reader is on Day ${dayNumber ?? "?"}${dayTitle ? ` ("${dayTitle}")` : ""}. Here is the exact lesson they just studied — ground your answer in THIS lesson first, then the wider book only if needed:\n"""\n${lesson}\n"""`
+      : "";
+
+    const systemPrompt = `You are BookPal, a warm and sharp reading tutor for the book '${title}' by '${author}'. Answer using the book's principles, lessons, and concepts. Be engaging, clear, and educational.${lessonContext}\n\nLimit every response to a maximum of 25 words. Be concise, direct, and on-topic.`;
 
     const response = await generateGeminiContent(prompt, systemPrompt, false);
 

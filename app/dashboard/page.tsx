@@ -83,16 +83,24 @@ export default function DashboardPage() {
       );
     }
 
+    // The day the reader is actively studying: the first unlocked, not-yet-
+    // completed day; else their furthest unlocked day; else Day 1. Chat +
+    // Flashcards follow this day.
+    const currentDay =
+      activeCourse.days.find((d) => d.isUnlocked && !d.isCompleted) ??
+      [...activeCourse.days].reverse().find((d) => d.isUnlocked) ??
+      activeCourse.days[0];
+
     return (
       <div className="h-full w-full relative">
         <div className={activeTab === "course" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
           <CourseTab course={activeCourse} />
         </div>
         <div className={activeTab === "chat" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <ChatTab course={activeCourse} />
+          <ChatTab course={activeCourse} day={currentDay} />
         </div>
         <div className={activeTab === "flashcards" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <FlashcardTab course={activeCourse} />
+          <FlashcardTab course={activeCourse} day={currentDay} />
         </div>
       </div>
     );

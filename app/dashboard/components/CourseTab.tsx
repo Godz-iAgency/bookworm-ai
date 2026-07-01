@@ -227,9 +227,7 @@ export default function CourseTab({ course }: { course: Course }) {
               {isOpen && !isLocked && (
                 <div className="relative z-10 mt-6 border-t border-white/10 pt-6 animate-in fade-in slide-in-from-top-2 duration-300">
                   {day.lesson ? (
-                    <article className="whitespace-pre-wrap text-[15px] leading-7 text-white/85">
-                      {day.lesson}
-                    </article>
+                    <LessonBody lesson={day.lesson} />
                   ) : (
                     <p className="text-white/50 italic">No lesson content available for this day.</p>
                   )}
@@ -291,5 +289,74 @@ function DayLoader({ dayNumber }: { dayNumber: number }) {
         {messages[i]}
       </p>
     </div>
+  );
+}
+
+type LessonBlock = { type: "heading" | "para" | "item"; text: string };
+
+/**
+ * Parse a lesson into blocks. New lessons use "## " section headings and
+ * "1./2./3." takeaway lines; older plain-text lessons (generated before this)
+ * simply have no headings and still render as clean, spaced paragraphs.
+ */
+function parseLesson(lesson: string): LessonBlock[] {
+  const blocks: LessonBlock[] = [];
+  let para: string[] = [];
+  const flush = () => {
+    if (para.length) {
+      blocks.push({ type: "para", text: para.join(" ") });
+      para = [];
+    }
+  };
+
+  for (const raw of lesson.split(/\r?\n/)) {
+    const line = raw.trim().replace(/\*\*/g, ""); // strip stray markdown bold
+    if (!line) {
+      flush();
+      continue;
+    }
+    if (line.startsWith("##")) {
+      flush();
+      blocks.push({ type: "heading", text: line.replace(/^#+\s*/, "").trim() });
+      continue;
+    }
+    if (/^\d+[.)]\s/.test(line)) {
+      flush();
+      blocks.push({ type: "item", text: line });
+      continue;
+    }
+    para.push(line);
+  }
+  flush();
+  return blocks;
+}
+
+/** Renders a lesson with bold section headings and spaced paragraphs. */
+function LessonBody({ lesson }: { lesson: string }) {
+  const blocks = parseLesson(lesson);
+  return (
+    <article>
+      {blocks.map((b, i) => {
+        if (b.type === "heading") {
+          return (
+            <h4 key={i} className="mt-6 first:mt-0 mb-2 text-[17px] font-bold text-white">
+              {b.text}
+            </h4>
+          );
+        }
+        if (b.type === "item") {
+          return (
+            <p key={i} className="mb-1.5 text-[15px] leading-7 text-white/85">
+              {b.text}
+            </p>
+          );
+        }
+        return (
+          <p key={i} className="mb-4 text-[15px] leading-7 text-white/85">
+            {b.text}
+          </p>
+        );
+      })}
+    </article>
   );
 }

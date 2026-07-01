@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Course } from "@/lib/BookwormContext";
+import { Course, Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
@@ -24,7 +24,7 @@ function dailyKey(courseId: string) {
   return `bookpal_chat_${courseId}_${day}`;
 }
 
-export default function ChatTab({ course }: { course: Course }) {
+export default function ChatTab({ course, day }: { course: Course; day: Day }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -40,11 +40,16 @@ export default function ChatTab({ course }: { course: Course }) {
     setUsedToday(stored ? parseInt(stored, 10) || 0 : 0);
   }, [course.id]);
 
-  const suggestedPrompts = [
-    "What is the core message of this book?",
-    "Explain the most important principle.",
-    "How can I apply this book to my life?",
-  ];
+  // Use this day's AI-written starter questions when available; otherwise a
+  // sensible generic set (e.g. before the day's lesson has been generated).
+  const suggestedPrompts =
+    day.chatSeed && day.chatSeed.length > 0
+      ? day.chatSeed
+      : [
+          "What is the core message of this book?",
+          "Explain the most important principle.",
+          "How can I apply this book to my life?",
+        ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,7 +80,10 @@ export default function ChatTab({ course }: { course: Course }) {
         body: JSON.stringify({
           title: course.book.title,
           author: course.book.author,
-          message: text
+          message: text,
+          lesson: day.lesson,
+          dayTitle: day.title,
+          dayNumber: day.dayNumber
         })
       });
       const data = await res.json();

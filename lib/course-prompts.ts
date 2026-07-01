@@ -15,10 +15,11 @@ export const PERSONAS: Record<string, string> = {
 };
 
 const LESSON_RULES = `LESSON FORMATTING RULES:
-- Plain text only. No markdown, no asterisks, no headers, no bullet symbols.
-- Separate sections with a single blank line.
-- Flow: (1) a 2–3 sentence hook on why this matters to the reader's life, (2) the core teaching, (3) exactly three takeaways written as three lines starting with "1.", "2.", "3." — each a concrete action.
-- The lesson MUST be 800–1200 words. Aim for 1000+. Do not write short.`;
+- Organize the lesson into 4–6 short sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2–5 word title. Example: "## Why This Matters". Then a blank line, then that section's paragraph(s).
+- Use "## " ONLY for section headings. Do NOT use any other markdown, asterisks, bold markers, or bullet symbols anywhere in the body.
+- Section flow: (1) an opening section that hooks why this matters to the reader's life, (2) two to four sections that teach the core idea, (3) a final section whose heading signals action, containing exactly three takeaways written as three lines starting with "1.", "2.", "3." — each a concrete action.
+- Separate every heading and paragraph with a single blank line.
+- The lesson MUST be 800–1200 words (headings not counted). Aim for 1000+. Do not write short.`;
 
 const FLASHCARD_RULES = `FLASHCARD RULES: exactly 3. Front = an open-ended question (what / how / why), 5–10 words, never yes/no. Back = a concise answer, 10–15 words.`;
 

@@ -1,118 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import { Course } from "@/lib/BookwormContext";
+import { useState, useEffect } from "react";
+import { Course, Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
+import { Layers } from "lucide-react";
 
-interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  mastered: boolean;
-}
+export default function FlashcardTab({ course, day }: { course: Course; day: Day }) {
+  // Cards come straight from the day's AI-generated content (3 per day), tuned
+  // to that lesson's takeaways — no separate generic API call.
+  const cards = day.flashcards ?? [];
 
-export default function FlashcardTab({ course }: { course: Course }) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [mastered, setMastered] = useState<Set<number>>(new Set());
 
-  const generateCards = async () => {
-    setIsGenerating(true);
-    try {
-      const res = await fetch("/api/flashcards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: course.book.title,
-          author: course.book.author,
-          readingLevel: course.readingLevel
-        })
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok && data.cards) {
-        // Cap the daily deck at 5 cards.
-        const generatedCards = data.cards.slice(0, 5).map((card: any, index: number) => ({
-          id: index.toString(),
-          front: card.front || card.question,
-          back: card.back || card.answer,
-          mastered: false
-        }));
-        setCards(generatedCards);
-      } else {
-        throw new Error(data.error || "Failed to generate cards");
-      }
-    } catch (err: any) {
-      console.error("Flashcard Error:", err);
-      // Fallback
-      setCards([{ id: "fallback", front: "My API Key is missing or invalid.", back: "Please configure GEMINI_API_KEY in .env.local", mastered: false }]);
-    } finally {
-      setIsGenerating(false);
-      setCurrentIndex(0);
-      setIsFlipped(false);
-    }
-  };
+  // Reset the deck whenever the active day (or course) changes.
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setMastered(new Set());
+  }, [course.id, day.dayNumber]);
 
   const handleNext = () => {
+    if (cards.length === 0) return;
     setIsFlipped(false);
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % cards.length);
-    }, 150); // wait for flip animation to start reversing before changing text
+    setTimeout(() => setCurrentIndex((prev) => (prev + 1) % cards.length), 150);
   };
 
   const handlePrev = () => {
+    if (cards.length === 0) return;
     setIsFlipped(false);
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length);
-    }, 150);
+    setTimeout(() => setCurrentIndex((prev) => (prev - 1 + cards.length) % cards.length), 150);
   };
 
   const markMastered = () => {
-    const newCards = [...cards];
-    newCards[currentIndex].mastered = true;
-    setCards(newCards);
+    setMastered((prev) => new Set(prev).add(currentIndex));
     handleNext();
   };
 
   const resetProgress = () => {
-    setCards(cards.map(c => ({...c, mastered: false})));
+    setMastered(new Set());
     setCurrentIndex(0);
     setIsFlipped(false);
   };
 
-  const activeCard = cards[currentIndex];
-  const masteredCount = cards.filter(c => c.mastered).length;
-
+  // No content yet — this day's lesson hasn't been read/generated.
   if (cards.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500 h-full">
-        <div className="w-24 h-24 bg-[#1a1a1a] rounded-2xl flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_30px_rgba(255,0,110,0.15)] transform rotate-12">
-          <span className="text-5xl -rotate-12">🗂️</span>
+        <div className="w-24 h-24 bg-gradient-to-br from-[#00D4FF]/15 to-[#FF006E]/15 rounded-2xl flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_30px_rgba(255,0,110,0.15)]">
+          <Layers className="w-11 h-11 text-[#00D4FF]" strokeWidth={1.75} />
         </div>
         <h2 className="text-3xl font-bold mb-4">Smart Flashcards</h2>
-        <p className="text-white/60 max-w-md mb-8 leading-relaxed">
-          Extract the most important concepts, terms, and mental models from <strong>{course.book.title}</strong> into an interactive spaced-repetition deck.
+        <p className="text-white/60 max-w-md leading-relaxed">
+          Read <strong>Day {day.dayNumber}</strong>&rsquo;s lesson in the Course tab first — its flashcards appear here automatically.
         </p>
-        <Button 
-          onClick={generateCards}
-          disabled={isGenerating}
-          className="h-14 px-8 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-lg rounded-full hover:scale-105 transition-transform"
-        >
-          {isGenerating ? "Extracting Concepts..." : "Generate Flashcards"}
-        </Button>
       </div>
     );
   }
 
+  const activeCard = cards[currentIndex] ?? cards[0];
+  const masteredCount = mastered.size;
+  const isActiveMastered = mastered.has(currentIndex);
+
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in pb-24 md:pb-8">
-      
+
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 bg-[#1a1a1a] p-4 rounded-xl border border-white/10 shadow-lg">
         <div>
-          <div className="text-xs text-[#00D4FF] font-bold uppercase tracking-wider mb-1">Deck Progress</div>
+          <div className="text-xs text-[#00D4FF] font-bold uppercase tracking-wider mb-1">Day {day.dayNumber} · Deck Progress</div>
           <div className="text-lg font-bold">{masteredCount} / {cards.length} Mastered</div>
         </div>
         <div className="flex gap-2">
@@ -122,7 +79,7 @@ export default function FlashcardTab({ course }: { course: Course }) {
 
       {/* 3D Flashcard Container */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-[400px]">
-        
+
         <div className="mb-6 flex items-center gap-3">
           <span className="text-xs font-bold text-white/40 uppercase tracking-widest">Card</span>
           <span className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-5 py-1.5 text-lg font-black tabular-nums text-white shadow-[0_0_20px_rgba(0,212,255,0.3)]">
@@ -131,19 +88,19 @@ export default function FlashcardTab({ course }: { course: Course }) {
         </div>
 
         {/* The Card - Uses Tailwind arbitrary values for 3D transforms */}
-        <div 
+        <div
           className="relative w-full max-w-lg h-80 md:h-96 cursor-pointer group perspective-[1000px]"
           onClick={() => setIsFlipped(!isFlipped)}
         >
-          <div 
+          <div
             className="w-full h-full relative"
-            style={{ 
+            style={{
               transition: "transform 0.6s",
               transformStyle: "preserve-3d",
               transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)"
             }}
           >
-            
+
             {/* Front of card */}
             <div
               className="absolute inset-0 w-full h-full bg-[#111] border-2 border-white/10 rounded-3xl overflow-hidden flex flex-col text-center shadow-2xl group-hover:border-[#00D4FF]/50 transition-colors"
@@ -172,8 +129,8 @@ export default function FlashcardTab({ course }: { course: Course }) {
 
         {/* Controls */}
         <div className="flex items-center gap-4 mt-8 w-full max-w-lg justify-between">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handlePrev}
             className="w-14 h-14 rounded-full border-white/20 bg-transparent hover:bg-white/10"
           >
@@ -181,23 +138,23 @@ export default function FlashcardTab({ course }: { course: Course }) {
           </Button>
 
           <div className="flex gap-3">
-            <Button 
+            <Button
               onClick={handleNext}
               className="h-14 px-6 bg-[#1a1a1a] border border-white/20 text-white hover:bg-white/10 font-bold rounded-xl"
             >
               Review Again
             </Button>
-            <Button 
+            <Button
               onClick={markMastered}
-              disabled={activeCard.mastered}
+              disabled={isActiveMastered}
               className="h-14 px-6 bg-gradient-to-r from-[#00D4FF] to-[#0096ff] text-white font-bold rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
             >
-              {activeCard.mastered ? "Mastered ✓" : "Got It ✓"}
+              {isActiveMastered ? "Mastered ✓" : "Got It ✓"}
             </Button>
           </div>
 
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleNext}
             className="w-14 h-14 rounded-full border-white/20 bg-transparent hover:bg-white/10"
           >

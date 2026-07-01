@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Entropy } from "@/components/ui/entropy"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
+import { CalendarDays, MessageCircle, Layers } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function LandingPage() {
@@ -103,17 +104,17 @@ export default function LandingPage() {
         {/* Features — tap any card to flip it for more detail */}
         <div id="features" className="mt-20 grid w-full max-w-5xl scroll-mt-24 gap-8 md:grid-cols-3">
           <FeatureFlipCard
-            icon={<span>📚</span>}
+            icon={<CalendarDays className="w-9 h-9 text-[#00D4FF]" strokeWidth={1.75} />}
             title="7-Day Courses"
             back="Each day unlocks one focused lesson taught through a named framework, plus three takeaway assignments to apply the idea right away."
           />
           <FeatureFlipCard
-            icon={<span className="text-[#00D4FF]">🤖</span>}
+            icon={<MessageCircle className="w-9 h-9 text-[#FF006E]" strokeWidth={1.75} />}
             title="AI Chat Assistant"
             back="Ask anything about the book and get tight, concept-grounded answers pulled from that day's lesson — a tutor who already read it."
           />
           <FeatureFlipCard
-            icon={<span>🗂️</span>}
+            icon={<Layers className="w-9 h-9 text-[#00D4FF]" strokeWidth={1.75} />}
             title="Smart Flashcards"
             back="Three quick-flip cards each day test what you learned, so the book's key ideas stick long after day seven."
           />
