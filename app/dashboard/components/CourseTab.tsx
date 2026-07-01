@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
+import { CalendarClock } from "lucide-react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +12,16 @@ export default function CourseTab({ course }: { course: Course }) {
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<number | null>(null);
   const dayRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const topRef = useRef<HTMLDivElement>(null);
+
+  // Pin Flashcards + Chat to whichever day the reader just opened. This is the
+  // single source of truth those tabs follow — they stay on this day until the
+  // reader opens a different one.
+  const setActiveDay = (dayNumber: number) => {
+    setCourses((prev) =>
+      prev.map((c) => (c.id === course.id ? { ...c, activeDayNumber: dayNumber } : c))
+    );
+  };
 
   // Days 2–7 have their full lesson generated on demand (the outline call only
   // produces Day 1). Open a day — fetching its lesson first if we don't have it.
@@ -21,6 +33,7 @@ export default function CourseTab({ course }: { course: Course }) {
 
     const day = course.days.find((d) => d.dayNumber === dayNumber);
     if (day?.lesson) {
+      setActiveDay(dayNumber);
       setOpenDay(dayNumber);
       return;
     }
@@ -43,12 +56,14 @@ export default function CourseTab({ course }: { course: Course }) {
       const data = await res.json();
       if (!res.ok || !data.lesson) throw new Error(data.error || "No lesson returned");
 
-      // Cache the generated content into the course so we don't regenerate it.
-      setCourses(
-        courses.map((c) =>
+      // Cache the generated content into the course so we don't regenerate it,
+      // and pin the flashcards/chat to this newly-opened day.
+      setCourses((prev) =>
+        prev.map((c) =>
           c.id === course.id
             ? {
                 ...c,
+                activeDayNumber: dayNumber,
                 days: c.days.map((d) =>
                   d.dayNumber === dayNumber
                     ? { ...d, lesson: data.lesson, flashcards: data.flashcards, chatSeed: data.chatSeed }
@@ -68,35 +83,44 @@ export default function CourseTab({ course }: { course: Course }) {
   };
 
   const handleMarkComplete = (dayLevel: number) => {
-    const updatedCourses = courses.map(c => {
-      if (c.id === course.id) {
-        const newDays = c.days.map(d => {
-          if (d.dayNumber === dayLevel) {
-            return { ...d, isCompleted: true };
-          }
-          if (d.dayNumber === dayLevel + 1) {
-            return { ...d, isUnlocked: true };
-          }
-          return d;
-        });
-        return { ...c, days: newDays };
-      }
-      return c;
+    // Apply the completion AND collapse the open lesson synchronously via
+    // flushSync. Marking complete closes the expanded lesson (which can be
+    // ~2000px tall); if we let React batch that collapse asynchronously, the
+    // browser re-clamps the scroll position the moment the DOM shrinks — that's
+    // the "jumps back to the top" bug. Flushing first means the layout is fully
+    // settled before we run our own scrollIntoView, so ours is the last word.
+    flushSync(() => {
+      setCourses((prev) =>
+        prev.map((c) => {
+          if (c.id !== course.id) return c;
+          const newDays = c.days.map((d) => {
+            if (d.dayNumber === dayLevel) return { ...d, isCompleted: true };
+            if (d.dayNumber === dayLevel + 1) return { ...d, isUnlocked: true };
+            return d;
+          });
+          const allDone = newDays.every((d) => d.isCompleted);
+          return { ...c, days: newDays, status: allDone ? ("completed" as const) : c.status };
+        })
+      );
+      setOpenDay(null);
     });
 
-    setCourses(updatedCourses);
-    setOpenDay(null);
+    // Day 7 has no "next day" to unlock — scroll up to reveal the completion
+    // banner. scrollIntoView (not window.scrollTo) because the dashboard's
+    // scroll container is an inner div, not the window.
+    if (dayLevel === 7) {
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
 
-    // Scroll to the next day after React re-renders
-    const nextDay = dayLevel + 1;
-    setTimeout(() => {
-      dayRefs.current[nextDay]?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
+    // Land the newly-unlocked next day at the top of the viewport so the reader
+    // can tap "Read Lesson" right away.
+    dayRefs.current[dayLevel + 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8">
-      
+    <div ref={topRef} className="w-full max-w-3xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8">
+
       {/* Course Header */}
       <div className="mb-10 text-center animate-in slide-in-from-top-4">
         <div className="inline-block bg-[#1a1a1a] border border-white/10 rounded-full px-4 py-1.5 mb-4 text-[#00D4FF] text-xs font-bold tracking-widest uppercase">
@@ -107,6 +131,8 @@ export default function CourseTab({ course }: { course: Course }) {
         </h2>
         <p className="text-white/60">Unlock the core principles day by day.</p>
       </div>
+
+      {course.days.every((d) => d.isCompleted) && <CourseCompleteBanner course={course} />}
 
       {/* Days Timeline */}
       <div className="space-y-4">
@@ -226,6 +252,7 @@ export default function CourseTab({ course }: { course: Course }) {
               {/* Expanded lesson reader */}
               {isOpen && !isLocked && (
                 <div className="relative z-10 mt-6 border-t border-white/10 pt-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {day.dayNumber === 1 && <Day1DeletionNote expiresAt={course.expiresAt} />}
                   {day.lesson ? (
                     <LessonBody lesson={day.lesson} />
                   ) : (
@@ -245,6 +272,84 @@ export default function CourseTab({ course }: { course: Course }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Shown at the top of Day 1's lesson: names the exact date the course
+// disappears, framed to encourage finishing all 7 days consistently. The 8-day
+// window is the whole point of Bookworm — surfacing it early drives daily habit.
+function Day1DeletionNote({ expiresAt }: { expiresAt: string }) {
+  const date = new Date(expiresAt);
+  if (isNaN(date.getTime())) return null;
+
+  const formatted = date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="mb-6 flex items-start gap-4 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/5 p-4 shadow-[0_0_25px_rgba(0,212,255,0.18)]">
+      <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[#00D4FF]/25 to-[#FF006E]/25 shadow-[0_0_18px_rgba(0,212,255,0.45)]">
+        <CalendarClock className="h-5 w-5 text-[#00D4FF]" strokeWidth={2} />
+      </div>
+      <p className="text-sm leading-relaxed text-white/75">
+        This course is yours until{" "}
+        <span className="font-bold text-[#00D4FF]">{formatted}</span>, then it
+        clears to keep your shelf focused. Read one lesson a day. Finishing all
+        7 before then is how the ideas really stick.
+      </p>
+    </div>
+  );
+}
+
+// Builds an Amazon search link (title + author) tagged with our affiliate code.
+// A search link works for every book without needing a stored ASIN.
+function buildAmazonLink(title: string, author: string) {
+  const q = encodeURIComponent(`${title} ${author}`.trim());
+  return `https://www.amazon.com/s?k=${q}&tag=bookwormapp-20`;
+}
+
+// Shown once all 7 days are completed — celebrates the finish and prompts the
+// reader to buy the full book (Amazon affiliate) or start their next course.
+function CourseCompleteBanner({ course }: { course: Course }) {
+  return (
+    <div
+      className="relative mb-8 overflow-hidden rounded-2xl p-8 text-center animate-in fade-in slide-in-from-top-4 duration-500"
+      style={{
+        border: "1.5px solid transparent",
+        background:
+          "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+      }}
+    >
+      <div className="mb-4 text-5xl">🎉</div>
+      <h3 className="mb-2 text-2xl md:text-3xl font-black tracking-tight">
+        You finished{" "}
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E] italic">
+          {course.book.title}
+        </span>
+        !
+      </h3>
+      <p className="mx-auto mb-6 max-w-md text-white/60">
+        All 7 days done. Want to keep the full book on your shelf? Grab a copy and go deeper.
+      </p>
+      <div className="flex flex-col items-center gap-3 md:flex-row md:justify-center">
+        <a
+          href={buildAmazonLink(course.book.title, course.book.author)}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="w-full md:w-auto rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-8 py-3 font-bold text-white transition-transform hover:scale-105"
+        >
+          Get the Book on Amazon →
+        </a>
+        <a
+          href="/search"
+          className="w-full md:w-auto rounded-xl border border-white/20 px-8 py-3 font-bold text-white/80 transition-all hover:border-white/40 hover:bg-white/5"
+        >
+          Start Your Next Course
+        </a>
       </div>
     </div>
   );

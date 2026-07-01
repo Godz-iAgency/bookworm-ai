@@ -38,6 +38,14 @@ export interface Course {
   status: 'active' | 'expired' | 'completed';
   days: Day[];
   expiresAt: string;
+  /**
+   * The day the reader most recently opened. Flashcards + Chat follow this so
+   * they stay pinned to the last lesson read — they only change when the reader
+   * opens a different day. Undefined on courses created before this field, or on
+   * a brand-new course whose lesson hasn't been opened yet (the dashboard then
+   * falls back to the first unlocked day).
+   */
+  activeDayNumber?: number;
 }
 
 interface BookwormContextType {

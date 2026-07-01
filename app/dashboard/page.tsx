@@ -83,10 +83,13 @@ export default function DashboardPage() {
       );
     }
 
-    // The day the reader is actively studying: the first unlocked, not-yet-
-    // completed day; else their furthest unlocked day; else Day 1. Chat +
-    // Flashcards follow this day.
+    // Chat + Flashcards follow the last lesson the reader opened
+    // (course.activeDayNumber, set in CourseTab). They stay pinned there until
+    // the reader opens a different day — including after the course is complete.
+    // Fall back to the first unlocked/not-completed day only for a brand-new
+    // course whose lesson hasn't been opened yet.
     const currentDay =
+      activeCourse.days.find((d) => d.dayNumber === activeCourse.activeDayNumber) ??
       activeCourse.days.find((d) => d.isUnlocked && !d.isCompleted) ??
       [...activeCourse.days].reverse().find((d) => d.isUnlocked) ??
       activeCourse.days[0];
