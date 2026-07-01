@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
+import { CalendarDays, MessageCircle, Layers, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
 export type Tab = "course" | "chat" | "flashcards";
@@ -16,7 +17,7 @@ import FlashcardTab from "./components/FlashcardTab";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { courses, activeCourseId, setActiveCourseId } = useBookwormContext();
+  const { courses, activeCourseId, setActiveCourseId, coursesLoading } = useBookwormContext();
   const [activeTab, setActiveTab] = useState<Tab>("course");
   
   // Real-time recalculation of expirations (simulated checking logic)
@@ -31,7 +32,8 @@ export default function DashboardPage() {
   const MAX_COURSES = 3;
   const isLibraryFull = courses.length >= MAX_COURSES;
   
-  const activeCourse = courses.find((c) => c.id === activeCourseId);
+  // Fall back to the first course until the auto-select effect syncs activeCourseId.
+  const activeCourse = courses.find((c) => c.id === activeCourseId) ?? courses[0];
 
   // Expiration logic check
   const isCourseExpired = (expiresAt: string) => {
@@ -39,16 +41,22 @@ export default function DashboardPage() {
     return new Date(expiresAt) < currentTime;
   };
 
-  if (!activeCourse && courses.length > 0) {
-    // Failsafe auto-select
-    setActiveCourseId(courses[0].id);
-  } else if (courses.length === 0) {
-    // No courses at all -> back to start
-    useEffect(() => { router.push("/search") }, [router])
-    return null;
-  }
+  // Once courses have loaded, an empty library means the user has no courses yet.
+  useEffect(() => {
+    if (!coursesLoading && courses.length === 0) {
+      router.push("/search");
+    }
+  }, [coursesLoading, courses.length, router]);
 
-  if (!currentTime) {
+  // Keep a valid course selected once loading is done.
+  useEffect(() => {
+    if (!coursesLoading && !activeCourseId && courses.length > 0) {
+      setActiveCourseId(courses[0].id);
+    }
+  }, [coursesLoading, activeCourseId, courses, setActiveCourseId]);
+
+  // Wait for auth + Firestore load (and the client clock) before deciding anything.
+  if (coursesLoading || !currentTime) {
     return (
       <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-t-2 border-[#00D4FF] animate-spin" />
@@ -56,14 +64,8 @@ export default function DashboardPage() {
     );
   }
 
-  if (!activeCourse && courses.length > 0) {
-    // Failsafe auto-select
-    setActiveCourseId(courses[0].id);
-  } else if (courses.length === 0) {
-    // No courses at all -> back to start
-    useEffect(() => { router.push("/search") }, [router])
-    return null;
-  }
+  // Loaded but empty — the redirect effect above sends us to /search.
+  if (courses.length === 0) return null;
 
   const renderTabContent = () => {
     if (!activeCourse) return null;
@@ -188,23 +190,23 @@ export default function DashboardPage() {
           
           {/* LEFT SIDEBAR - Navigation (Desktop) */}
           <div className="hidden md:flex flex-col w-64 border-r border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md p-4 pt-8 gap-2 shrink-0">
-            <NavButton 
-              icon="📅" 
-              label="7-Day Course" 
-              isActive={activeTab === "course"} 
-              onClick={() => setActiveTab("course")} 
+            <NavButton
+              icon={CalendarDays}
+              label="7-Day Course"
+              isActive={activeTab === "course"}
+              onClick={() => setActiveTab("course")}
             />
-            <NavButton 
-              icon="🤖" 
-              label="AI Chat" 
-              isActive={activeTab === "chat"} 
-              onClick={() => setActiveTab("chat")} 
+            <NavButton
+              icon={MessageCircle}
+              label="AI Chat"
+              isActive={activeTab === "chat"}
+              onClick={() => setActiveTab("chat")}
             />
-            <NavButton 
-              icon="🗂️" 
-              label="Flashcards" 
-              isActive={activeTab === "flashcards"} 
-              onClick={() => setActiveTab("flashcards")} 
+            <NavButton
+              icon={Layers}
+              label="Flashcards"
+              isActive={activeTab === "flashcards"}
+              onClick={() => setActiveTab("flashcards")}
             />
           </div>
 
@@ -216,23 +218,23 @@ export default function DashboardPage() {
 
         {/* BOTTOM NAV (Mobile) */}
         <div className="md:hidden w-full bg-[#111] border-t border-white/10 flex justify-around p-3 shrink-0 z-20">
-            <MobileNavButton 
-              icon="📅" 
-              label="Course" 
-              isActive={activeTab === "course"} 
-              onClick={() => setActiveTab("course")} 
+            <MobileNavButton
+              icon={CalendarDays}
+              label="Course"
+              isActive={activeTab === "course"}
+              onClick={() => setActiveTab("course")}
             />
-            <MobileNavButton 
-              icon="🤖" 
-              label="Chat" 
-              isActive={activeTab === "chat"} 
-              onClick={() => setActiveTab("chat")} 
+            <MobileNavButton
+              icon={MessageCircle}
+              label="Chat"
+              isActive={activeTab === "chat"}
+              onClick={() => setActiveTab("chat")}
             />
-            <MobileNavButton 
-              icon="🗂️" 
-              label="Learn" 
-              isActive={activeTab === "flashcards"} 
-              onClick={() => setActiveTab("flashcards")} 
+            <MobileNavButton
+              icon={Layers}
+              label="Learn"
+              isActive={activeTab === "flashcards"}
+              onClick={() => setActiveTab("flashcards")}
             />
         </div>
 
@@ -242,24 +244,24 @@ export default function DashboardPage() {
 }
 
 // Nav Helpers
-function NavButton({ icon, label, isActive, onClick }: { icon: string, label: string, isActive: boolean, onClick: () => void }) {
+function NavButton({ icon: Icon, label, isActive, onClick }: { icon: LucideIcon, label: string, isActive: boolean, onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       className={`
         w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all text-left
-        ${isActive 
-          ? 'bg-white/10 text-white border border-white/10 shadow-[inset_2px_0_0_0_#00D4FF]' 
+        ${isActive
+          ? 'bg-white/10 text-white border border-white/10 shadow-[inset_2px_0_0_0_#00D4FF]'
           : 'text-white/60 hover:bg-white/5 hover:text-white'}
       `}
     >
-      <span className="text-xl">{icon}</span>
+      <Icon className="w-5 h-5" strokeWidth={2} />
       {label}
     </button>
   );
 }
 
-function MobileNavButton({ icon, label, isActive, onClick }: { icon: string, label: string, isActive: boolean, onClick: () => void }) {
+function MobileNavButton({ icon: Icon, label, isActive, onClick }: { icon: LucideIcon, label: string, isActive: boolean, onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -268,7 +270,7 @@ function MobileNavButton({ icon, label, isActive, onClick }: { icon: string, lab
         ${isActive ? 'text-[#00D4FF]' : 'text-white/50 hover:text-white/80'}
       `}
     >
-      <span className="text-2xl">{icon}</span>
+      <Icon className="w-6 h-6" strokeWidth={2} />
       <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
       {isActive && <div className="h-1 w-1 bg-[#00D4FF] rounded-full mt-1" />}
     </button>

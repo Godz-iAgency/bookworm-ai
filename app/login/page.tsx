@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { signInWithEmail, signInWithGoogle } from "@/lib/firebase/auth"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
+import { BackButton } from "@/components/back-button"
 
 type FormData = {
   email: string
@@ -55,7 +56,7 @@ export default function LoginPage() {
 
   const formFields = {
     header: "Welcome back",
-    subHeader: "Sign in to your account",
+    subHeader: "Login to your account",
     fields: [
       {
         label: "Email",
@@ -72,12 +73,15 @@ export default function LoginPage() {
         onChange: (event: ChangeEvent<HTMLInputElement>) => handleInputChange(event, "password"),
       },
     ],
-    submitButton: loading ? "Signing in..." : "Sign in",
+    submitButton: loading ? "Logging in..." : "Login",
     textVariantButton: "Don't have an account? Sign up",
   }
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+    <section className="relative flex min-h-screen items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+      <div className="absolute left-4 top-4 z-10">
+        <BackButton to="/" label="Back to home" />
+      </div>
       <div className="flex w-full max-w-md flex-col items-center">
         <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={110} height={110} className="mb-6" priority />
 

@@ -33,8 +33,8 @@ export default function FlashcardTab({ course }: { course: Course }) {
       const data = await res.json();
       
       if (res.ok && data.cards) {
-        // Cap the daily deck at 10 cards.
-        const generatedCards = data.cards.slice(0, 10).map((card: any, index: number) => ({
+        // Cap the daily deck at 5 cards.
+        const generatedCards = data.cards.slice(0, 5).map((card: any, index: number) => ({
           id: index.toString(),
           front: card.front || card.question,
           back: card.back || card.answer,

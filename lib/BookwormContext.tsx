@@ -1,6 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase/config';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 export interface Book {
   title: string;
@@ -46,15 +49,68 @@ interface BookwormContextType {
   setCourses: React.Dispatch<React.SetStateAction<Course[]>>;
   activeCourseId: string | null;
   setActiveCourseId: (id: string | null) => void;
+  /** True until the signed-in user's courses have been loaded from Firestore. */
+  coursesLoading: boolean;
 }
 
 const BookwormContext = createContext<BookwormContextType | undefined>(undefined);
 
 export function BookwormProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
   const [currentReadingLevel, setCurrentReadingLevel] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+
+  // Tracks whether we've completed the initial Firestore load for this user.
+  // Persistence is blocked until this is true so the empty initial state can
+  // never overwrite real saved courses (silent data loss).
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load the user's saved courses on sign-in; clear them on sign-out.
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setCourses([]);
+      setActiveCourseId(null);
+      setHydrated(false);
+      return;
+    }
+
+    let cancelled = false;
+    setHydrated(false);
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users', user.uid, 'courses'));
+        if (cancelled) return;
+        setCourses(snap.docs.map((d) => d.data() as Course));
+      } catch (err) {
+        console.error('Failed to load courses:', err);
+        if (!cancelled) setCourses([]);
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
+  // Persist courses whenever they change — but only after the initial load, so
+  // the starting empty array can't wipe out what's already in Firestore.
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    for (const course of courses) {
+      setDoc(doc(db, 'users', user.uid, 'courses', course.id), course).catch((err) =>
+        console.error('Failed to save course:', course.id, err)
+      );
+    }
+  }, [courses, hydrated, user]);
+
+  const coursesLoading = authLoading || (!!user && !hydrated);
 
   return (
     <BookwormContext.Provider
@@ -67,6 +123,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         setCourses,
         activeCourseId,
         setActiveCourseId,
+        coursesLoading,
       }}
     >
       {children}

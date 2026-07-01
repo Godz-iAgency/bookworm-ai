@@ -150,7 +150,7 @@ export default function SignUpPage() {
       },
     ],
     submitButton: loading ? "Creating account..." : "Create Account",
-    textVariantButton: "Already have an account? Sign in",
+    textVariantButton: "Already have an account? Login",
   }
 
   return (

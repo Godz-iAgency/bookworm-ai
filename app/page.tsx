@@ -53,12 +53,12 @@ export default function LandingPage() {
         >
           Explore Benefits ↓
         </button>
-        {/* Right — returning users sign in here */}
+        {/* Right — returning users log in here */}
         <Link
           href="/login"
           className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10"
         >
-          Sign In
+          Login
         </Link>
       </header>
 

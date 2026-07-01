@@ -7,7 +7,7 @@ export async function POST(req: Request) {
 
     const prompt = message;
     
-    const systemPrompt = `You are an expert on the book '${title}' by '${author}'. Answer all questions based on the book's principles, lessons, and concepts. Be engaging, clear, and educational. Limit every response to a maximum of 50 words. Responses should be concise, direct, and on-topic.`;
+    const systemPrompt = `You are an expert on the book '${title}' by '${author}'. Answer all questions based on the book's principles, lessons, and concepts. Be engaging, clear, and educational. Limit every response to a maximum of 25 words. Responses should be concise, direct, and on-topic.`;
 
     const response = await generateGeminiContent(prompt, systemPrompt, false);
 
