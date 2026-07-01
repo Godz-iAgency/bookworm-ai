@@ -130,6 +130,32 @@ export default function DashboardPage() {
                 const completedCount = course.days.filter(d => d.isCompleted).length;
                 const progressPct = (completedCount / 7) * 100;
 
+                // Countdown badge — escalates color + urgency as the 8-day
+                // window closes. Copy says "disappears", never "delete".
+                let countdown: { label: string; className: string };
+                if (expired) {
+                  countdown = {
+                    label: "Expired",
+                    className: "text-[#FF006E] border-[#FF006E]/30 bg-[#FF006E]/10",
+                  };
+                } else if (daysLeft <= 1) {
+                  countdown = {
+                    label: "Disappears today",
+                    className:
+                      "text-[#FF006E] border-[#FF006E]/50 bg-[#FF006E]/15 animate-pulse shadow-[0_0_12px_rgba(255,0,110,0.45)]",
+                  };
+                } else if (daysLeft <= 3) {
+                  countdown = {
+                    label: `${daysLeft} days left`,
+                    className: "text-[#FFB020] border-[#FFB020]/40 bg-[#FFB020]/10",
+                  };
+                } else {
+                  countdown = {
+                    label: `${daysLeft} days left`,
+                    className: "text-[#00D4FF] border-[#00D4FF]/30 bg-[#00D4FF]/10",
+                  };
+                }
+
                 return (
                   <button
                     key={course.id}
@@ -155,21 +181,22 @@ export default function DashboardPage() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="font-bold text-sm truncate pr-2">{course.book.title}</p>
-                        {expired ? (
-                          <span className="text-[10px] font-bold text-[#FF006E] uppercase border border-[#FF006E]/30 bg-[#FF006E]/10 px-1.5 py-0.5 rounded shrink-0">Expired</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-[#00D4FF] uppercase border border-[#00D4FF]/30 bg-[#00D4FF]/10 px-1.5 py-0.5 rounded shrink-0">{daysLeft}d left</span>
-                        )}
-                      </div>
-                      
+                      {/* Title gets the full width — no badge competing for the line. */}
+                      <p className="font-bold text-sm truncate">{course.book.title}</p>
+
                       {/* Mini Progress Bar */}
                       <div className="h-1.5 w-full bg-black rounded-full overflow-hidden mt-2 border border-white/5">
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
                           style={{ width: `${progressPct}%` }}
                         />
+                      </div>
+
+                      {/* Countdown on its own line, fully spelled out. */}
+                      <div className="mt-2 text-center">
+                        <span className={`inline-block text-[10px] font-bold uppercase tracking-wide border px-1.5 py-0.5 rounded ${countdown.className}`}>
+                          {countdown.label}
+                        </span>
                       </div>
                     </div>
                   </button>
