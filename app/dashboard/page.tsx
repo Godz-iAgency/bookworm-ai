@@ -2,27 +2,36 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useBookwormContext, Course } from "@/lib/BookwormContext";
-import { CalendarDays, MessageCircle, Layers, type LucideIcon } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useBookwormContext } from "@/lib/BookwormContext";
+import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
 export type Tab = "course" | "chat" | "flashcards";
 
+// The top-level screen the dashboard is showing. "home" = the shelf (all
+// courses), "reading" = the 3-tab experience for whichever course is active,
+// "profile" = account/settings.
+type View = "home" | "reading" | "profile";
+
 // Components
+import HomeTab from "./components/HomeTab";
+import ProfileTab from "./components/ProfileTab";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { courses, activeCourseId, setActiveCourseId, coursesLoading } = useBookwormContext();
+  const [view, setView] = useState<View>("home");
   const [activeTab, setActiveTab] = useState<Tab>("course");
-  
+
   // Real-time recalculation of expirations (simulated checking logic)
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  
+
   useEffect(() => {
     setCurrentTime(new Date()); // Set on client mount to match SSR hydration
     const timer = setInterval(() => setCurrentTime(new Date()), 60000); // UI update every minute
@@ -31,7 +40,7 @@ export default function DashboardPage() {
 
   const MAX_COURSES = 3;
   const isLibraryFull = courses.length >= MAX_COURSES;
-  
+
   // Fall back to the first course until the auto-select effect syncs activeCourseId.
   const activeCourse = courses.find((c) => c.id === activeCourseId) ?? courses[0];
 
@@ -41,12 +50,14 @@ export default function DashboardPage() {
     return new Date(expiresAt) < currentTime;
   };
 
-  // Once courses have loaded, an empty library means the user has no courses yet.
+  // A signed-in user with an empty library has no courses yet — send them to
+  // create one. Gated on `user` so logging out (which also empties courses)
+  // doesn't race this against ProfileTab's redirect to /login.
   useEffect(() => {
-    if (!coursesLoading && courses.length === 0) {
+    if (!coursesLoading && user && courses.length === 0) {
       router.push("/search");
     }
-  }, [coursesLoading, courses.length, router]);
+  }, [coursesLoading, user, courses.length, router]);
 
   // Keep a valid course selected once loading is done.
   useEffect(() => {
@@ -67,9 +78,21 @@ export default function DashboardPage() {
   // Loaded but empty — the redirect effect above sends us to /search.
   if (courses.length === 0) return null;
 
-  const renderTabContent = () => {
+  // Jump into the 3-tab reading experience for a given tab, on the currently active course.
+  const goToTab = (tab: Tab) => {
+    setActiveTab(tab);
+    setView("reading");
+  };
+
+  const openCourse = (courseId: string) => {
+    setActiveCourseId(courseId);
+    setActiveTab("course");
+    setView("reading");
+  };
+
+  const renderReadingContent = () => {
     if (!activeCourse) return null;
-    
+
     // EXPIRED RULE: Expired courses cannot be accessed
     if (isCourseExpired(activeCourse.expiresAt)) {
       return (
@@ -109,173 +132,90 @@ export default function DashboardPage() {
     );
   };
 
+  const renderMainContent = () => {
+    if (view === "home") {
+      return (
+        <HomeTab
+          courses={courses}
+          activeCourseId={activeCourseId}
+          currentTime={currentTime}
+          isCourseExpired={isCourseExpired}
+          isLibraryFull={isLibraryFull}
+          onOpenCourse={openCourse}
+        />
+      );
+    }
+    if (view === "profile") {
+      return <ProfileTab />;
+    }
+    return renderReadingContent();
+  };
+
+  // Inside a course: 3 icons, unchanged (Course / Chat / Flashcards).
+  // Home or Profile: 5 icons (Home, Course, Chat, Flashcards, Profile) — tapping
+  // Course/Chat/Flashcards from here jumps straight into reading the active course.
+  const navItems: { icon: LucideIcon; label: string; isActive: boolean; onClick: () => void }[] =
+    view === "reading"
+      ? [
+          { icon: CalendarDays, label: "Course", isActive: activeTab === "course", onClick: () => setActiveTab("course") },
+          { icon: MessageCircle, label: "Chat", isActive: activeTab === "chat", onClick: () => setActiveTab("chat") },
+          { icon: Layers, label: "Learn", isActive: activeTab === "flashcards", onClick: () => setActiveTab("flashcards") },
+        ]
+      : [
+          { icon: Home, label: "Home", isActive: view === "home", onClick: () => setView("home") },
+          { icon: CalendarDays, label: "Course", isActive: false, onClick: () => goToTab("course") },
+          { icon: MessageCircle, label: "Chat", isActive: false, onClick: () => goToTab("chat") },
+          { icon: Layers, label: "Learn", isActive: false, onClick: () => goToTab("flashcards") },
+          { icon: CircleUser, label: "Profile", isActive: view === "profile", onClick: () => setView("profile") },
+        ];
+
   return (
     <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col font-sans">
       <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
-      
+
       <div className="relative z-10 flex flex-col h-screen w-full">
-        {/* TOP BAR - My Library */}
-        <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center justify-between shadow-xl z-20">
-          <div className="flex items-center gap-6">
-            <Image src="/bookworm-logo.png" alt="Logo" width={100} height={26} className="hidden md:block opacity-80" />
-            
-            <div className="flex gap-4 overflow-x-auto pb-2 md:pb-0 hide-scrollbar snap-x">
-              {courses.map((course) => {
-                const expired = isCourseExpired(course.expiresAt);
-                const isActive = course.id === activeCourseId;
-                
-                // Calculate days remaining (max 8)
-                const msLeft = new Date(course.expiresAt).getTime() - currentTime!.getTime();
-                const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
-                const completedCount = course.days.filter(d => d.isCompleted).length;
-                const progressPct = (completedCount / 7) * 100;
-
-                // Countdown badge — escalates color + urgency as the 8-day
-                // window closes. Copy says "disappears", never "delete".
-                let countdown: { label: string; className: string };
-                if (expired) {
-                  countdown = {
-                    label: "Expired",
-                    className: "text-[#FF006E] border-[#FF006E]/30 bg-[#FF006E]/10",
-                  };
-                } else if (daysLeft <= 1) {
-                  countdown = {
-                    label: "Disappears today",
-                    className:
-                      "text-[#FF006E] border-[#FF006E]/50 bg-[#FF006E]/15 animate-pulse shadow-[0_0_12px_rgba(255,0,110,0.45)]",
-                  };
-                } else if (daysLeft <= 3) {
-                  countdown = {
-                    label: `${daysLeft} days left`,
-                    className: "text-[#FFB020] border-[#FFB020]/40 bg-[#FFB020]/10",
-                  };
-                } else {
-                  countdown = {
-                    label: `${daysLeft} days left`,
-                    className: "text-[#00D4FF] border-[#00D4FF]/30 bg-[#00D4FF]/10",
-                  };
-                }
-
-                return (
-                  <button
-                    key={course.id}
-                    onClick={() => setActiveCourseId(course.id)}
-                    style={
-                      isActive && !expired
-                        ? {
-                            border: "1.5px solid transparent",
-                            background:
-                              "linear-gradient(#1a1a1a,#1a1a1a) padding-box, linear-gradient(to right,#00D4FF,#FF006E) border-box",
-                          }
-                        : undefined
-                    }
-                    className={`
-                      snap-start shrink-0 flex items-center gap-3 w-64 p-2 rounded-xl border text-left transition-all relative overflow-hidden group
-                      ${isActive ? 'shadow-[0_0_15px_rgba(0,212,255,0.15)]' : 'bg-transparent border-white/10 hover:bg-white/5'}
-                      ${expired ? 'opacity-60 grayscale-[0.5]' : ''}
-                    `}
-                  >
-
-                    <div className="w-10 h-14 relative shrink-0 rounded shadow-sm overflow-hidden bg-black">
-                      <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      {/* Title gets the full width — no badge competing for the line. */}
-                      <p className="font-bold text-sm truncate">{course.book.title}</p>
-
-                      {/* Mini Progress Bar */}
-                      <div className="h-1.5 w-full bg-black rounded-full overflow-hidden mt-2 border border-white/5">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-
-                      {/* Countdown on its own line, fully spelled out. */}
-                      <div className="mt-2 text-center">
-                        <span className={`inline-block text-[10px] font-bold uppercase tracking-wide border px-1.5 py-0.5 rounded ${countdown.className}`}>
-                          {countdown.label}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-              
-              {/* Add New / Locked Slot */}
-              {isLibraryFull ? (
-                <div className="shrink-0 flex items-center justify-center w-64 p-3 rounded-xl border border-white/5 bg-black/40 text-center relative group">
-                  <p className="text-xs text-white/40">Complete or remove a course<br/>to start a new one</p>
-                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
-                    <span className="text-2xl">🔒</span>
-                  </div>
-                </div>
-              ) : (
-                <Link 
-                  href="/search"
-                  className="shrink-0 flex items-center justify-center gap-2 w-32 p-3 rounded-xl border border-dashed border-white/20 text-white/50 hover:text-white/90 hover:border-white/40 hover:bg-white/5 transition-all"
-                >
-                  <span className="text-xl">+</span> Add Course
-                </Link>
-              )}
+        {/* TOP BAR */}
+        {view === "reading" && activeCourse ? (
+          <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">
+            <button
+              onClick={() => setView("home")}
+              aria-label="Back to shelf"
+              className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+            >
+              <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
+            </button>
+            <div className="w-8 h-11 relative shrink-0 rounded overflow-hidden bg-black">
+              <Image src={activeCourse.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
             </div>
+            <p className="font-bold text-sm truncate">{activeCourse.book.title}</p>
           </div>
-        </div>
+        ) : (
+          <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center shadow-xl z-20">
+            <Image src="/bookworm-logo.png" alt="Logo" width={100} height={26} className="opacity-80" />
+          </div>
+        )}
 
         {/* MAIN LAYOUT */}
         <div className="flex-1 flex overflow-hidden">
-          
           {/* LEFT SIDEBAR - Navigation (Desktop) */}
           <div className="hidden md:flex flex-col w-64 border-r border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md p-4 pt-8 gap-2 shrink-0">
-            <NavButton
-              icon={CalendarDays}
-              label="7-Day Course"
-              isActive={activeTab === "course"}
-              onClick={() => setActiveTab("course")}
-            />
-            <NavButton
-              icon={MessageCircle}
-              label="AI Chat"
-              isActive={activeTab === "chat"}
-              onClick={() => setActiveTab("chat")}
-            />
-            <NavButton
-              icon={Layers}
-              label="Flashcards"
-              isActive={activeTab === "flashcards"}
-              onClick={() => setActiveTab("flashcards")}
-            />
+            {navItems.map((item) => (
+              <NavButton key={item.label} icon={item.icon} label={item.label} isActive={item.isActive} onClick={item.onClick} />
+            ))}
           </div>
 
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 overflow-y-auto relative bg-transparent">
-             {renderTabContent()}
+            {renderMainContent()}
           </div>
         </div>
 
         {/* BOTTOM NAV (Mobile) */}
         <div className="md:hidden w-full bg-[#111] border-t border-white/10 flex justify-around p-3 shrink-0 z-20">
-            <MobileNavButton
-              icon={CalendarDays}
-              label="Course"
-              isActive={activeTab === "course"}
-              onClick={() => setActiveTab("course")}
-            />
-            <MobileNavButton
-              icon={MessageCircle}
-              label="Chat"
-              isActive={activeTab === "chat"}
-              onClick={() => setActiveTab("chat")}
-            />
-            <MobileNavButton
-              icon={Layers}
-              label="Learn"
-              isActive={activeTab === "flashcards"}
-              onClick={() => setActiveTab("flashcards")}
-            />
+          {navItems.map((item) => (
+            <MobileNavButton key={item.label} icon={item.icon} label={item.label} isActive={item.isActive} onClick={item.onClick} />
+          ))}
         </div>
-
       </div>
     </div>
   );

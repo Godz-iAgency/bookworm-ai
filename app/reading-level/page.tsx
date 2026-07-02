@@ -7,33 +7,9 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext, Course, Day } from "@/lib/BookwormContext";
+import { READING_LEVELS } from "@/lib/reading-levels";
 import { db } from "@/lib/firebase/config";
 import { doc, updateDoc } from "firebase/firestore";
-
-/**
- * Reading levels saved to the user's Firestore profile as lowercase ids.
- * These drive the voice/persona the AI writes each course in (Phase 4).
- */
-const LEVELS = [
-  {
-    id: "explorer",
-    label: "Explorer",
-    icon: "🌱",
-    desc: "Simple and fun. Written at a 3rd–5th grade level with everyday analogies.",
-  },
-  {
-    id: "scholar",
-    label: "Scholar",
-    icon: "📖",
-    desc: "In the author's own voice. Balanced depth, real context, true to the book.",
-  },
-  {
-    id: "architect",
-    label: "Architect",
-    icon: "🧠",
-    desc: "Direct and action-first, Alex Hormozi style. Every idea ends with a step to take today.",
-  },
-] as const;
 
 const GENERATION_STEPS = [
   "Reading the book's core ideas...",
@@ -190,7 +166,7 @@ export default function ReadingLevelPage() {
 
         {/* Level cards */}
         <div className="mb-4 grid w-full grid-cols-1 gap-2.5">
-          {LEVELS.map((level) => {
+          {READING_LEVELS.map((level) => {
             const isSelected = selected === level.id;
             return (
               <button
@@ -204,7 +180,10 @@ export default function ReadingLevelPage() {
                     : "border-white/10 bg-[#1a1a1a]/50 hover:border-white/30"
                 }`}
               >
-                <div className="text-3xl">{level.icon}</div>
+                <level.Icon
+                  className={`h-8 w-8 shrink-0 ${isSelected ? "text-[#00D4FF]" : "text-white/70"}`}
+                  strokeWidth={1.75}
+                />
                 <div>
                   <h3
                     className={`text-lg font-bold ${
