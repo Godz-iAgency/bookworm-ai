@@ -28,17 +28,19 @@ function isMobileOrKindle(): boolean {
   );
 }
 
-export async function signInWithGoogle(): Promise<User | null> {
+export async function signInWithGoogle(): Promise<{ user: User | null; isNew: boolean }> {
   const provider = new GoogleAuthProvider();
   if (isMobileOrKindle()) {
     // Redirect flow resolves after the page reloads; the AuthProvider's
     // onAuthStateChanged listener finishes ensuring the user document.
     await signInWithRedirect(auth, provider);
-    return null;
+    return { user: null, isNew: false };
   }
   const cred = await signInWithPopup(auth, provider);
-  await ensureUserDocument(cred.user);
-  return cred.user;
+  // isNew tells the caller whether this was a first-time account, so brand-new
+  // Google users can be routed through onboarding just like email signups.
+  const isNew = await ensureUserDocument(cred.user);
+  return { user: cred.user, isNew };
 }
 
 export async function signUpWithEmail(
@@ -71,15 +73,16 @@ export async function logout(): Promise<void> {
 /**
  * Creates the Firestore /users/{uid} document on first sign-in, using the
  * authoritative data model from the build spec. Idempotent: never overwrites
- * an existing document.
+ * an existing document. Returns true if it created the doc (a brand-new
+ * account), false if the user already existed.
  */
 export async function ensureUserDocument(
   user: User,
   extra: Record<string, unknown> = {},
-): Promise<void> {
+): Promise<boolean> {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
-  if (snap.exists()) return;
+  if (snap.exists()) return false;
 
   await setDoc(ref, {
     email: user.email ?? null,
@@ -97,4 +100,5 @@ export async function ensureUserDocument(
     isFamilyOwner: false,
     ...extra,
   });
+  return true;
 }

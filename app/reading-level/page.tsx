@@ -177,7 +177,7 @@ export default function ReadingLevelPage() {
                 className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all duration-300 ${
                   isSelected
                     ? "border-transparent bg-[#1a1a1a] shadow-[0_0_20px_rgba(0,212,255,0.25)] ring-2 ring-[#00D4FF]"
-                    : "border-white/10 bg-[#1a1a1a]/50 hover:border-white/30"
+                    : "border-white/10 bg-[#1a1a1a]/50 hover:border-[#FF006E]/60 hover:shadow-[0_0_16px_rgba(255,0,110,0.28)]"
                 }`}
               >
                 <level.Icon

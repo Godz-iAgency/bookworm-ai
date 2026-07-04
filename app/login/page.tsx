@@ -44,10 +44,11 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     setError(null)
     try {
-      const user = await signInWithGoogle()
-      // Desktop returns a user immediately; mobile/Kindle redirects and resumes
-      // after the page reloads.
-      if (user) router.push("/dashboard")
+      const { user, isNew } = await signInWithGoogle()
+      // If Google creates a brand-new account here, route through onboarding;
+      // an existing user goes to their dashboard. Desktop returns a user
+      // immediately; mobile/Kindle redirects and resumes after the page reloads.
+      if (user) router.push(isNew ? "/onboarding" : "/dashboard")
     } catch (err) {
       console.error("Google login error:", err)
       setError("Google sign-in failed. Please try again.")

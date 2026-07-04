@@ -14,7 +14,7 @@ import {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<User | null>;
+  signInWithGoogle: () => Promise<{ user: User | null; isNew: boolean }>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
   signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<User>;
   resetPassword: (email: string) => Promise<void>;

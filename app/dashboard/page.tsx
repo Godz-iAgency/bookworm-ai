@@ -27,6 +27,7 @@ type View = "home" | "detail" | "reading" | "profile";
 import HomeTab from "./components/HomeTab";
 import CourseDetail from "./components/CourseDetail";
 import ProfileTab from "./components/ProfileTab";
+import Greeting from "./components/Greeting";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
@@ -289,8 +290,13 @@ export default function DashboardPage() {
             <p className="font-bold text-sm">Course Details</p>
           </div>
         ) : (
-          <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center shadow-xl z-20">
-            <Image src="/bookworm-logo.png" alt="Logo" width={100} height={26} className="opacity-80" />
+          <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center gap-3 shadow-xl z-20 min-h-[68px]">
+            <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="shrink-0 opacity-80" />
+            {view === "home" && (
+              <div className="flex-1 flex justify-center">
+                <Greeting />
+              </div>
+            )}
           </div>
         )}
 

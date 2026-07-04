@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
+import { GenreGrid } from "@/components/genre-grid";
+import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
 
 // Max size we accept from the file picker before resizing. The output stored
 // in Firestore is tiny (~10–40KB), but we bound the input to avoid decoding a
@@ -27,6 +29,14 @@ export default function ProfileTab() {
   const [savingLevel, setSavingLevel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Reading preferences (genres + last book) — set at onboarding, edited here.
+  const [genres, setGenres] = useState<string[]>([]);
+  const [lastBook, setLastBook] = useState("");
+  const [prefsEditing, setPrefsEditing] = useState(false);
+  const [draftGenres, setDraftGenres] = useState<string[]>([]);
+  const [draftLastBook, setDraftLastBook] = useState("");
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
   // Load the user's profile doc (avatar + reading level).
   useEffect(() => {
     if (!user) return;
@@ -38,6 +48,8 @@ export default function ProfileTab() {
         // Fall back to the Firebase Auth photo (e.g. Google) if the doc has none.
         setPhotoURL(profile?.photoURL ?? user.photoURL ?? null);
         setReadingLevel(profile?.readingLevel ?? null);
+        setGenres(profile?.genrePreferences ?? []);
+        setLastBook(profile?.lastBookRead ?? "");
       } catch (e) {
         console.error("Failed to load profile:", e);
       } finally {
@@ -102,6 +114,37 @@ export default function ProfileTab() {
       setError("Couldn't save your reading level. Please try again.");
     } finally {
       setSavingLevel(null);
+    }
+  };
+
+  const startEditingPrefs = () => {
+    setError(null);
+    setDraftGenres(genres);
+    setDraftLastBook(lastBook);
+    setPrefsEditing(true);
+  };
+
+  const handleSavePrefs = async () => {
+    if (!user) return;
+    if (draftGenres.length !== GENRE_PICK_COUNT) {
+      setError(`Please pick ${GENRE_PICK_COUNT} genres.`);
+      return;
+    }
+    setSavingPrefs(true);
+    setError(null);
+    try {
+      await updateUserProfile(user.uid, {
+        genrePreferences: draftGenres,
+        lastBookRead: draftLastBook.trim(),
+      });
+      setGenres(draftGenres);
+      setLastBook(draftLastBook.trim());
+      setPrefsEditing(false);
+    } catch (err) {
+      console.error("Failed to save preferences:", err);
+      setError("Couldn't save your preferences. Please try again.");
+    } finally {
+      setSavingPrefs(false);
     }
   };
 
@@ -186,7 +229,7 @@ export default function ProfileTab() {
                 key={level.id}
                 onClick={() => handleSelectLevel(level.id)}
                 disabled={!!savingLevel}
-                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-3.5 text-left transition-all duration-300 hover:border-white/30 disabled:opacity-70"
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-3.5 text-left transition-all duration-300 hover:border-[#FF006E]/60 hover:shadow-[0_0_16px_rgba(255,0,110,0.28)] disabled:opacity-70"
               >
                 <level.Icon className="h-7 w-7 shrink-0 text-white/70" strokeWidth={1.75} />
                 <div className="flex-1 min-w-0">
@@ -198,6 +241,82 @@ export default function ProfileTab() {
           </div>
         )}
         {loading && <p className="mt-2 text-xs text-white/30">Loading your settings…</p>}
+      </div>
+
+      {/* Reading preferences — genres + last book, feeds recommendations. */}
+      <div className="mb-6">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Reading Preferences</h3>
+          {!prefsEditing && (
+            <button
+              onClick={startEditingPrefs}
+              className="text-xs font-bold text-[#00D4FF] transition-opacity hover:opacity-80"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {!prefsEditing ? (
+          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3.5">
+            {genres.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {genres.map((g) => (
+                  <span
+                    key={g}
+                    className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 text-xs font-bold text-white"
+                  >
+                    {g}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-white/40">No favorite genres yet — tap Edit to add them.</p>
+            )}
+            {lastBook && (
+              <p className="mt-3 text-xs text-white/50">
+                Last read: <span className="font-semibold text-white/80">{lastBook}</span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3.5 animate-in fade-in duration-200">
+            <p className="mb-2.5 text-xs text-white/50">Pick {GENRE_PICK_COUNT} genres you love.</p>
+            <GenreGrid selected={draftGenres} onToggle={(g) => setDraftGenres((prev) => toggleGenre(prev, g))} />
+            <p className="mt-2 text-xs text-white/40">
+              {draftGenres.length}/{GENRE_PICK_COUNT} selected
+            </p>
+
+            <label htmlFor="prefLastBook" className="mt-4 mb-1.5 block text-sm font-bold text-white/80">
+              Last book you read
+            </label>
+            <input
+              type="text"
+              id="prefLastBook"
+              value={draftLastBook}
+              onChange={(e) => setDraftLastBook(e.target.value)}
+              placeholder="Enter a book title"
+              className="min-h-[44px] w-full rounded-xl border border-white/15 bg-[#111] px-4 py-2.5 text-sm text-white placeholder:text-white/40 transition-colors focus:border-[#00D4FF] focus:outline-none"
+            />
+
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={() => setPrefsEditing(false)}
+                disabled={savingPrefs}
+                className="flex-1 rounded-lg border border-white/15 px-4 py-2.5 font-bold text-white/80 transition-all hover:bg-white/5 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePrefs}
+                disabled={savingPrefs || draftGenres.length !== GENRE_PICK_COUNT}
+                className="flex-1 rounded-lg bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2.5 font-bold text-white transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingPrefs ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Log out — pinned to the bottom of the screen */}

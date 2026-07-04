@@ -73,10 +73,12 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
 
-  // Tracks whether we've completed the initial Firestore load for this user.
-  // Persistence is blocked until this is true so the empty initial state can
-  // never overwrite real saved courses (silent data loss).
-  const [hydrated, setHydrated] = useState(false);
+  // The uid whose courses currently live in `courses`. Persistence only writes
+  // when this matches the signed-in user, so a previous account's courses can
+  // NEVER be written under a new account — even if the user logs out and signs
+  // up as someone else fast enough that the reload hasn't settled (that race
+  // was leaking one account's books into another's Firestore collection).
+  const [hydratedUid, setHydratedUid] = useState<string | null>(null);
 
   // Load the user's saved courses on sign-in; clear them on sign-out.
   useEffect(() => {
@@ -85,12 +87,16 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setCourses([]);
       setActiveCourseId(null);
-      setHydrated(false);
+      setHydratedUid(null);
       return;
     }
 
     let cancelled = false;
-    setHydrated(false);
+    // Immediately drop any previous account's courses and block persistence
+    // until THIS user's courses have loaded.
+    setHydratedUid(null);
+    setCourses([]);
+    setActiveCourseId(null);
     (async () => {
       try {
         const snap = await getDocs(collection(db, 'users', user.uid, 'courses'));
@@ -112,12 +118,14 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
             active.push(c);
           }
         }
+        if (cancelled) return;
         setCourses(active);
       } catch (err) {
         console.error('Failed to load courses:', err);
         if (!cancelled) setCourses([]);
       } finally {
-        if (!cancelled) setHydrated(true);
+        // Mark these courses as belonging to this user — unlocks persistence.
+        if (!cancelled) setHydratedUid(user.uid);
       }
     })();
 
@@ -126,18 +134,20 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     };
   }, [user, authLoading]);
 
-  // Persist courses whenever they change — but only after the initial load, so
-  // the starting empty array can't wipe out what's already in Firestore.
+  // Persist courses whenever they change — but only once the courses in state
+  // were loaded for the CURRENT user (hydratedUid === user.uid). This guards
+  // against both wiping saved data with the empty initial array AND writing a
+  // previous account's stale courses into a different account.
   useEffect(() => {
-    if (!hydrated || !user) return;
+    if (!user || hydratedUid !== user.uid) return;
     for (const course of courses) {
       setDoc(doc(db, 'users', user.uid, 'courses', course.id), course).catch((err) =>
         console.error('Failed to save course:', course.id, err)
       );
     }
-  }, [courses, hydrated, user]);
+  }, [courses, hydratedUid, user]);
 
-  const coursesLoading = authLoading || (!!user && !hydrated);
+  const coursesLoading = authLoading || (!!user && hydratedUid !== user.uid);
 
   // Remove a course everywhere: Firestore first, then local state. Clears the
   // active selection if it was the one removed (the dashboard re-selects).
