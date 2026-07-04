@@ -19,12 +19,13 @@ import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, typ
 export type Tab = "course" | "chat" | "flashcards";
 
 // The top-level screen the dashboard is showing. "home" = the shelf (all
-// courses), "reading" = the 3-tab experience for whichever course is active,
-// "profile" = account/settings.
-type View = "home" | "reading" | "profile";
+// courses), "detail" = a single course's info/remove screen, "reading" = the
+// 3-tab experience for the active course, "profile" = account/settings.
+type View = "home" | "detail" | "reading" | "profile";
 
 // Components
 import HomeTab from "./components/HomeTab";
+import CourseDetail from "./components/CourseDetail";
 import ProfileTab from "./components/ProfileTab";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
@@ -33,7 +34,7 @@ import FlashcardTab from "./components/FlashcardTab";
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { courses, activeCourseId, setActiveCourseId, coursesLoading } = useBookwormContext();
+  const { courses, activeCourseId, setActiveCourseId, deleteCourse, coursesLoading } = useBookwormContext();
   const [view, setView] = useState<View>("home");
   const [activeTab, setActiveTab] = useState<Tab>("course");
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
@@ -61,11 +62,15 @@ export default function DashboardPage() {
     return new Date(expiresAt) < currentTime;
   };
 
-  // A signed-in user with an empty library has no courses yet — send them to
-  // create one. Gated on `user` so logging out (which also empties courses)
-  // doesn't race this against ProfileTab's redirect to /login.
+  // Once loading settles: a logged-out user goes to /login; a signed-in user
+  // with an empty library goes to /search to create their first course.
+  // Handling both prevents a dead white screen (the page renders null when
+  // courses is empty, so it must always redirect somewhere).
   useEffect(() => {
-    if (!coursesLoading && user && courses.length === 0) {
+    if (coursesLoading) return;
+    if (!user) {
+      router.push("/login");
+    } else if (courses.length === 0) {
       router.push("/search");
     }
   }, [coursesLoading, user, courses.length, router]);
@@ -148,6 +153,18 @@ export default function DashboardPage() {
     setView("reading");
   };
 
+  // Tap the "•••" on a shelf card — open the course's info/remove screen.
+  const openCourseDetails = (courseId: string) => {
+    setActiveCourseId(courseId);
+    setView("detail");
+  };
+
+  const handleRemoveCourse = async () => {
+    if (!activeCourse) return;
+    await deleteCourse(activeCourse.id);
+    setView("home");
+  };
+
   const renderReadingContent = () => {
     if (!activeCourse) return null;
 
@@ -200,7 +217,19 @@ export default function DashboardPage() {
           isCourseExpired={isCourseExpired}
           isLibraryFull={isLibraryFull}
           onOpenCourse={openCourse}
+          onCourseDetails={openCourseDetails}
           progress={progress}
+        />
+      );
+    }
+    if (view === "detail") {
+      if (!activeCourse) return null;
+      return (
+        <CourseDetail
+          course={activeCourse}
+          currentTime={currentTime}
+          onRead={() => openCourse(activeCourse.id)}
+          onRemove={handleRemoveCourse}
         />
       );
     }
@@ -247,6 +276,17 @@ export default function DashboardPage() {
               <Image src={activeCourse.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
             </div>
             <p className="font-bold text-sm truncate">{activeCourse.book.title}</p>
+          </div>
+        ) : view === "detail" ? (
+          <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">
+            <button
+              onClick={() => setView("home")}
+              aria-label="Back to shelf"
+              className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+            >
+              <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
+            </button>
+            <p className="font-bold text-sm">Course Details</p>
           </div>
         ) : (
           <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center shadow-xl z-20">

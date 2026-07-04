@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase/config';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 export interface Book {
   title: string;
@@ -57,6 +57,8 @@ interface BookwormContextType {
   setCourses: React.Dispatch<React.SetStateAction<Course[]>>;
   activeCourseId: string | null;
   setActiveCourseId: (id: string | null) => void;
+  /** Permanently remove a course from state + Firestore (frees a library slot). */
+  deleteCourse: (courseId: string) => Promise<void>;
   /** True until the signed-in user's courses have been loaded from Firestore. */
   coursesLoading: boolean;
 }
@@ -93,7 +95,24 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
       try {
         const snap = await getDocs(collection(db, 'users', user.uid, 'courses'));
         if (cancelled) return;
-        setCourses(snap.docs.map((d) => d.data() as Course));
+
+        // Enforce the 8-day window: any course whose expiry has passed is
+        // deleted from Firestore on load (no backend scheduler on this Firebase
+        // app), so expired courses stop occupying library slots. Only the
+        // still-active courses populate the shelf.
+        const all = snap.docs.map((d) => d.data() as Course);
+        const now = Date.now();
+        const active: Course[] = [];
+        for (const c of all) {
+          if (new Date(c.expiresAt).getTime() < now) {
+            deleteDoc(doc(db, 'users', user.uid, 'courses', c.id)).catch((err) =>
+              console.error('Failed to delete expired course:', c.id, err)
+            );
+          } else {
+            active.push(c);
+          }
+        }
+        setCourses(active);
       } catch (err) {
         console.error('Failed to load courses:', err);
         if (!cancelled) setCourses([]);
@@ -120,6 +139,18 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
 
   const coursesLoading = authLoading || (!!user && !hydrated);
 
+  // Remove a course everywhere: Firestore first, then local state. Clears the
+  // active selection if it was the one removed (the dashboard re-selects).
+  const deleteCourse = async (courseId: string) => {
+    if (user) {
+      await deleteDoc(doc(db, 'users', user.uid, 'courses', courseId)).catch((err) =>
+        console.error('Failed to delete course:', courseId, err)
+      );
+    }
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    setActiveCourseId((prev) => (prev === courseId ? null : prev));
+  };
+
   return (
     <BookwormContext.Provider
       value={{
@@ -131,6 +162,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         setCourses,
         activeCourseId,
         setActiveCourseId,
+        deleteCourse,
         coursesLoading,
       }}
     >

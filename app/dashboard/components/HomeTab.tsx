@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Flame, Lock } from "lucide-react";
+import { Plus, Flame, Lock, MoreVertical } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
 import { BADGES } from "@/lib/badges";
+import { getCountdown } from "@/lib/countdown";
 import { currentStreak, localDateStr, type UserProgress } from "@/lib/firebase/progress";
 
 interface HomeTabProps {
@@ -15,6 +16,7 @@ interface HomeTabProps {
   isCourseExpired: (expiresAt: string) => boolean;
   isLibraryFull: boolean;
   onOpenCourse: (courseId: string) => void;
+  onCourseDetails: (courseId: string) => void;
   progress: UserProgress;
 }
 
@@ -48,6 +50,7 @@ export default function HomeTab({
   isCourseExpired,
   isLibraryFull,
   onOpenCourse,
+  onCourseDetails,
   progress,
 }: HomeTabProps) {
   const streak = currentStreak(progress, currentTime);
@@ -255,72 +258,72 @@ export default function HomeTab({
         {courses.map((course) => {
           const expired = isCourseExpired(course.expiresAt);
           const isActive = course.id === activeCourseId;
-
-          const msLeft = new Date(course.expiresAt).getTime() - currentTime.getTime();
-          const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+          const countdown = getCountdown(course.expiresAt, currentTime);
           const completedCount = course.days.filter((d) => d.isCompleted).length;
           const progressPct = (completedCount / 7) * 100;
 
-          // Same escalating urgency tiers as before. Copy says "disappears", never "delete".
-          let countdown: { label: string; className: string };
-          if (expired) {
-            countdown = { label: "Expired", className: "text-[#FF006E] border-[#FF006E]/30 bg-[#FF006E]/10" };
-          } else if (daysLeft <= 1) {
-            countdown = {
-              label: "Disappears today",
-              className:
-                "text-[#FF006E] border-[#FF006E]/50 bg-[#FF006E]/15 animate-pulse shadow-[0_0_12px_rgba(255,0,110,0.45)]",
-            };
-          } else if (daysLeft <= 3) {
-            countdown = { label: `${daysLeft} days left`, className: "text-[#FFB020] border-[#FFB020]/40 bg-[#FFB020]/10" };
-          } else {
-            countdown = { label: `${daysLeft} days left`, className: "text-[#00D4FF] border-[#00D4FF]/30 bg-[#00D4FF]/10" };
-          }
-
           return (
-            <button
+            <div
               key={course.id}
-              onClick={() => onOpenCourse(course.id)}
+              className="relative"
               style={
                 isActive && !expired
                   ? {
                       border: "1.5px solid transparent",
+                      borderRadius: "1rem",
                       background:
                         "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
                     }
                   : undefined
               }
-              className={`
-                flex gap-4 rounded-2xl border p-4 text-left transition-all
-                ${isActive ? "shadow-[0_0_20px_rgba(0,212,255,0.15)]" : "border-white/10 hover:bg-white/5"}
-                ${expired ? "opacity-60 grayscale-[0.5]" : ""}
-              `}
             >
-              <div className="w-16 h-24 relative shrink-0 rounded-lg overflow-hidden bg-black shadow-md">
-                <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
-              </div>
+              <button
+                onClick={() => onOpenCourse(course.id)}
+                className={`
+                  flex w-full gap-4 rounded-2xl p-4 text-left transition-all
+                  ${isActive ? "shadow-[0_0_20px_rgba(0,212,255,0.15)]" : "border border-white/10 hover:bg-white/5"}
+                  ${expired ? "opacity-60 grayscale-[0.5]" : ""}
+                `}
+              >
+                <div className="w-16 h-24 relative shrink-0 rounded-lg overflow-hidden bg-black shadow-md">
+                  <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
+                </div>
 
-              <div className="flex-1 min-w-0 flex flex-col">
-                <p className="font-bold text-base truncate">{course.book.title}</p>
-                <p className="text-xs text-white/50 uppercase tracking-wide mt-0.5">{course.readingLevel} Level</p>
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <p className="font-bold text-base truncate pr-7">{course.book.title}</p>
+                  <p className="text-xs text-white/50 uppercase tracking-wide mt-0.5">{course.readingLevel} Level</p>
 
-                <div className="mt-auto pt-3">
-                  <div className="h-1.5 w-full bg-black rounded-full overflow-hidden border border-white/5">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                  <div className="mt-2">
-                    <span
-                      className={`inline-block text-[10px] font-bold uppercase tracking-wide border px-1.5 py-0.5 rounded ${countdown.className}`}
-                    >
-                      {countdown.label}
-                    </span>
+                  <div className="mt-auto pt-3">
+                    <div className="h-1.5 w-full bg-black rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <span
+                        className={`inline-block text-[10px] font-bold uppercase tracking-wide border px-1.5 py-0.5 rounded ${countdown.className}`}
+                      >
+                        {countdown.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </button>
+              </button>
+
+              {/* Course options — opens the detail/remove screen. Separate from
+                  the card button (no nested buttons) and stops propagation. */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCourseDetails(course.id);
+                }}
+                aria-label="Course options"
+                className="absolute top-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full text-white/50 transition-all hover:bg-white/10 hover:text-white"
+              >
+                <MoreVertical className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
           );
         })}
 
