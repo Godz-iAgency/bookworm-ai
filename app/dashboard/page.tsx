@@ -28,6 +28,7 @@ import HomeTab from "./components/HomeTab";
 import CourseDetail from "./components/CourseDetail";
 import ProfileTab from "./components/ProfileTab";
 import Greeting from "./components/Greeting";
+import AddCourseButton from "./components/AddCourseButton";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
@@ -276,7 +277,13 @@ export default function DashboardPage() {
             <div className="w-8 h-11 relative shrink-0 rounded overflow-hidden bg-black">
               <Image src={activeCourse.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
             </div>
-            <p className="font-bold text-sm truncate">{activeCourse.book.title}</p>
+            <p className="font-bold text-sm truncate min-w-0">{activeCourse.book.title}</p>
+            {/* Quick "add a new course" — only on the Course tab. */}
+            {activeTab === "course" && (
+              <div className="ml-auto shrink-0">
+                <AddCourseButton isLibraryFull={isLibraryFull} />
+              </div>
+            )}
           </div>
         ) : view === "detail" ? (
           <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">
@@ -291,11 +298,20 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center gap-3 shadow-xl z-20 min-h-[68px]">
-            <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="shrink-0 opacity-80" />
+            {/* Left + right slots share the same width so the greeting sits at the
+                true center, with the logo and plus at matching margins. */}
+            <div className="flex w-24 shrink-0 justify-start">
+              <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="opacity-80" />
+            </div>
             {view === "home" && (
-              <div className="flex-1 flex justify-center">
-                <Greeting />
-              </div>
+              <>
+                <div className="flex flex-1 justify-center">
+                  <Greeting />
+                </div>
+                <div className="flex w-24 shrink-0 justify-end">
+                  <AddCourseButton isLibraryFull={isLibraryFull} />
+                </div>
+              </>
             )}
           </div>
         )}
