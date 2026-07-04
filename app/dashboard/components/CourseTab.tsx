@@ -6,7 +6,15 @@ import { CalendarClock } from "lucide-react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 
-export default function CourseTab({ course }: { course: Course }) {
+export default function CourseTab({
+  course,
+  onDayCompleted,
+}: {
+  course: Course;
+  /** Fired when a day is marked complete, so the dashboard can update the
+   *  user's streak/badges. `finishedBook` is true when this was the 7th day. */
+  onDayCompleted?: (dayLevel: number, finishedBook: boolean) => void;
+}) {
   const { courses, setCourses } = useBookwormContext();
   const [openDay, setOpenDay] = useState<number | null>(null);
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
@@ -83,6 +91,10 @@ export default function CourseTab({ course }: { course: Course }) {
   };
 
   const handleMarkComplete = (dayLevel: number) => {
+    // This completion finishes the book if every other day is already done.
+    // (Computed from the current course before we mutate state below.)
+    const finishedBook = course.days.every((d) => d.dayNumber === dayLevel || d.isCompleted);
+
     // Apply the completion AND collapse the open lesson synchronously via
     // flushSync. Marking complete closes the expanded lesson (which can be
     // ~2000px tall); if we let React batch that collapse asynchronously, the
@@ -104,6 +116,10 @@ export default function CourseTab({ course }: { course: Course }) {
       );
       setOpenDay(null);
     });
+
+    // Update the user's streak + badges (fire-and-forget; failures are logged
+    // inside the helper and never block the reading flow).
+    onDayCompleted?.(dayLevel, finishedBook);
 
     // Day 7 has no "next day" to unlock — scroll up to reveal the completion
     // banner. scrollIntoView (not window.scrollTo) because the dashboard's

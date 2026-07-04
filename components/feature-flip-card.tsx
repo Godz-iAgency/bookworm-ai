@@ -21,7 +21,7 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
 
   return (
     <div
-      className="h-56 cursor-pointer select-none"
+      className="group h-56 cursor-pointer select-none transition-transform duration-300 hover:scale-[1.03]"
       style={{ perspective: "1000px" }}
       role="button"
       tabIndex={0}
@@ -43,23 +43,32 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
       >
-        {/* Front */}
+        {/* Front — gradient border + glow, matching the in-app cards. */}
         <div
-          className="absolute inset-0 flex flex-col rounded-2xl border border-white/10 bg-[#111]/80 p-6 shadow-xl backdrop-blur-md"
-          style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+          className="absolute inset-0 flex flex-col rounded-2xl p-6 shadow-[0_0_22px_rgba(0,212,255,0.15)] transition-shadow duration-300 group-hover:shadow-[0_0_36px_rgba(0,212,255,0.32)]"
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            border: "1.5px solid transparent",
+            background:
+              "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+          }}
         >
           <div className="mb-4 text-4xl">{icon}</div>
           <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>
           <span className="mt-auto text-xs text-white/40">Tap to flip →</span>
         </div>
 
-        {/* Back */}
+        {/* Back — same gradient border, with a subtly tinted dark fill. */}
         <div
-          className="absolute inset-0 flex flex-col justify-center rounded-2xl border border-white/15 bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20 p-6 shadow-xl backdrop-blur-md"
+          className="absolute inset-0 flex flex-col justify-center rounded-2xl p-6 shadow-[0_0_22px_rgba(255,0,110,0.18)] transition-shadow duration-300 group-hover:shadow-[0_0_36px_rgba(255,0,110,0.34)]"
           style={{
             backfaceVisibility: "hidden",
             WebkitBackfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
+            border: "1.5px solid transparent",
+            background:
+              "linear-gradient(150deg,#13212a,#241019) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
           }}
         >
           <h3 className="mb-3 text-lg font-bold text-white">{title}</h3>

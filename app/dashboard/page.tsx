@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext } from "@/lib/BookwormContext";
+import {
+  getUserProgress,
+  recordDayCompletion,
+  computeBackfill,
+  persistBackfill,
+  DEFAULT_PROGRESS,
+  type UserProgress,
+} from "@/lib/firebase/progress";
 import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
@@ -28,6 +36,9 @@ export default function DashboardPage() {
   const { courses, activeCourseId, setActiveCourseId, coursesLoading } = useBookwormContext();
   const [view, setView] = useState<View>("home");
   const [activeTab, setActiveTab] = useState<Tab>("course");
+  const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
+  const [progressLoaded, setProgressLoaded] = useState(false);
+  const backfilledRef = useRef(false);
 
   // Real-time recalculation of expirations (simulated checking logic)
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -65,6 +76,53 @@ export default function DashboardPage() {
       setActiveCourseId(courses[0].id);
     }
   }, [coursesLoading, activeCourseId, courses, setActiveCourseId]);
+
+  // Load the user's streak + badges once signed in.
+  useEffect(() => {
+    if (!user) {
+      setProgress(DEFAULT_PROGRESS);
+      setProgressLoaded(false);
+      backfilledRef.current = false;
+      return;
+    }
+    let cancelled = false;
+    getUserProgress(user.uid)
+      .then((p) => {
+        if (!cancelled) {
+          setProgress(p);
+          setProgressLoaded(true);
+        }
+      })
+      .catch((e) => console.error("Failed to load progress:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Retroactively award badges the user already earned from existing courses
+  // (streak can't be reconstructed). Runs once after both progress + courses
+  // are loaded; only ever adds badges.
+  useEffect(() => {
+    if (backfilledRef.current) return;
+    if (!user || !progressLoaded || coursesLoading) return;
+    backfilledRef.current = true;
+    const next = computeBackfill(progress, courses);
+    if (next) {
+      setProgress(next);
+      persistBackfill(user.uid, next).catch((e) => console.error("Backfill failed:", e));
+    }
+  }, [user, progressLoaded, coursesLoading, courses, progress]);
+
+  // Called by CourseTab when a day is completed — updates streak/badges.
+  const handleDayCompleted = async (dayLevel: number, finishedBook: boolean) => {
+    if (!user) return;
+    try {
+      const next = await recordDayCompletion(user.uid, { dayLevel, finishedBook });
+      setProgress(next);
+    } catch (e) {
+      console.error("Failed to record day completion:", e);
+    }
+  };
 
   // Wait for auth + Firestore load (and the client clock) before deciding anything.
   if (coursesLoading || !currentTime) {
@@ -120,7 +178,7 @@ export default function DashboardPage() {
     return (
       <div className="h-full w-full relative">
         <div className={activeTab === "course" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <CourseTab course={activeCourse} />
+          <CourseTab course={activeCourse} onDayCompleted={handleDayCompleted} />
         </div>
         <div className={activeTab === "chat" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
           <ChatTab course={activeCourse} day={currentDay} />
@@ -142,6 +200,7 @@ export default function DashboardPage() {
           isCourseExpired={isCourseExpired}
           isLibraryFull={isLibraryFull}
           onOpenCourse={openCourse}
+          progress={progress}
         />
       );
     }
