@@ -14,6 +14,7 @@ export interface UserProfile {
   readingLevel: string | null;
   genrePreferences: string[];
   lastBookRead: string | null;
+  plan: string | null;
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
@@ -27,6 +28,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     readingLevel: d.readingLevel ?? null,
     genrePreferences: d.genrePreferences ?? [],
     lastBookRead: d.lastBookRead ?? null,
+    plan: d.plan ?? null,
   };
 }
 

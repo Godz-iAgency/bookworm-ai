@@ -298,10 +298,13 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center gap-3 shadow-xl z-20 min-h-[68px]">
-            {/* Left + right slots share the same width so the greeting sits at the
-                true center, with the logo and plus at matching margins. */}
+            {/* Left + right slots share the same width so the centered content
+                sits at the true center, with matching margins on both sides.
+                The logo returns to the shelf (Home view). */}
             <div className="flex w-24 shrink-0 justify-start">
-              <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="opacity-80" />
+              <button onClick={() => setView("home")} aria-label="Back to your shelf">
+                <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="opacity-80 transition-opacity hover:opacity-100" />
+              </button>
             </div>
             {view === "home" && (
               <>
@@ -311,6 +314,20 @@ export default function DashboardPage() {
                 <div className="flex w-24 shrink-0 justify-end">
                   <AddCourseButton isLibraryFull={isLibraryFull} />
                 </div>
+              </>
+            )}
+            {view === "profile" && (
+              <>
+                <div className="flex flex-1 flex-col items-center justify-center text-center leading-none">
+                  <p className="text-xl md:text-2xl font-black text-white">
+                    Make It Yours
+                  </p>
+                  <span className="mt-1 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-xs font-bold text-transparent">
+                    Set your vibe
+                  </span>
+                </div>
+                {/* Spacer keeps the header text truly centered (mirrors Home). */}
+                <div className="w-24 shrink-0" />
               </>
             )}
           </div>

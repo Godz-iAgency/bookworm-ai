@@ -10,6 +10,7 @@ import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
+import { planFromId } from "@/lib/plans";
 
 // Max size we accept from the file picker before resizing. The output stored
 // in Firestore is tiny (~10–40KB), but we bound the input to avoid decoding a
@@ -36,6 +37,7 @@ export default function ProfileTab() {
   const [draftGenres, setDraftGenres] = useState<string[]>([]);
   const [draftLastBook, setDraftLastBook] = useState("");
   const [savingPrefs, setSavingPrefs] = useState(false);
+  const [plan, setPlan] = useState<string | null>(null);
 
   // Load the user's profile doc (avatar + reading level).
   useEffect(() => {
@@ -50,6 +52,7 @@ export default function ProfileTab() {
         setReadingLevel(profile?.readingLevel ?? null);
         setGenres(profile?.genrePreferences ?? []);
         setLastBook(profile?.lastBookRead ?? "");
+        setPlan(profile?.plan ?? null);
       } catch (e) {
         console.error("Failed to load profile:", e);
       } finally {
@@ -155,6 +158,15 @@ export default function ProfileTab() {
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
   const currentLevel = READING_LEVELS.find((l) => l.id === readingLevel);
+  const currentPlan = planFromId(plan);
+
+  // The app's gradient-border + glow card treatment (same as the Your Plan card).
+  const gradientBorder = {
+    border: "1.5px solid transparent",
+    background:
+      "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+    boxShadow: "0 0 18px rgba(0,212,255,0.12)",
+  } as const;
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8 flex flex-col min-h-full">
@@ -205,7 +217,8 @@ export default function ProfileTab() {
         <button
           onClick={() => setLevelOpen((o) => !o)}
           aria-expanded={levelOpen}
-          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1a] p-3.5 text-left transition-all hover:border-white/30"
+          style={gradientBorder}
+          className="flex w-full items-center gap-3 rounded-2xl p-3.5 text-left transition-transform hover:scale-[1.01]"
         >
           {currentLevel ? (
             <currentLevel.Icon className="h-7 w-7 shrink-0 text-[#00D4FF]" strokeWidth={1.75} />
@@ -258,7 +271,7 @@ export default function ProfileTab() {
         </div>
 
         {!prefsEditing ? (
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3.5">
+          <div className="rounded-2xl p-3.5" style={gradientBorder}>
             {genres.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {genres.map((g) => (
@@ -280,7 +293,7 @@ export default function ProfileTab() {
             )}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-3.5 animate-in fade-in duration-200">
+          <div className="rounded-2xl p-3.5 animate-in fade-in duration-200" style={gradientBorder}>
             <p className="mb-2.5 text-xs text-white/50">Pick {GENRE_PICK_COUNT} genres you love.</p>
             <GenreGrid selected={draftGenres} onToggle={(g) => setDraftGenres((prev) => toggleGenre(prev, g))} />
             <p className="mt-2 text-xs text-white/40">
@@ -317,6 +330,32 @@ export default function ProfileTab() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Your Plan — a readout for now; upgrade/billing lands with Stripe. */}
+      <div className="mb-6">
+        <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Your Plan</h3>
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            border: "1.5px solid transparent",
+            background:
+              "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+            boxShadow: "0 0 18px rgba(0,212,255,0.12)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-black text-transparent">
+                {currentPlan.name}
+              </p>
+              <p className="text-xs text-white/60">{currentPlan.tagline}</p>
+            </div>
+            <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
+              Current
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Log out — pinned to the bottom of the screen */}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBookwormContext, Book } from "@/lib/BookwormContext";
@@ -62,8 +63,13 @@ export default function SearchPage() {
       {/* Header with logo and step indicator */}
       <div className="w-full max-w-4xl px-6 py-8 flex justify-between items-center z-10">
         <div className="flex items-center gap-3">
-          <BackButton to="/" />
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={150} height={40} priority className="opacity-90" />
+          {/* Back + logo both return to the shelf. /search is only reached by a
+              signed-in user, so /dashboard is always the right destination (a
+              brand-new user with no courses is bounced right back here). */}
+          <BackButton to="/dashboard" label="Back to your shelf" />
+          <Link href="/dashboard" aria-label="Back to your shelf">
+            <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={150} height={40} priority className="opacity-90 transition-opacity hover:opacity-100" />
+          </Link>
         </div>
         <div className="text-sm font-medium tracking-widest text-[#00D4FF] uppercase">
           Step 1 of 2
