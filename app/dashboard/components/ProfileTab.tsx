@@ -11,6 +11,13 @@ import { READING_LEVELS } from "@/lib/reading-levels";
 import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
 import { planFromId } from "@/lib/plans";
+import {
+  getBillingProfile,
+  getEffectivePlanId,
+  TRIAL_GENERATION_CAP,
+  type BillingProfile,
+} from "@/lib/billing";
+import { useBookwormContext } from "@/lib/BookwormContext";
 
 // Max size we accept from the file picker before resizing. The output stored
 // in Firestore is tiny (~10–40KB), but we bound the input to avoid decoding a
@@ -38,6 +45,8 @@ export default function ProfileTab() {
   const [draftLastBook, setDraftLastBook] = useState("");
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [plan, setPlan] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingProfile | null>(null);
+  const { courses } = useBookwormContext();
 
   // Load the user's profile doc (avatar + reading level).
   useEffect(() => {
@@ -53,6 +62,9 @@ export default function ProfileTab() {
         setGenres(profile?.genrePreferences ?? []);
         setLastBook(profile?.lastBookRead ?? "");
         setPlan(profile?.plan ?? null);
+        const billingProfile = await getBillingProfile(user.uid);
+        if (cancelled) return;
+        setBilling(billingProfile);
       } catch (e) {
         console.error("Failed to load profile:", e);
       } finally {
@@ -158,7 +170,11 @@ export default function ProfileTab() {
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
   const currentLevel = READING_LEVELS.find((l) => l.id === readingLevel);
-  const currentPlan = planFromId(plan);
+  // Book Club members inherit the tier from their family, so the effective
+  // plan (not the raw `plan` field) is what the card should describe.
+  const currentPlan = planFromId(billing ? getEffectivePlanId(billing) : plan);
+  const trialActive = billing?.trialStatus === "active";
+  const openBooks = courses.length;
 
   // The app's gradient-border + glow card treatment (same as the Your Plan card).
   const gradientBorder = {
@@ -332,7 +348,7 @@ export default function ProfileTab() {
         )}
       </div>
 
-      {/* Your Plan — a readout for now; upgrade/billing lands with Stripe. */}
+      {/* Your Plan — tier, this month's usage, and a way to change tiers. */}
       <div className="mb-6">
         <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Your Plan</h3>
         <div
@@ -352,9 +368,35 @@ export default function ProfileTab() {
               <p className="text-xs text-white/60">{currentPlan.tagline}</p>
             </div>
             <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
-              Current
+              {billing?.trialStatus === "active" ? "Trial" : "Current"}
             </span>
           </div>
+
+          {billing && (
+            <div className="mt-3 flex gap-4 border-t border-white/10 pt-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                  {billing.trialStatus === "active" ? "Trial books" : "This month"}
+                </p>
+                <p className="text-sm font-bold text-white/90">
+                  {billing.generationsThisMonth} / {trialActive ? TRIAL_GENERATION_CAP : currentPlan.monthlyGenerations}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">Open now</p>
+                <p className="text-sm font-bold text-white/90">
+                  {openBooks} / {currentPlan.maxOpenBooks}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => router.push("/pricing")}
+            className="mt-3 w-full rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 transition-all hover:bg-white/10"
+          >
+            {currentPlan.id === "book_club" ? "Manage Book Club" : "Change plan"}
+          </button>
         </div>
       </div>
 

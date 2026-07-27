@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -13,6 +13,12 @@ import {
   DEFAULT_PROGRESS,
   type UserProgress,
 } from "@/lib/firebase/progress";
+import {
+  getBillingProfile,
+  getEffectivePlanId,
+  getPlanLimits,
+  type BillingProfile,
+} from "@/lib/billing";
 import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
@@ -29,6 +35,7 @@ import CourseDetail from "./components/CourseDetail";
 import ProfileTab from "./components/ProfileTab";
 import Greeting from "./components/Greeting";
 import AddCourseButton from "./components/AddCourseButton";
+import TrialBanner from "./components/TrialBanner";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
@@ -41,6 +48,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>("course");
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const [billing, setBilling] = useState<BillingProfile | null>(null);
   const backfilledRef = useRef(false);
 
   // Real-time recalculation of expirations (simulated checking logic)
@@ -52,8 +60,13 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const MAX_COURSES = 3;
-  const isLibraryFull = courses.length >= MAX_COURSES;
+  // The open-book cap comes from the reader's tier (Page Turner 3, Well-Read
+  // 5, Book Club 3 per member). Until billing loads, fall back to the entry
+  // tier's cap so the "+" button never briefly offers more than it should.
+  const maxOpenBooks = billing
+    ? getPlanLimits(getEffectivePlanId(billing)).maxOpenBooks
+    : 3;
+  const isLibraryFull = courses.length >= maxOpenBooks;
 
   // Fall back to the first course until the auto-select effect syncs activeCourseId.
   const activeCourse = courses.find((c) => c.id === activeCourseId) ?? courses[0];
@@ -83,6 +96,21 @@ export default function DashboardPage() {
       setActiveCourseId(courses[0].id);
     }
   }, [coursesLoading, activeCourseId, courses, setActiveCourseId]);
+
+  // Load the user's plan/trial state — drives the book cap + trial banner.
+  const refreshBilling = useCallback(() => {
+    if (!user) {
+      setBilling(null);
+      return;
+    }
+    getBillingProfile(user.uid)
+      .then(setBilling)
+      .catch((e) => console.error("Failed to load billing profile:", e));
+  }, [user]);
+
+  useEffect(() => {
+    refreshBilling();
+  }, [refreshBilling]);
 
   // Load the user's streak + badges once signed in.
   useEffect(() => {
@@ -212,16 +240,19 @@ export default function DashboardPage() {
   const renderMainContent = () => {
     if (view === "home") {
       return (
-        <HomeTab
-          courses={courses}
-          activeCourseId={activeCourseId}
-          currentTime={currentTime}
-          isCourseExpired={isCourseExpired}
-          isLibraryFull={isLibraryFull}
-          onOpenCourse={openCourse}
-          onCourseDetails={openCourseDetails}
-          progress={progress}
-        />
+        <>
+          {billing && <TrialBanner profile={billing} onConverted={refreshBilling} />}
+          <HomeTab
+            courses={courses}
+            activeCourseId={activeCourseId}
+            currentTime={currentTime}
+            isCourseExpired={isCourseExpired}
+            isLibraryFull={isLibraryFull}
+            onOpenCourse={openCourse}
+            onCourseDetails={openCourseDetails}
+            progress={progress}
+          />
+        </>
       );
     }
     if (view === "detail") {

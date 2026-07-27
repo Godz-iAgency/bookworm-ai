@@ -92,9 +92,19 @@ export async function ensureUserDocument(
     createdAt: serverTimestamp(),
     readingLevel: null, // set during onboarding: 'explorer' | 'scholar' | 'architect'
     genrePreferences: [],
-    plan: "free", // tier logic deferred — everyone is free for now
-    booksThisWeek: 0,
-    weekResetAt: serverTimestamp(),
+    plan: "free", // 'free' | 'page_turner' | 'well_read' | 'book_club'
+    // Billing (see lib/billing.ts). trialStatus is absent/null until the
+    // soft gate collects a card — its absence means "hasn't committed yet".
+    trialStatus: null, // 'active' | 'converted' | 'cancelled' | 'expired'
+    trialStartedAt: null,
+    trialEndsAt: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
+    stripePaymentMethodId: null,
+    generationsThisMonth: 0,
+    monthResetAt: null,
+    showTrialEndWarning: false,
+    reminderEmailSentAt: null,
     notificationTime: null,
     familyId: null,
     isFamilyOwner: false,

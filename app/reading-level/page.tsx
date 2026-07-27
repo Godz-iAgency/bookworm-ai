@@ -6,10 +6,12 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
-import { useBookwormContext, Course, Day } from "@/lib/BookwormContext";
+import { useBookwormContext } from "@/lib/BookwormContext";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { db } from "@/lib/firebase/config";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, increment } from "firebase/firestore";
+import { generateCourseDays, buildCourse } from "@/lib/generate-course";
+import { getBillingProfile, hasActiveAccess, canGenerate, getEffectivePlanId, getPlanLimits } from "@/lib/billing";
 
 const GENERATION_STEPS = [
   "Reading the book's core ideas...",
@@ -43,69 +45,65 @@ export default function ReadingLevelPage() {
   const handleContinue = async () => {
     if (!selected || !user || !currentBook) return;
     setError(null);
-    setIsGenerating(true);
-    setGenStep(0);
 
-    // Save the chosen level to the user's profile (don't block generation on it).
+    // Save the chosen level to the user's profile (don't block on it).
     updateDoc(doc(db, "users", user.uid), { readingLevel: selected }).catch((e) =>
       console.error("Could not save reading level:", e)
     );
     setCurrentReadingLevel(selected);
 
-    // Kick off the real generation and the step animation in parallel.
-    const genTask = fetch("/api/course/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: currentBook.title,
-        author: currentBook.author,
-        readingLevel: selected,
-      }),
-    })
-      .then((res) => res.json())
-      .catch((e) => ({ error: e.message }));
+    // Brand-new users (no trial started, no plan yet) go through the soft
+    // gate — it re-runs generation itself and collects the card before
+    // saving the course. Only existing subscribers generate directly here.
+    const profile = await getBillingProfile(user.uid);
+    if (!profile || !hasActiveAccess(profile)) {
+      router.push("/preview");
+      return;
+    }
 
-    // Cycle the status messages while we wait (each step shows briefly).
+    const gen = canGenerate(profile);
+    if (!gen.allowed) {
+      setError(
+        gen.reason === "monthly_cap"
+          ? "You've used all your book generations for this month."
+          : "You've reached your plan's limit."
+      );
+      return;
+    }
+    const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
+    if (courses.length >= maxOpenBooks) {
+      setError("Your library is full for your plan — delete a book to add a new one.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenStep(0);
+
+    // Kick off the real generation and the step animation in parallel.
+    const genTask = generateCourseDays(currentBook.title, currentBook.author, selected);
+
     for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
       setGenStep(i);
       await sleep(1800);
     }
     setGenStep(GENERATION_STEPS.length - 1);
 
-    const data = await genTask;
+    const result = await genTask;
 
-    if (!data || data.error || !Array.isArray(data.days) || data.days.length === 0) {
-      console.error("Generation error:", data?.error);
-      setError(
-        "We couldn't build your course right now. Please try again in a moment."
-      );
+    if ("error" in result) {
+      console.error("Generation error:", result.error);
+      setError("We couldn't build your course right now. Please try again in a moment.");
       setIsGenerating(false);
       return;
     }
 
-    const days: Day[] = data.days.slice(0, 7).map((d: any, i: number) => ({
-      dayNumber: d.dayNumber ?? i + 1,
-      title: d.title ?? `Day ${i + 1}`,
-      previewText: d.previewText ?? "",
-      lesson: d.lesson ?? "",
-      flashcards: Array.isArray(d.flashcards) ? d.flashcards.slice(0, 3) : [],
-      chatSeed: Array.isArray(d.chatSeed) ? d.chatSeed.slice(0, 3) : [],
-      isUnlocked: i === 0,
-      isCompleted: false,
-    }));
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 8);
-    const newCourse: Course = {
-      id: Math.random().toString(36).slice(2, 11),
-      book: currentBook,
-      readingLevel: selected,
-      status: "active",
-      days,
-      expiresAt: expiresAt.toISOString(),
-    };
+    const newCourse = buildCourse(currentBook, selected, result.days);
     setCourses([...courses, newCourse]);
     setActiveCourseId(newCourse.id);
+
+    updateDoc(doc(db, "users", user.uid), {
+      generationsThisMonth: increment(1),
+    }).catch((e) => console.error("Could not update generation count:", e));
 
     router.push("/dashboard");
   };
