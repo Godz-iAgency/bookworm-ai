@@ -66,6 +66,49 @@ The "days" array must contain exactly 7 items (dayNumber 1–7). Day 1's "flashc
   return { system, user };
 }
 
+/**
+ * Repair path: rebuild only the flashcards + chat starters for a day whose
+ * lesson we already have. The outline call occasionally returns Day 1 with a
+ * good lesson but an empty `flashcards` array, and Day 1 never re-fetches
+ * (its lesson already exists), so the deck would otherwise stay empty
+ * forever. Deriving from the stored lesson keeps the cards true to what the
+ * reader actually read — and never rewrites that lesson.
+ */
+export function buildFlashcardsMessages(
+  title: string,
+  author: string,
+  readingLevel: string,
+  dayNumber: number,
+  dayTitle: string,
+  lesson: string
+) {
+  const system = `You are the course architect for Bookworm.AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+
+${getPersona(readingLevel)}
+
+${FLASHCARD_RULES}`;
+
+  const user = `Book: "${title}" by ${author || "Unknown Author"}
+Day ${dayNumber}: "${dayTitle}"
+
+This is the lesson the reader has already been given for this day:
+"""
+${lesson}
+"""
+
+Write exactly 3 flashcards drawn from the ideas in THAT lesson — do not introduce concepts it does not cover. Then write exactly 3 conversational starter questions a reader might ask about it.
+
+Return ONLY this JSON:
+{
+  "flashcards": [{ "front": "...", "back": "..." }],
+  "chatSeed": ["...", "...", "..."]
+}
+
+"flashcards" and "chatSeed" must each contain exactly 3 items.`;
+
+  return { system, user };
+}
+
 /** On-demand: one later day's full lesson + flashcards + chatSeed. */
 export function buildDayMessages(
   title: string,

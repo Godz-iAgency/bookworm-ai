@@ -19,6 +19,7 @@ import {
   getPlanLimits,
   type BillingProfile,
 } from "@/lib/billing";
+import { useDayContent } from "@/lib/useDayContent";
 import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
@@ -43,7 +44,8 @@ import FlashcardTab from "./components/FlashcardTab";
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { courses, activeCourseId, setActiveCourseId, deleteCourse, coursesLoading } = useBookwormContext();
+  const { courses, setCourses, activeCourseId, setActiveCourseId, deleteCourse, coursesLoading } =
+    useBookwormContext();
   const [view, setView] = useState<View>("home");
   const [activeTab, setActiveTab] = useState<Tab>("course");
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
@@ -76,6 +78,35 @@ export default function DashboardPage() {
     if (!currentTime) return false;
     return new Date(expiresAt) < currentTime;
   };
+
+  // Chat + Flashcards follow the last lesson the reader opened
+  // (course.activeDayNumber, set in CourseTab). They stay pinned there until
+  // the reader opens a different day — including after the course is complete.
+  // Fall back to the first unlocked/not-completed day only for a brand-new
+  // course whose lesson hasn't been opened yet.
+  const currentDay = activeCourse
+    ? activeCourse.days.find((d) => d.dayNumber === activeCourse.activeDayNumber) ??
+      activeCourse.days.find((d) => d.isUnlocked && !d.isCompleted) ??
+      [...activeCourse.days].reverse().find((d) => d.isUnlocked) ??
+      activeCourse.days[0]
+    : undefined;
+
+  // Sole owner of on-demand day generation, so Flashcards and Chat work even
+  // if the reader never opens the Course tab. Must not live inside those tabs:
+  // all three mount at once (hidden with CSS), which would double-fire it.
+  //
+  // Scoped to the Chat/Flashcards tabs on purpose — CourseTab does its own
+  // fetching when a lesson is opened, so running here too would mean two
+  // generations racing for the same day.
+  const { status: dayContentStatus, retry: retryDayContent } = useDayContent(
+    activeCourse,
+    currentDay,
+    setCourses,
+    view === "reading" &&
+      (activeTab === "chat" || activeTab === "flashcards") &&
+      !!activeCourse &&
+      !isCourseExpired(activeCourse.expiresAt)
+  );
 
   // Once loading settles: a logged-out user goes to /login; a signed-in user
   // with an empty library goes to /search to create their first course.
@@ -211,16 +242,8 @@ export default function DashboardPage() {
       );
     }
 
-    // Chat + Flashcards follow the last lesson the reader opened
-    // (course.activeDayNumber, set in CourseTab). They stay pinned there until
-    // the reader opens a different day — including after the course is complete.
-    // Fall back to the first unlocked/not-completed day only for a brand-new
-    // course whose lesson hasn't been opened yet.
-    const currentDay =
-      activeCourse.days.find((d) => d.dayNumber === activeCourse.activeDayNumber) ??
-      activeCourse.days.find((d) => d.isUnlocked && !d.isCompleted) ??
-      [...activeCourse.days].reverse().find((d) => d.isUnlocked) ??
-      activeCourse.days[0];
+    // currentDay is hoisted to the component body so useDayContent can watch it.
+    if (!currentDay) return null;
 
     return (
       <div className="h-full w-full relative">
@@ -231,7 +254,12 @@ export default function DashboardPage() {
           <ChatTab course={activeCourse} day={currentDay} />
         </div>
         <div className={activeTab === "flashcards" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <FlashcardTab course={activeCourse} day={currentDay} />
+          <FlashcardTab
+            course={activeCourse}
+            day={currentDay}
+            contentStatus={dayContentStatus}
+            onRetryContent={retryDayContent}
+          />
         </div>
       </div>
     );

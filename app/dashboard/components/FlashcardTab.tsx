@@ -4,8 +4,20 @@ import { useState, useEffect } from "react";
 import { Course, Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 import { Layers } from "lucide-react";
+import type { DayContentStatus } from "@/lib/useDayContent";
 
-export default function FlashcardTab({ course, day }: { course: Course; day: Day }) {
+export default function FlashcardTab({
+  course,
+  day,
+  contentStatus = "ready",
+  onRetryContent,
+}: {
+  course: Course;
+  day: Day;
+  /** Generation state for this day, owned by the dashboard (useDayContent). */
+  contentStatus?: DayContentStatus;
+  onRetryContent?: () => void;
+}) {
   // Cards come straight from the day's AI-generated content (3 per day), tuned
   // to that lesson's takeaways — no separate generic API call.
   const cards = day.flashcards ?? [];
@@ -44,17 +56,38 @@ export default function FlashcardTab({ course, day }: { course: Course; day: Day
     setIsFlipped(false);
   };
 
-  // No content yet — this day's lesson hasn't been read/generated.
+  // No cards yet. The deck no longer depends on the reader having opened the
+  // lesson — the dashboard generates this day's content on demand — so this is
+  // either "being written right now" or "generation failed, try again".
   if (cards.length === 0) {
+    const failed = contentStatus === "error";
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500 h-full">
-        <div className="w-24 h-24 bg-gradient-to-br from-[#00D4FF]/15 to-[#FF006E]/15 rounded-2xl flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_30px_rgba(255,0,110,0.15)]">
+        <div
+          className={`w-24 h-24 bg-gradient-to-br from-[#00D4FF]/15 to-[#FF006E]/15 rounded-2xl flex items-center justify-center mb-8 border border-white/10 shadow-[0_0_30px_rgba(255,0,110,0.15)] ${
+            failed ? "" : "animate-pulse"
+          }`}
+        >
           <Layers className="w-11 h-11 text-[#00D4FF]" strokeWidth={1.75} />
         </div>
         <h2 className="text-3xl font-bold mb-4">Smart Flashcards</h2>
-        <p className="text-white/60 max-w-md leading-relaxed">
-          Read <strong>Day {day.dayNumber}</strong>&rsquo;s lesson in the Course tab first — its flashcards appear here automatically.
-        </p>
+        {failed ? (
+          <>
+            <p className="text-white/60 max-w-md leading-relaxed mb-6">
+              We couldn&rsquo;t build <strong>Day {day.dayNumber}</strong>&rsquo;s cards just now.
+            </p>
+            <Button
+              onClick={onRetryContent}
+              className="h-12 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-8 font-bold text-white transition-transform hover:scale-105"
+            >
+              Try Again
+            </Button>
+          </>
+        ) : (
+          <p className="text-white/60 max-w-md leading-relaxed">
+            Writing <strong>Day {day.dayNumber}</strong>&rsquo;s flashcards from the book&hellip; this takes a few seconds.
+          </p>
+        )}
       </div>
     );
   }
