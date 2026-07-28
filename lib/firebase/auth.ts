@@ -66,6 +66,33 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
 
+/**
+ * Turns a Firebase auth error into something the reader can act on. The
+ * generic "please try again" hid a real, fixable misconfiguration
+ * (unauthorized-domain) that left mobile Google sign-in looking like it
+ * simply did nothing.
+ */
+export function friendlyAuthError(err: unknown): string {
+  const code = (err as { code?: string })?.code ?? "";
+  switch (code) {
+    case "auth/unauthorized-domain":
+      return "This site's address isn't approved for Google sign-in yet. Add it in Firebase → Authentication → Settings → Authorized domains.";
+    case "auth/account-exists-with-different-credential":
+      return "You already have an account with this email. Sign in with your email and password instead.";
+    case "auth/popup-blocked":
+      return "Your browser blocked the Google sign-in window. Allow pop-ups for this site, or try again.";
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "The Google sign-in window closed before finishing. Please try again.";
+    case "auth/network-request-failed":
+      return "We couldn't reach Google. Check your connection and try again.";
+    case "auth/operation-not-allowed":
+      return "Google sign-in isn't enabled for this project yet.";
+    default:
+      return "Google sign-in failed. Please try again.";
+  }
+}
+
 export async function logout(): Promise<void> {
   await signOut(auth);
 }

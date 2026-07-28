@@ -1,9 +1,10 @@
 "use client"
-import { useState, type ChangeEvent, type FormEvent } from "react"
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import type React from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { signUpWithEmail, signInWithGoogle } from "@/lib/firebase/auth"
+import { signUpWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/firebase/auth"
+import { useAuth } from "@/context/AuthContext"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
 import { BackButton } from "@/components/back-button"
 
@@ -15,9 +16,21 @@ type FormData = {
 
 export default function SignUpPage() {
   const router = useRouter()
+  const { user, redirectChecked, redirectIsNew, redirectError } = useAuth()
   const [formData, setFormData] = useState<FormData>({ name: "", email: "", password: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Mobile Google sign-up returns here after a full page reload — see the
+  // matching effect in app/login/page.tsx.
+  useEffect(() => {
+    if (!redirectChecked || !user) return
+    router.push(redirectIsNew ? "/onboarding" : "/dashboard")
+  }, [redirectChecked, user, redirectIsNew, router])
+
+  useEffect(() => {
+    if (redirectError) setError(redirectError)
+  }, [redirectError])
 
   const goToSignIn = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -60,7 +73,7 @@ export default function SignUpPage() {
       if (user) router.push(isNew ? "/onboarding" : "/dashboard")
     } catch (err) {
       console.error("Google signup error:", err)
-      setError("Google sign-in failed. Please try again.")
+      setError(friendlyAuthError(err))
     }
   }
 
@@ -100,7 +113,15 @@ export default function SignUpPage() {
         <BackButton to="/" label="Back to home" />
       </div>
       <div className="flex w-full max-w-md flex-col items-center">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={110} height={110} className="mb-6" priority />
+        <Image
+          src="/bookworm-logo.png"
+          alt="Bookworm.AI"
+          width={400}
+          height={400}
+          // See app/login/page.tsx — 110px was unreadable on a phone.
+          className="mb-5 h-auto w-56 drop-shadow-2xl sm:w-64"
+          priority
+        />
 
         {error && (
           <div className="mb-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-6 py-3 text-center text-sm text-red-400">

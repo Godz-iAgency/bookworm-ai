@@ -160,27 +160,29 @@ export default function FlashcardTab({
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-4 mt-8 w-full max-w-lg justify-between">
+        {/* Controls — the arrows are shrink-0 and the middle pair flexes, so
+            the "next" arrow can't be pushed off a 370px-wide phone screen. */}
+        <div className="mt-8 flex w-full max-w-lg items-center gap-2 sm:gap-4">
           <Button
             variant="outline"
             onClick={handlePrev}
-            className="w-14 h-14 rounded-full border-white/20 bg-transparent hover:bg-white/10"
+            aria-label="Previous card"
+            className="h-12 w-12 shrink-0 rounded-full border-white/20 bg-transparent hover:bg-white/10 sm:h-14 sm:w-14"
           >
             ←
           </Button>
 
-          <div className="flex gap-3">
+          <div className="flex min-w-0 flex-1 gap-2 sm:gap-3">
             <Button
               onClick={handleNext}
-              className="h-14 px-6 bg-[#1a1a1a] border border-white/20 text-white hover:bg-white/10 font-bold rounded-xl"
+              className="h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-[#1a1a1a] px-2 text-sm font-bold text-white hover:bg-white/10 sm:h-14 sm:px-6 sm:text-base"
             >
               Review Again
             </Button>
             <Button
               onClick={markMastered}
               disabled={isActiveMastered}
-              className="h-14 px-6 bg-gradient-to-r from-[#00D4FF] to-[#0096ff] text-white font-bold rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+              className="h-12 min-w-0 flex-1 rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0096ff] px-2 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 sm:h-14 sm:px-6 sm:text-base"
             >
               {isActiveMastered ? "Mastered ✓" : "Got It ✓"}
             </Button>
@@ -189,7 +191,8 @@ export default function FlashcardTab({
           <Button
             variant="outline"
             onClick={handleNext}
-            className="w-14 h-14 rounded-full border-white/20 bg-transparent hover:bg-white/10"
+            aria-label="Next card"
+            className="h-12 w-12 shrink-0 rounded-full border-white/20 bg-transparent hover:bg-white/10 sm:h-14 sm:w-14"
           >
             →
           </Button>

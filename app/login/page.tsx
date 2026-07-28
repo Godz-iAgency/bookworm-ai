@@ -1,9 +1,10 @@
 "use client"
-import { useState, type ChangeEvent, type FormEvent } from "react"
+import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import type React from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { signInWithEmail, signInWithGoogle } from "@/lib/firebase/auth"
+import { signInWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/firebase/auth"
+import { useAuth } from "@/context/AuthContext"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
 import { BackButton } from "@/components/back-button"
 
@@ -14,9 +15,22 @@ type FormData = {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user, redirectChecked, redirectIsNew, redirectError } = useAuth()
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Mobile Google sign-in returns here after a full page reload, so the
+  // outcome arrives via AuthContext rather than from handleGoogle. Wait for
+  // redirectChecked so a brand-new account still lands on onboarding.
+  useEffect(() => {
+    if (!redirectChecked || !user) return
+    router.push(redirectIsNew ? "/onboarding" : "/dashboard")
+  }, [redirectChecked, user, redirectIsNew, router])
+
+  useEffect(() => {
+    if (redirectError) setError(redirectError)
+  }, [redirectError])
 
   const goToSignUp = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -51,7 +65,7 @@ export default function LoginPage() {
       if (user) router.push(isNew ? "/onboarding" : "/dashboard")
     } catch (err) {
       console.error("Google login error:", err)
-      setError("Google sign-in failed. Please try again.")
+      setError(friendlyAuthError(err))
     }
   }
 
@@ -84,7 +98,17 @@ export default function LoginPage() {
         <BackButton to="/" label="Back to home" />
       </div>
       <div className="flex w-full max-w-md flex-col items-center">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={110} height={110} className="mb-6" priority />
+        <Image
+          src="/bookworm-logo.png"
+          alt="Bookworm.AI"
+          width={400}
+          height={400}
+          // Rendered at 110px the wordmark was unreadable on a phone. Sized in
+          // CSS (not the intrinsic width) so it stays sharp and still leaves
+          // room for the form on a short screen.
+          className="mb-5 h-auto w-56 drop-shadow-2xl sm:w-64"
+          priority
+        />
 
         {error && (
           <div className="mb-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-6 py-3 text-center text-sm text-red-400">

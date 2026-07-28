@@ -12,12 +12,15 @@ import { useEffect, useState } from "react"
 export default function LandingPage() {
   const router = useRouter()
   // Responsive entropy sizing
-  const [entropySize, setEntropySize] = useState(800)
+  const [entropySize, setEntropySize] = useState(560)
   const [showTop, setShowTop] = useState(false)
   
   useEffect(() => {
     const updateSize = () => {
-      setEntropySize(Math.max(window.innerWidth, window.innerHeight) * 1.5)
+      // Sized to form a halo around the logo it sits behind. It used to be
+      // 1.5x the largest viewport edge — far bigger than the logo — because it
+      // was then a full-page backdrop rather than anchored to the mark.
+      setEntropySize(Math.min(Math.max(window.innerWidth * 1.4, 420), 760))
     }
     window.addEventListener('resize', updateSize)
     updateSize()
@@ -63,20 +66,31 @@ export default function LandingPage() {
         </Link>
       </header>
 
-      {/* Animated Entropy Background Element */}
-      <div className="absolute inset-0 z-0 flex items-center justify-center opacity-40">
-        <Entropy size={entropySize} className="pointer-events-none" />
-      </div>
-
       {/* Content overlay */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 py-12">
-        <div className="mb-8 flex flex-col items-center">
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI Logo" width={400} height={400} className="mb-6 drop-shadow-2xl light-glow" priority />
+      <div className="relative z-10 flex min-h-screen flex-col items-center px-6 pb-10 pt-20">
+        {/* The entropy field is anchored to the logo rather than to the page.
+            It used to be `absolute inset-0` on a container as tall as the
+            whole scrollable page, which centred it far below the fold. */}
+        <div className="relative mb-5 flex flex-col items-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-40"
+          >
+            <Entropy size={entropySize} />
+          </div>
+          <Image
+            src="/bookworm-logo.png"
+            alt="Bookworm.AI Logo"
+            width={400}
+            height={400}
+            className="relative z-10 h-auto w-64 drop-shadow-2xl light-glow sm:w-80 md:w-96"
+            priority
+          />
         </div>
 
         {/* Hero text */}
-        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 p-8 rounded-3xl border border-white/10 shadow-2xl word-float">
-          <p className="mb-12 text-lg leading-relaxed text-white/90">
+        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl word-float">
+          <p className="mb-6 text-base sm:text-lg leading-relaxed text-white/90">
             Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.
             Turn any book into a 7-day learning journey.
           </p>
@@ -93,7 +107,7 @@ export default function LandingPage() {
             </Button>
           </div>
           
-          <div className="mt-8 text-center text-xs space-y-2 font-mono text-white/50 w-full flex flex-col items-center">
+          <div className="mt-5 text-center text-xs space-y-2 font-mono text-white/50 w-full flex flex-col items-center">
             <p className="italic tracking-wide">
               &ldquo;Order and chaos dance &mdash;
               <span className="opacity-70"> digital poetry in motion.&rdquo;</span>
