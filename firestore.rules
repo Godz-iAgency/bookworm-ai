@@ -1,0 +1,98 @@
+rules_version = '2';
+
+// Bookworm.AI Firestore security rules.
+//
+// Principle: a signed-in reader owns their profile and their courses, and
+// nothing else. Billing state is written exclusively by our API routes via
+// the Firebase Admin SDK (lib/firebase/admin.ts), which bypasses these rules
+// entirely — so anything a client could forge for money or access is denied
+// here rather than merely hidden in the UI.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Fields that decide what a reader has paid for. Only the Admin SDK may
+    // ever set these; a client that tries is rejected outright.
+    function serverOnlyFields() {
+      return [
+        'plan',
+        'trialStatus',
+        'trialStartedAt',
+        'trialEndsAt',
+        'stripeCustomerId',
+        'stripeSubscriptionId',
+        'stripePaymentMethodId',
+        'monthResetAt',
+        'showTrialEndWarning',
+        'reminderEmailSentAt',
+        'familyId',
+        'isFamilyOwner'
+      ];
+    }
+
+    function touchesServerOnlyFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(serverOnlyFields());
+    }
+
+    // The generation counter is incremented client-side after a course is
+    // built, so it can't be locked down completely — but it may only ever go
+    // up. Without this a reader could zero it out and mint unlimited books.
+    function generationCountNotRewound() {
+      return !('generationsThisMonth' in request.resource.data)
+        || !('generationsThisMonth' in resource.data)
+        || request.resource.data.generationsThisMonth >= resource.data.generationsThisMonth;
+    }
+
+    // A brand-new profile must start unpaid. Stops someone creating their own
+    // document pre-set to a paid plan or an active trial.
+    function createsAsUnpaid() {
+      return request.resource.data.plan == 'free'
+        && request.resource.data.trialStatus == null
+        && request.resource.data.familyId == null
+        && request.resource.data.isFamilyOwner == false
+        && request.resource.data.stripeCustomerId == null
+        && request.resource.data.stripeSubscriptionId == null;
+    }
+
+    match /users/{uid} {
+      allow get, list: if isOwner(uid);
+      allow create: if isOwner(uid) && createsAsUnpaid();
+      allow update: if isOwner(uid)
+        && !touchesServerOnlyFields()
+        && generationCountNotRewound();
+      // Account deletion goes through support/Admin, never straight from the client.
+      allow delete: if false;
+
+      // A reader's courses are theirs alone to read, write and delete.
+      match /courses/{courseId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Book Club membership. Readable by members so the UI can show the roster;
+    // all writes (creation, adding members, cancellation) are Admin SDK only.
+    match /families/{familyId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      allow write: if false;
+    }
+
+    // Invite codes are validated and redeemed server-side (/api/family/join).
+    // Never readable by clients — otherwise codes could be enumerated.
+    match /invites/{code} {
+      allow read, write: if false;
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

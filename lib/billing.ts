@@ -59,10 +59,25 @@ export function hasActiveAccess(profile: Pick<BillingProfile, "trialStatus" | "p
   return profile.trialStatus === "active" || (!!profile.plan && profile.plan !== "free") || !!profile.familyId;
 }
 
+/**
+ * A tier's shelf + quota limits. "free" maps to the entry tier rather than
+ * zero: the shelf cap is a plan *feature* limit, not the paywall. Payment is
+ * enforced at generation time by the soft gate (hasActiveAccess / canGenerate)
+ * — returning 0 here would instead brick the "+" button for every user who
+ * hasn't subscribed yet, including before billing is even switched on.
+ */
 export function getPlanLimits(planId: Plan["id"] | "free"): { maxOpenBooks: number; monthlyGenerations: number } {
-  if (planId === "free") return { maxOpenBooks: 0, monthlyGenerations: 0 };
-  const plan = planFromId(planId);
+  const plan = planFromId(planId === "free" ? "page_turner" : planId);
   return { maxOpenBooks: plan.maxOpenBooks, monthlyGenerations: plan.monthlyGenerations };
+}
+
+/**
+ * Whether Stripe is actually wired up. Until keys exist, the soft gate can't
+ * collect a card, so the app must keep working exactly as it did pre-billing
+ * rather than dead-ending users at a form that can't submit.
+ */
+export function isBillingEnabled(): boolean {
+  return !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 }
 
 /**

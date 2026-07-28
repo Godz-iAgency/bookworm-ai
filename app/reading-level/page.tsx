@@ -11,7 +11,14 @@ import { READING_LEVELS } from "@/lib/reading-levels";
 import { db } from "@/lib/firebase/config";
 import { doc, updateDoc, increment } from "firebase/firestore";
 import { generateCourseDays, buildCourse } from "@/lib/generate-course";
-import { getBillingProfile, hasActiveAccess, canGenerate, getEffectivePlanId, getPlanLimits } from "@/lib/billing";
+import {
+  getBillingProfile,
+  hasActiveAccess,
+  canGenerate,
+  getEffectivePlanId,
+  getPlanLimits,
+  isBillingEnabled,
+} from "@/lib/billing";
 
 const GENERATION_STEPS = [
   "Reading the book's core ideas...",
@@ -52,28 +59,34 @@ export default function ReadingLevelPage() {
     );
     setCurrentReadingLevel(selected);
 
-    // Brand-new users (no trial started, no plan yet) go through the soft
-    // gate — it re-runs generation itself and collects the card before
-    // saving the course. Only existing subscribers generate directly here.
-    const profile = await getBillingProfile(user.uid);
-    if (!profile || !hasActiveAccess(profile)) {
-      router.push("/preview");
-      return;
-    }
+    // Billing checks only apply once Stripe is actually configured. Before
+    // that the soft gate can't collect a card, so gating here would dead-end
+    // every user — instead the app behaves exactly as it did pre-billing.
+    const profile = isBillingEnabled() ? await getBillingProfile(user.uid) : null;
 
-    const gen = canGenerate(profile);
-    if (!gen.allowed) {
-      setError(
-        gen.reason === "monthly_cap"
-          ? "You've used all your book generations for this month."
-          : "You've reached your plan's limit."
-      );
-      return;
-    }
-    const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
-    if (courses.length >= maxOpenBooks) {
-      setError("Your library is full for your plan — delete a book to add a new one.");
-      return;
+    if (isBillingEnabled()) {
+      // Brand-new users (no trial started, no plan yet) go through the soft
+      // gate — it re-runs generation itself and collects the card before
+      // saving the course. Only existing subscribers generate directly here.
+      if (!profile || !hasActiveAccess(profile)) {
+        router.push("/preview");
+        return;
+      }
+
+      const gen = canGenerate(profile);
+      if (!gen.allowed) {
+        setError(
+          gen.reason === "monthly_cap"
+            ? "You've used all your book generations for this month."
+            : "You've reached your plan's limit."
+        );
+        return;
+      }
+      const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
+      if (courses.length >= maxOpenBooks) {
+        setError("Your library is full for your plan — delete a book to add a new one.");
+        return;
+      }
     }
 
     setIsGenerating(true);
