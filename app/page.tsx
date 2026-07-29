@@ -44,8 +44,11 @@ export default function LandingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
+  // dvh, not vh, throughout the hero: on a phone `100vh` measures the viewport
+  // as if the URL bar and nav bar weren't there, so the hero was sized ~150px
+  // taller than the screen actually shows, pushing the CTA under the fold.
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-black">
+    <div className="relative min-h-dvh w-full overflow-hidden bg-black">
 
       {/* Top navigation */}
       <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-5">
@@ -67,7 +70,7 @@ export default function LandingPage() {
       </header>
 
       {/* Content overlay */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center px-6 pb-10 pt-20">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center px-6 pb-10 pt-16 sm:pt-20">
         {/* The entropy field is anchored to the logo rather than to the page.
             It used to be `absolute inset-0` on a container as tall as the
             whole scrollable page, which centred it far below the fold. */}
@@ -83,7 +86,10 @@ export default function LandingPage() {
             alt="Bookworm.AI Logo"
             width={400}
             height={400}
-            className="relative z-10 h-auto w-64 drop-shadow-2xl light-glow sm:w-80 md:w-96"
+            // max-h in dvh keeps the mark proportional to the screen the
+            // reader actually has, so a short phone can't let it push
+            // "Start Learning" below the fold. Lifted on larger screens.
+            className="relative z-10 h-auto w-56 max-h-[26dvh] object-contain drop-shadow-2xl light-glow sm:max-h-none sm:w-80 md:w-96"
             priority
           />
         </div>

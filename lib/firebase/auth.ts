@@ -21,26 +21,49 @@ import { auth, db } from "./config";
  * Every successful sign-in/up ensures the Firestore user document exists.
  */
 
-function isMobileOrKindle(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Silk|Kindle/i.test(
-    navigator.userAgent,
-  );
-}
-
+/**
+ * Google sign-in, popup first — including on phones and tablets.
+ *
+ * This used to force signInWithRedirect on every mobile user agent, which
+ * silently failed there: the app is served from vercel.app while Firebase's
+ * auth handler lives on <project>.firebaseapp.com, and the redirect flow has
+ * to carry state between those two origins. Mobile browsers now partition
+ * that cross-site storage, so the round trip came back with no user and no
+ * error — tapping the button just returned you to the same screen.
+ *
+ * Popups don't need cross-origin storage and are allowed on modern mobile
+ * browsers when opened from a real tap. Redirect stays as the fallback for
+ * the environments that genuinely can't open one (in-app webviews, older
+ * Kindle browsers), where getRedirectResult in AuthContext completes it.
+ */
 export async function signInWithGoogle(): Promise<{ user: User | null; isNew: boolean }> {
   const provider = new GoogleAuthProvider();
-  if (isMobileOrKindle()) {
-    // Redirect flow resolves after the page reloads; the AuthProvider's
-    // onAuthStateChanged listener finishes ensuring the user document.
-    await signInWithRedirect(auth, provider);
-    return { user: null, isNew: false };
+
+  try {
+    const cred = await signInWithPopup(auth, provider);
+    // isNew tells the caller whether this was a first-time account, so brand-new
+    // Google users can be routed through onboarding just like email signups.
+    const isNew = await ensureUserDocument(cred.user);
+    return { user: cred.user, isNew };
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? "";
+
+    // The reader deliberately dismissed it — surface that rather than
+    // bouncing them out of the app into a redirect they didn't ask for.
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      throw err;
+    }
+
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/operation-not-supported-in-this-environment"
+    ) {
+      await signInWithRedirect(auth, provider);
+      return { user: null, isNew: false };
+    }
+
+    throw err;
   }
-  const cred = await signInWithPopup(auth, provider);
-  // isNew tells the caller whether this was a first-time account, so brand-new
-  // Google users can be routed through onboarding just like email signups.
-  const isNew = await ensureUserDocument(cred.user);
-  return { user: cred.user, isNew };
 }
 
 export async function signUpWithEmail(
