@@ -53,7 +53,7 @@ export default function GenerateCoursePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFDD0] flex items-center justify-center">
+    <div className="min-h-dvh bg-[#FFFDD0] flex items-center justify-center">
       <div className="max-w-2xl w-full px-8">
         <div className="text-center mb-8">
           <Image

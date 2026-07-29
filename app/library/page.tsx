@@ -61,7 +61,7 @@ export default function LibraryPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-y-auto">
+    <div className="relative min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-y-auto">
       {/* Background overlay for dot grid */}
       <div className="fixed inset-0 bg-black/40 z-0 pointer-events-none" />
       

@@ -127,7 +127,7 @@ export default function ReadingLevelPage() {
   // Full-screen generation animation.
   if (isGenerating) {
     return (
-      <div className="fixed inset-0 z-50 flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
+      <div className="fixed inset-0 z-50 flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
         <style>{`@keyframes slide-gradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`}</style>
         <div className="flex w-full max-w-md flex-col items-center text-center">
           <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={220} height={56} priority className="mb-14 drop-shadow-2xl" />
@@ -151,7 +151,7 @@ export default function ReadingLevelPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
+    <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       {/* Header — back arrow returns to the book step */}

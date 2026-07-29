@@ -54,14 +54,14 @@ export default function JoinPage() {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#0a0a0a] text-white">
+      <div className="flex min-h-dvh w-full items-center justify-center bg-[#0a0a0a] text-white">
         <Loader2 className="h-8 w-8 animate-spin text-[#00D4FF]" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
       <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={160} height={42} priority className="mb-8 opacity-90" />
 
       <Users className="mb-4 h-10 w-10 text-[#00D4FF]" strokeWidth={1.75} />

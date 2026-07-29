@@ -56,7 +56,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-hidden flex flex-col items-center">
+    <div className="relative min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-hidden flex flex-col items-center">
       {/* Background overlay for dot grid */}
       <div className="absolute inset-0 bg-black/40 z-0" />
       

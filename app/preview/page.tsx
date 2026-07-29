@@ -77,7 +77,7 @@ export default function PreviewPage() {
 
   if (genError) {
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center text-white">
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center text-white">
         <p className="mb-4 max-w-sm text-white/70">{genError}</p>
         <Button onClick={() => router.push("/reading-level")} className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-8">
           Try Again
@@ -88,7 +88,7 @@ export default function PreviewPage() {
 
   if (!days) {
     return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center text-white">
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-center text-white">
         <Loader2 className="mb-4 h-8 w-8 animate-spin text-[#00D4FF]" />
         <p className="animate-pulse text-white/70">Reading the book's core ideas...</p>
       </div>
@@ -96,7 +96,7 @@ export default function PreviewPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
+    <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-5">

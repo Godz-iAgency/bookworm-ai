@@ -69,7 +69,7 @@ export default function SignUpPage() {
       const { user, isNew } = await signInWithGoogle()
       // New Google accounts go through onboarding just like email signups;
       // an existing user who lands here goes straight to their dashboard.
-      // Mobile/Kindle redirects and resumes after reload.
+      // The redirect fallback resumes through AuthContext after the reload.
       if (user) router.push(isNew ? "/onboarding" : "/dashboard")
     } catch (err) {
       console.error("Google signup error:", err)
@@ -108,7 +108,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <section className="relative flex min-h-screen items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+    <section className="relative flex min-h-dvh items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
       <div className="absolute left-4 top-4 z-10">
         <BackButton to="/" label="Back to home" />
       </div>

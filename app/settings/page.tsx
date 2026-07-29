@@ -35,7 +35,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFDD0] p-8">
+    <div className="min-h-dvh bg-[#FFFDD0] p-8">
       {/* Header */}
       <div className="max-w-4xl mx-auto mb-8">
         <Link href="/dashboard" className="inline-flex items-center gap-2 mb-6 text-[#008080] hover:underline">

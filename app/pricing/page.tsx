@@ -82,14 +82,14 @@ export default function PricingPage() {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#0a0a0a] text-white">
+      <div className="flex min-h-dvh w-full items-center justify-center bg-[#0a0a0a] text-white">
         <Loader2 className="h-8 w-8 animate-spin text-[#00D4FF]" />
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
+    <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       <div className="z-10 mb-4 flex w-full max-w-3xl items-center gap-2 px-5">

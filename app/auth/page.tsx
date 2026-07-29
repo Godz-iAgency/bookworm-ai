@@ -11,10 +11,10 @@ export default function AuthPage() {
     if (user) router.push("/dashboard");
   }, [user, router]);
 
-  if (loading) return <div className="min-h-screen bg-[#080808]" />;
+  if (loading) return <div className="min-h-dvh bg-[#080808]" />;
 
   return (
-    <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center px-6 selection:bg-[#ff2d78]/30">
+    <div className="min-h-dvh bg-[#080808] flex flex-col items-center justify-center px-6 selection:bg-[#ff2d78]/30">
       <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-4 duration-1000">
         
         <div className="text-center mb-12">

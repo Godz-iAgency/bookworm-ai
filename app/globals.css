@@ -241,13 +241,35 @@ html {
 html,
 body {
   width: 100%;
-  min-height: 100vh;
+  /* dvh so the page ends where the phone's visible area ends, rather than
+     underneath the browser's URL/nav bars. */
+  min-height: 100dvh;
+  /* Nothing should ever scroll sideways; a stray wide child used to surface
+     a horizontal scrollbar as a pale strip along the bottom edge. */
+  overflow-x: hidden;
+  background-color: #0a0a0a;
 }
 
 body {
   color: var(--foreground);
-  background: var(--background);
+  /* Deliberately NOT var(--background): this rule is unlayered, so it beats
+     the body's bg utility class, and --background resolves to :root's white
+     because no `dark` class is set on <html>. That white showed through as a
+     band below the content on mobile. */
+  background: #0a0a0a;
   letter-spacing: -0.025em;
+}
+
+/* Mobile: keep scrolling, drop the scrollbar chrome. Android renders it as a
+   persistent pale track that reads as a seam against this dark UI. */
+@media (max-width: 767px) {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 
 ::selection {

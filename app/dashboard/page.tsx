@@ -193,7 +193,7 @@ export default function DashboardPage() {
   // Wait for auth + Firestore load (and the client clock) before deciding anything.
   if (coursesLoading || !currentTime) {
     return (
-      <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex items-center justify-center">
+      <div className="min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-t-2 border-[#00D4FF] animate-spin" />
       </div>
     );
@@ -319,10 +319,10 @@ export default function DashboardPage() {
         ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col font-sans">
+    <div className="min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white flex flex-col font-sans">
       <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col h-screen w-full">
+      <div className="relative z-10 flex flex-col h-dvh w-full">
         {/* TOP BAR */}
         {view === "reading" && activeCourse ? (
           <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">

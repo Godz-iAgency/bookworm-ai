@@ -55,7 +55,7 @@ export default function OnboardingPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center bg-[#0a0a0a] py-6 text-white">
+    <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-6 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       <div className="z-10 mb-6 flex w-full max-w-2xl items-center justify-between px-5">
