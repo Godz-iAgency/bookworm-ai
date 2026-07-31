@@ -15,6 +15,10 @@ export interface UserProfile {
   genrePreferences: string[];
   lastBookRead: string | null;
   plan: string | null;
+  /** Lesson text size — see lib/reading-prefs.ts. */
+  readingFontSize: string | null;
+  /** "scroll" or "page" — how lessons are paged through. */
+  readingMode: string | null;
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
@@ -29,6 +33,8 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     genrePreferences: d.genrePreferences ?? [],
     lastBookRead: d.lastBookRead ?? null,
     plan: d.plan ?? null,
+    readingFontSize: d.readingFontSize ?? null,
+    readingMode: d.readingMode ?? null,
   };
 }
 

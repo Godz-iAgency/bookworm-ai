@@ -7,6 +7,14 @@
  * day's full lesson on demand when the reader opens it.
  */
 
+/**
+ * Punctuation rule applied to every generated surface (lessons, flashcards,
+ * chat). Models reach for em dashes constantly, so this is also enforced after
+ * the fact by stripEmDashes() in lib/lesson.ts — the instruction reduces how
+ * often the sanitizer has to do anything, it doesn't replace it.
+ */
+export const STYLE_RULES = `PUNCTUATION RULE: Never use an em dash (—) or an en dash (–) anywhere in your output. Where you would reach for one, use a comma, a period, a colon, or parentheses instead. Use a plain hyphen only inside hyphenated words and number ranges.`;
+
 /** Voice persona per reading level — applied to ALL generated text. */
 export const PERSONAS: Record<string, string> = {
   explorer: `EXPLORER VOICE: Write at a 3rd-to-5th grade reading level (Flesch-Kincaid grade 3–5). Use short sentences. Use simple, common words. Explain every idea with an everyday analogy a 10-year-old would understand (piggy banks, playgrounds, recipes, video games, sports). No jargon. Be warm, fun, and encouraging.`,
@@ -32,6 +40,8 @@ export function buildOutlineMessages(title: string, author: string, readingLevel
   const system = `You are the course architect for Bookworm.AI. You turn books into structured 7-day learning courses. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${getPersona(readingLevel)}
+
+${STYLE_RULES}
 
 ${LESSON_RULES}
 
@@ -86,6 +96,8 @@ export function buildFlashcardsMessages(
 
 ${getPersona(readingLevel)}
 
+${STYLE_RULES}
+
 ${FLASHCARD_RULES}`;
 
   const user = `Book: "${title}" by ${author || "Unknown Author"}
@@ -121,6 +133,8 @@ export function buildDayMessages(
   const system = `You are the course architect for Bookworm.AI. You write one day's lesson for a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${getPersona(readingLevel)}
+
+${STYLE_RULES}
 
 ${LESSON_RULES}
 

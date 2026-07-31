@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildFlashcardsMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
+import { stripEmDashes } from "@/lib/lesson";
 
 // Much smaller than a full lesson generation — 3 cards + 3 starters only.
 export const maxDuration = 60;
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
       ? parsed.flashcards
           .filter((c: any) => c && typeof c.front === "string" && typeof c.back === "string")
           .slice(0, 3)
+          .map((c: any) => ({ front: stripEmDashes(c.front), back: stripEmDashes(c.back) }))
       : [];
 
     if (flashcards.length === 0) {

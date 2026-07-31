@@ -97,7 +97,7 @@ export default function FlashcardTab({
   const isActiveMastered = mastered.has(currentIndex);
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in pb-24 md:pb-8">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in pb-8">
 
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 bg-[#1a1a1a] p-4 rounded-xl border border-white/10 shadow-lg">

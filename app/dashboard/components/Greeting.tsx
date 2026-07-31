@@ -22,18 +22,21 @@ export default function Greeting() {
   const Icon = BUCKET_ICON[greeting.bucket];
 
   return (
-    <div className="text-center leading-none">
+    <div className="min-w-0 text-center leading-none">
       {/* Handwritten display font (Caveat) makes the greeting feel personal and
-          warm, not like a cold UI header. Paired with the crisp gradient phrase. */}
+          warm, not like a cold UI header. Paired with the crisp gradient phrase.
+          Sized to stay on ONE line in the header's narrow centre column — at its
+          old 34px a name like "Christopher" wrapped and pushed the shelf itself
+          most of the way off a phone screen. */}
       <p
-        className="text-[34px] md:text-[38px] font-semibold text-white"
+        className="truncate text-[25px] md:text-[30px] font-semibold leading-tight text-white"
         style={{ fontFamily: "var(--font-caveat)" }}
       >
         Hi {name}
       </p>
-      <div className="mt-0.5 flex items-center justify-center gap-1.5">
-        <Icon className="h-4 w-4 text-[#00D4FF]" strokeWidth={2} />
-        <span className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-sm font-bold text-transparent">
+      <div className="mt-0.5 flex items-center justify-center gap-1">
+        <Icon className="h-3 w-3 shrink-0 text-[#00D4FF]" strokeWidth={2} />
+        <span className="truncate bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-[11px] font-bold text-transparent">
           {greeting.phrase}
         </span>
       </div>

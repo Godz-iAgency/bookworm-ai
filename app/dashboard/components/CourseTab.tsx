@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { CalendarClock } from "lucide-react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
+import LessonReader from "./LessonReader";
 
 export default function CourseTab({
   course,
@@ -34,11 +35,6 @@ export default function CourseTab({
   // Days 2–7 have their full lesson generated on demand (the outline call only
   // produces Day 1). Open a day — fetching its lesson first if we don't have it.
   const openLesson = async (dayNumber: number) => {
-    if (openDay === dayNumber) {
-      setOpenDay(null);
-      return;
-    }
-
     const day = course.days.find((d) => d.dayNumber === dayNumber);
     if (day?.lesson) {
       setActiveDay(dayNumber);
@@ -134,8 +130,27 @@ export default function CourseTab({
     dayRefs.current[dayLevel + 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // An open lesson takes over the whole tab rather than expanding inside its
+  // card. A 1000-word lesson boxed inside a centred card wasted most of the
+  // screen on tablets and forced a cramped measure on phones; the reader owns
+  // the full area and handles its own scrolling or paging.
+  const readingDay = openDay !== null ? course.days.find((d) => d.dayNumber === openDay) : undefined;
+  if (readingDay?.lesson) {
+    return (
+      <LessonReader
+        dayNumber={readingDay.dayNumber}
+        dayTitle={readingDay.title}
+        lesson={readingDay.lesson}
+        intro={readingDay.dayNumber === 1 ? <Day1DeletionNote expiresAt={course.expiresAt} /> : undefined}
+        canComplete={readingDay.isUnlocked && !readingDay.isCompleted}
+        onComplete={() => handleMarkComplete(readingDay.dayNumber)}
+        onClose={() => setOpenDay(null)}
+      />
+    );
+  }
+
   return (
-    <div ref={topRef} className="w-full max-w-3xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8">
+    <div ref={topRef} className="w-full max-w-3xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8">
 
       {/* Course Header */}
       <div className="mb-10 text-center animate-in slide-in-from-top-4">
@@ -155,8 +170,6 @@ export default function CourseTab({
         {course.days.map((day) => {
           const isLocked = !day.isUnlocked;
           const isCurrent = day.isUnlocked && !day.isCompleted;
-
-          const isOpen = openDay === day.dayNumber;
 
           // Active day gets a true gradient border (padding-box keeps the
           // interior dark; border-box paints the gradient only on the edge).
@@ -236,8 +249,6 @@ export default function CourseTab({
                     >
                       {loadingDay === day.dayNumber
                         ? "Opening…"
-                        : isOpen
-                        ? "Close"
                         : day.isCompleted
                         ? "Review"
                         : "Read Lesson"}
@@ -265,26 +276,6 @@ export default function CourseTab({
                 </p>
               )}
 
-              {/* Expanded lesson reader */}
-              {isOpen && !isLocked && (
-                <div className="relative z-10 mt-6 border-t border-white/10 pt-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                  {day.dayNumber === 1 && <Day1DeletionNote expiresAt={course.expiresAt} />}
-                  {day.lesson ? (
-                    <LessonBody lesson={day.lesson} />
-                  ) : (
-                    <p className="text-white/50 italic">No lesson content available for this day.</p>
-                  )}
-
-                  {isCurrent && (
-                    <Button
-                      onClick={() => handleMarkComplete(day.dayNumber)}
-                      className="mt-6 w-full bg-white text-black hover:bg-gray-200 font-bold transition-all hover:scale-105 md:w-auto md:px-10"
-                    >
-                      ✓ Mark Day {day.dayNumber} Complete
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
           );
         })}
@@ -413,71 +404,3 @@ function DayLoader({ dayNumber }: { dayNumber: number }) {
   );
 }
 
-type LessonBlock = { type: "heading" | "para" | "item"; text: string };
-
-/**
- * Parse a lesson into blocks. New lessons use "## " section headings and
- * "1./2./3." takeaway lines; older plain-text lessons (generated before this)
- * simply have no headings and still render as clean, spaced paragraphs.
- */
-function parseLesson(lesson: string): LessonBlock[] {
-  const blocks: LessonBlock[] = [];
-  let para: string[] = [];
-  const flush = () => {
-    if (para.length) {
-      blocks.push({ type: "para", text: para.join(" ") });
-      para = [];
-    }
-  };
-
-  for (const raw of lesson.split(/\r?\n/)) {
-    const line = raw.trim().replace(/\*\*/g, ""); // strip stray markdown bold
-    if (!line) {
-      flush();
-      continue;
-    }
-    if (line.startsWith("##")) {
-      flush();
-      blocks.push({ type: "heading", text: line.replace(/^#+\s*/, "").trim() });
-      continue;
-    }
-    if (/^\d+[.)]\s/.test(line)) {
-      flush();
-      blocks.push({ type: "item", text: line });
-      continue;
-    }
-    para.push(line);
-  }
-  flush();
-  return blocks;
-}
-
-/** Renders a lesson with bold section headings and spaced paragraphs. */
-function LessonBody({ lesson }: { lesson: string }) {
-  const blocks = parseLesson(lesson);
-  return (
-    <article>
-      {blocks.map((b, i) => {
-        if (b.type === "heading") {
-          return (
-            <h4 key={i} className="mt-6 first:mt-0 mb-2 text-[17px] font-bold text-white">
-              {b.text}
-            </h4>
-          );
-        }
-        if (b.type === "item") {
-          return (
-            <p key={i} className="mb-1.5 text-[15px] leading-7 text-white/85">
-              {b.text}
-            </p>
-          );
-        }
-        return (
-          <p key={i} className="mb-4 text-[15px] leading-7 text-white/85">
-            {b.text}
-          </p>
-        );
-      })}
-    </article>
-  );
-}

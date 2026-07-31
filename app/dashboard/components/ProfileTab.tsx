@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown } from "lucide-react";
+import { Camera, LogOut, ChevronDown, ScrollText, BookOpen } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
@@ -18,6 +18,8 @@ import {
   type BillingProfile,
 } from "@/lib/billing";
 import { useBookwormContext } from "@/lib/BookwormContext";
+import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
+import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 
 // Max size we accept from the file picker before resizing. The output stored
 // in Firestore is tiny (~10–40KB), but we bound the input to avoid decoding a
@@ -47,6 +49,7 @@ export default function ProfileTab() {
   const [plan, setPlan] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingProfile | null>(null);
   const { courses } = useBookwormContext();
+  const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
 
   // Load the user's profile doc (avatar + reading level).
   useEffect(() => {
@@ -185,19 +188,21 @@ export default function ProfileTab() {
   } as const;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8 flex flex-col min-h-full">
-      {/* Identity */}
-      <div className="mb-8 flex flex-col items-center text-center">
-        <div className="relative mb-4">
-          <div className="h-24 w-24 overflow-hidden rounded-full border border-white/10 bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20 flex items-center justify-center text-3xl font-black shadow-[0_0_25px_rgba(0,212,255,0.2)]">
+    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
+      {/* Identity — laid out as a row rather than a stack. Centred, the avatar
+          and email alone ate a third of a phone screen before any setting the
+          reader actually came here to change was visible. */}
+      <div className="mb-5 flex items-center gap-4">
+        <div className="relative shrink-0">
+          <div className="h-16 w-16 overflow-hidden rounded-full border border-white/10 bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20 flex items-center justify-center text-2xl font-black shadow-[0_0_25px_rgba(0,212,255,0.2)]">
             {photoURL ? (
-              <Image src={photoURL} alt="Your avatar" width={96} height={96} className="h-full w-full object-cover" unoptimized />
+              <Image src={photoURL} alt="Your avatar" width={64} height={64} className="h-full w-full object-cover" unoptimized />
             ) : (
               <span>{initial}</span>
             )}
             {uploading && (
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
-                <div className="h-6 w-6 rounded-full border-t-2 border-[#00D4FF] animate-spin" />
+                <div className="h-5 w-5 rounded-full border-t-2 border-[#00D4FF] animate-spin" />
               </div>
             )}
           </div>
@@ -206,9 +211,9 @@ export default function ProfileTab() {
             onClick={handlePickFile}
             disabled={uploading}
             aria-label="Change profile photo"
-            className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#0a0a0a] bg-gradient-to-br from-[#00D4FF] to-[#FF006E] text-white transition-transform hover:scale-110 disabled:opacity-60"
+            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#0a0a0a] bg-gradient-to-br from-[#00D4FF] to-[#FF006E] text-white transition-transform hover:scale-110 disabled:opacity-60"
           >
-            <Camera className="h-4 w-4" strokeWidth={2.25} />
+            <Camera className="h-3.5 w-3.5" strokeWidth={2.25} />
           </button>
           <input
             ref={fileInputRef}
@@ -218,7 +223,7 @@ export default function ProfileTab() {
             onChange={handleFileSelected}
           />
         </div>
-        <h2 className="text-xl font-bold break-all">{user?.email}</h2>
+        <h2 className="min-w-0 flex-1 break-all text-base font-bold leading-tight">{user?.email}</h2>
       </div>
 
       {error && (
@@ -270,6 +275,75 @@ export default function ProfileTab() {
           </div>
         )}
         {loading && <p className="mt-2 text-xs text-white/30">Loading your settings…</p>}
+      </div>
+
+      {/* How lessons are displayed — text size and scroll vs. page turns. */}
+      <div className="mb-6">
+        <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Reading Display</h3>
+        <div className="rounded-2xl p-3.5" style={gradientBorder}>
+          <p className="mb-2 text-xs font-bold text-white/70">Text size</p>
+          <div className="flex gap-2">
+            {FONT_SIZE_ORDER.map((id) => (
+              <button
+                key={id}
+                onClick={() => setFontSize(id)}
+                aria-pressed={fontSize === id}
+                className={`flex flex-1 flex-col items-center justify-end gap-1 rounded-xl border py-2.5 transition-all ${
+                  fontSize === id
+                    ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
+                    : "border-white/10 text-white/50 hover:border-white/25"
+                }`}
+              >
+                <span className="font-reading font-bold leading-none" style={{ fontSize: FONT_SCALE[id].body }}>
+                  A
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide">{FONT_SCALE[id].label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Live sample in the real reading font, so the choice is visible
+              here instead of only after opening a lesson. */}
+          <p
+            className="mt-3 rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 font-reading text-white/80"
+            style={{ fontSize: FONT_SCALE[fontSize].body, lineHeight: FONT_SCALE[fontSize].lineHeight }}
+          >
+            The universe conspires to help you achieve your Personal Legend.
+          </p>
+
+          <p className="mb-2 mt-5 text-xs font-bold text-white/70">Lesson layout</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setReadingMode("scroll")}
+              aria-pressed={readingMode === "scroll"}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+                readingMode === "scroll"
+                  ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
+                  : "border-white/10 text-white/50 hover:border-white/25"
+              }`}
+            >
+              <ScrollText className="h-4 w-4" strokeWidth={2} />
+              Scroll
+            </button>
+            <button
+              onClick={() => setReadingMode("page")}
+              aria-pressed={readingMode === "page"}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-bold transition-all ${
+                readingMode === "page"
+                  ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
+                  : "border-white/10 text-white/50 hover:border-white/25"
+              }`}
+            >
+              <BookOpen className="h-4 w-4" strokeWidth={2} />
+              Pages
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-snug text-white/40">
+            {readingMode === "page"
+              ? "Swipe or tap the arrows to turn pages, like a real book."
+              : "One continuous page you scroll through."}
+          </p>
+        </div>
       </div>
 
       {/* Reading preferences — genres + last book, feeds recommendations. */}

@@ -20,6 +20,7 @@ import {
   type BillingProfile,
 } from "@/lib/billing";
 import { useDayContent } from "@/lib/useDayContent";
+import { useChatQuota } from "@/lib/useChatQuota";
 import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
 
 // Dashboard Tab Types
@@ -98,6 +99,10 @@ export default function DashboardPage() {
   // Scoped to the Chat/Flashcards tabs on purpose — CourseTab does its own
   // fetching when a lesson is opened, so running here too would mean two
   // generations racing for the same day.
+  // Today's BookPal allowance. Owned here because the count is shown in the
+  // top bar but spent inside ChatTab; see lib/useChatQuota.ts.
+  const chatQuota = useChatQuota(activeCourse?.id);
+
   const { status: dayContentStatus, retry: retryDayContent } = useDayContent(
     activeCourse,
     currentDay,
@@ -251,7 +256,7 @@ export default function DashboardPage() {
           <CourseTab course={activeCourse} onDayCompleted={handleDayCompleted} />
         </div>
         <div className={activeTab === "chat" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <ChatTab course={activeCourse} day={currentDay} />
+          <ChatTab course={activeCourse} day={currentDay} quota={chatQuota} />
         </div>
         <div className={activeTab === "flashcards" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
           <FlashcardTab
@@ -325,7 +330,7 @@ export default function DashboardPage() {
       <div className="relative z-10 flex flex-col h-dvh w-full">
         {/* TOP BAR */}
         {view === "reading" && activeCourse ? (
-          <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">
+          <div className="w-full bg-[#111] border-b border-white/10 px-3 py-2 shrink-0 flex items-center gap-2.5 shadow-xl z-20">
             <button
               onClick={() => setView("home")}
               aria-label="Back to shelf"
@@ -333,15 +338,38 @@ export default function DashboardPage() {
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
-            <div className="w-8 h-11 relative shrink-0 rounded overflow-hidden bg-black">
+            <div className="w-7 h-10 relative shrink-0 rounded overflow-hidden bg-black">
               <Image src={activeCourse.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
             </div>
-            <p className="font-bold text-sm truncate min-w-0">{activeCourse.book.title}</p>
-            {/* Quick "add a new course" — only on the Course tab. */}
-            {activeTab === "course" && (
-              <div className="ml-auto shrink-0">
-                <AddCourseButton isLibraryFull={isLibraryFull} />
-              </div>
+            {/* On the Chat tab this bar IS BookPal's header — the cover already
+                says which book we're in, so repeating the title and cover inside
+                the chat only cost it a third of the screen. */}
+            {activeTab === "chat" ? (
+              <>
+                <h2 className="min-w-0 truncate bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-2xl font-black leading-none text-transparent">
+                  BookPal
+                </h2>
+                <div className="ml-auto flex shrink-0 items-baseline gap-1.5">
+                  <span
+                    className={`text-xl font-black tabular-nums ${
+                      chatQuota.limitReached ? "text-white/30" : "text-[#00D4FF]"
+                    }`}
+                  >
+                    {chatQuota.remaining}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">left today</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-sm truncate min-w-0">{activeCourse.book.title}</p>
+                {/* Quick "add a new course" — only on the Course tab. */}
+                {activeTab === "course" && (
+                  <div className="ml-auto shrink-0">
+                    <AddCourseButton isLibraryFull={isLibraryFull} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : view === "detail" ? (
@@ -356,37 +384,34 @@ export default function DashboardPage() {
             <p className="font-bold text-sm">Course Details</p>
           </div>
         ) : (
-          <div className="w-full bg-[#111] border-b border-white/10 p-4 shrink-0 flex items-center gap-3 shadow-xl z-20 min-h-[68px]">
+          <div className="w-full bg-[#111] border-b border-white/10 px-3 py-2 shrink-0 flex items-center gap-2 shadow-xl z-20 min-h-[56px]">
             {/* Left + right slots share the same width so the centered content
                 sits at the true center, with matching margins on both sides.
                 The logo returns to the shelf (Home view). */}
-            <div className="flex w-24 shrink-0 justify-start">
+            <div className="flex w-20 shrink-0 justify-start">
               <button onClick={() => setView("home")} aria-label="Back to your shelf">
-                <Image src="/bookworm-logo.png" alt="Logo" width={84} height={22} className="opacity-80 transition-opacity hover:opacity-100" />
+                <Image src="/bookworm-logo.png" alt="Logo" width={76} height={20} className="opacity-80 transition-opacity hover:opacity-100" />
               </button>
             </div>
             {view === "home" && (
               <>
-                <div className="flex flex-1 justify-center">
+                <div className="flex min-w-0 flex-1 justify-center">
                   <Greeting />
                 </div>
-                <div className="flex w-24 shrink-0 justify-end">
+                <div className="flex w-20 shrink-0 justify-end">
                   <AddCourseButton isLibraryFull={isLibraryFull} />
                 </div>
               </>
             )}
             {view === "profile" && (
               <>
-                <div className="flex flex-1 flex-col items-center justify-center text-center leading-none">
-                  <p className="text-xl md:text-2xl font-black text-white">
-                    Make It Yours
-                  </p>
-                  <span className="mt-1 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-xs font-bold text-transparent">
+                <div className="flex flex-1 items-center justify-center text-center">
+                  <span className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-black text-transparent">
                     Set your vibe
                   </span>
                 </div>
                 {/* Spacer keeps the header text truly centered (mirrors Home). */}
-                <div className="w-24 shrink-0" />
+                <div className="w-20 shrink-0" />
               </>
             )}
           </div>
@@ -394,8 +419,13 @@ export default function DashboardPage() {
 
         {/* MAIN LAYOUT */}
         <div className="flex-1 flex overflow-hidden">
-          {/* LEFT SIDEBAR - Navigation (Desktop) */}
-          <div className="hidden md:flex flex-col w-64 border-r border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md p-4 pt-8 gap-2 shrink-0">
+          {/* LEFT SIDEBAR - Navigation (Desktop only). The switch is at 1300px,
+              not md and not xl: tablets are touch devices held like a book, so the
+              thumb-reachable bottom bar suits them better than a sidebar eating
+              reading width. 1300 specifically because a Galaxy Tab 10 in landscape
+              reports exactly 1280 CSS px, so an xl (1280px) breakpoint would hand
+              it the desktop sidebar. Laptops start at 1366 and are unaffected. */}
+          <div className="hidden min-[1300px]:flex flex-col w-64 border-r border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md p-4 pt-8 gap-2 shrink-0">
             {navItems.map((item) => (
               <NavButton key={item.label} icon={item.icon} label={item.label} isActive={item.isActive} onClick={item.onClick} />
             ))}
@@ -407,8 +437,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* BOTTOM NAV (Mobile) */}
-        <div className="md:hidden w-full bg-[#111] border-t border-white/10 flex justify-around p-3 shrink-0 z-20">
+        {/* BOTTOM NAV (Mobile + tablet, including a 1280px landscape tablet) */}
+        <div className="min-[1300px]:hidden w-full bg-[#111] border-t border-white/10 flex justify-around p-3 shrink-0 z-20">
           {navItems.map((item) => (
             <MobileNavButton key={item.label} icon={item.icon} label={item.label} isActive={item.isActive} onClick={item.onClick} />
           ))}

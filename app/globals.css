@@ -80,8 +80,10 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-nunito);
   --font-mono: var(--font-geist-mono);
+  /* `font-reading` — the serif used for lesson body copy only. */
+  --font-reading: var(--font-lora);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -233,7 +235,7 @@
 
 /* 全局字体设置 */
 html {
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -257,7 +259,9 @@ body {
      because no `dark` class is set on <html>. That white showed through as a
      band below the content on mobile. */
   background: #0a0a0a;
-  letter-spacing: -0.025em;
+  /* Nunito is already fairly narrow; the tight tracking that suited Geist
+     makes it look cramped, so let it sit at its natural spacing. */
+  letter-spacing: normal;
 }
 
 /* Mobile: keep scrolling, drop the scrollbar chrome. Android renders it as a
