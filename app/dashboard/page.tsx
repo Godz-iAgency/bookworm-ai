@@ -366,7 +366,7 @@ export default function DashboardPage() {
                 {/* Quick "add a new course" — only on the Course tab. */}
                 {activeTab === "course" && (
                   <div className="ml-auto shrink-0">
-                    <AddCourseButton isLibraryFull={isLibraryFull} />
+                    <AddCourseButton isLibraryFull={isLibraryFull} maxOpenBooks={maxOpenBooks} />
                   </div>
                 )}
               </>
@@ -399,7 +399,7 @@ export default function DashboardPage() {
                   <Greeting />
                 </div>
                 <div className="flex w-20 shrink-0 justify-end">
-                  <AddCourseButton isLibraryFull={isLibraryFull} />
+                  <AddCourseButton isLibraryFull={isLibraryFull} maxOpenBooks={maxOpenBooks} />
                 </div>
               </>
             )}
