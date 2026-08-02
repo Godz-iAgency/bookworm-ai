@@ -104,34 +104,40 @@ export default function SearchPage() {
   const activeLevel = READING_LEVELS.find((l) => l.id === savedLevel);
 
   return (
-    <div className="relative min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-hidden flex flex-col items-center">
+    // overflow-hidden here used to mean the confirmation card had no way to
+    // be reached at all once it grew taller than the screen — not "scroll to
+    // see the rest," just gone. A page can't know every phone's height in
+    // advance, so it must always be free to scroll if its content needs to.
+    <div className="relative min-h-dvh w-full overflow-y-auto bg-[#0a0a0a] bg-dot-grid text-white flex flex-col items-center">
       {/* Background overlay for dot grid */}
       <div className="absolute inset-0 bg-black/40 z-0" />
-      
-      {/* Header with logo and step indicator */}
-      <div className="w-full max-w-4xl px-6 py-8 flex justify-between items-center z-10">
-        <div className="flex items-center gap-3">
+
+      {/* Header with logo and step indicator — compact, matching the
+          dashboard's header treatment, so it isn't competing with the
+          confirmation card for a phone's limited height. */}
+      <div className="w-full max-w-4xl px-4 py-2.5 flex justify-between items-center z-10">
+        <div className="flex items-center gap-2">
           {/* Back + logo both return to the shelf. /search is only reached by a
               signed-in user, so /dashboard is always the right destination (a
               brand-new user with no courses is bounced right back here). */}
           <BackButton to="/dashboard" label="Back to your shelf" />
           <Link href="/dashboard" aria-label="Back to your shelf">
-            <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={150} height={40} priority className="opacity-90 transition-opacity hover:opacity-100" />
+            <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={92} height={24} priority className="opacity-90 transition-opacity hover:opacity-100" />
           </Link>
         </div>
-        <div className="text-sm font-medium tracking-widest text-[#00D4FF] uppercase">
+        <div className="text-[11px] font-medium tracking-widest text-[#00D4FF] uppercase">
           Step 1 of 2
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl px-4 z-10 -mt-20">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl px-4 py-4 z-10">
         {!searchedBook ? (
           /* STATE 1: SEARCH SCREEN */
           <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h1 className="text-4xl md:text-5xl font-bold mb-8 text-center tracking-tight">
               What book do you want to master?
             </h1>
-            
+
             <form onSubmit={handleSearch} className="flex flex-col gap-4">
               <div className="flex gap-2 w-full">
                 <Input
@@ -141,8 +147,8 @@ export default function SearchPage() {
                   onChange={(e) => setQuery(e.target.value)}
                   disabled={isLoading}
                 />
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={isLoading}
                   className="h-14 px-8 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-semibold text-lg rounded-xl transition-transform hover:scale-105"
                 >
@@ -155,24 +161,27 @@ export default function SearchPage() {
             </form>
           </div>
         ) : (
-          /* STATE 2: CONFIRMATION CARD */
-          <div className="w-full bg-[#1a1a1a]/80 backdrop-blur-md border border-white/10 p-8 rounded-2xl shadow-2xl animate-in flip-in-y duration-500 flex flex-col items-center text-center">
-            <div className="w-32 h-48 relative mb-6 rounded-md overflow-hidden shadow-lg border border-white/10">
-              <Image 
-                src={searchedBook.coverUrl} 
-                alt={searchedBook.title} 
-                fill 
+          /* STATE 2: CONFIRMATION CARD — sized to comfortably fit a phone
+             screen alongside the header, not just to look good at desktop
+             width. The cover shrank most: a 128x192 image was the single
+             biggest thing pushing the buttons off-screen. */
+          <div className="w-full bg-[#1a1a1a]/80 backdrop-blur-md border border-white/10 p-5 rounded-2xl shadow-2xl animate-in flip-in-y duration-500 flex flex-col items-center text-center">
+            <div className="w-20 h-28 relative mb-3 rounded-md overflow-hidden shadow-lg border border-white/10">
+              <Image
+                src={searchedBook.coverUrl}
+                alt={searchedBook.title}
+                fill
                 className="object-cover"
                 unoptimized
               />
             </div>
-            
-            <h2 className="text-3xl font-bold mb-2 tracking-tight">{searchedBook.title}</h2>
-            <p className="text-xl mb-4 font-medium text-white/80">
+
+            <h2 className="text-xl font-bold mb-1 tracking-tight">{searchedBook.title}</h2>
+            <p className="text-sm mb-2.5 font-medium text-white/80">
               by <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E]">{searchedBook.author || "Unknown Author"}</span>
             </p>
-            
-            <p className="text-white/70 mb-6 max-w-sm">
+
+            <p className="text-xs text-white/70 mb-3 max-w-sm line-clamp-2">
               {searchedBook.description}
             </p>
 
@@ -180,10 +189,10 @@ export default function SearchPage() {
                 Shown rather than re-asked, so the reader can override it for
                 this book without being made to choose again by default. */}
             {activeLevel && (
-              <div className="mb-6 flex flex-wrap items-center justify-center gap-2 text-sm">
+              <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-xs">
                 <span className="text-white/50">Written for</span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 font-semibold text-white">
-                  <activeLevel.Icon className="h-3.5 w-3.5 text-[#00D4FF]" strokeWidth={2} />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2.5 py-0.5 font-semibold text-white">
+                  <activeLevel.Icon className="h-3 w-3 text-[#00D4FF]" strokeWidth={2} />
                   {activeLevel.label}
                 </span>
                 <button
@@ -199,23 +208,23 @@ export default function SearchPage() {
             )}
 
             {genError && (
-              <div className="mb-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-center text-sm text-red-400">
+              <div className="mb-3 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-center text-xs text-red-400">
                 {genError}
               </div>
             )}
 
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-2 w-full">
               <Button
                 onClick={handleConfirm}
                 disabled={isSaving || savedLevel === null}
-                className="w-full h-14 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-lg rounded-xl transition-transform hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
+                className="w-full h-11 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-base rounded-xl transition-transform hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
               >
                 {isSaving ? "Saving..." : "Yes, that's it!"}
               </Button>
-              <Button 
+              <Button
                 onClick={handleDecline}
                 variant="outline"
-                className="w-full h-14 border-white/20 bg-transparent text-white/90 font-semibold text-lg hover:bg-white/10 rounded-xl"
+                className="w-full h-11 border-white/20 bg-transparent text-white/90 font-semibold text-base hover:bg-white/10 rounded-xl"
               >
                 No, try again
               </Button>

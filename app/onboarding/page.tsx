@@ -68,11 +68,16 @@ export default function OnboardingPage() {
   if (loading || !user) return null;
 
   return (
-    <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-6 text-white">
+    // overflow-y-auto explicitly, not left to default: this page's height
+    // sits right at the edge of a phone screen (a Galaxy S20 clipped the
+    // Continue button by only ~4px), and the fix is to fit within one
+    // screen rather than lean on a scroll gesture that may not even be
+    // needed once things are tightened up.
+    <div className="relative flex min-h-dvh w-full flex-col items-center overflow-y-auto bg-[#0a0a0a] py-4 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-6 flex w-full max-w-2xl items-center justify-between px-5">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={110} height={28} priority className="opacity-90" />
+      <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-5">
+        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
         <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">
           Step {step} of 2
         </span>
@@ -81,20 +86,20 @@ export default function OnboardingPage() {
       <div className="z-10 flex w-full max-w-2xl flex-col px-4">
         {step === 1 ? (
           <>
-            <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight md:text-3xl">
+            <h1 className="mb-1 text-center text-xl font-bold tracking-tight md:text-3xl">
               What do you love to read?
             </h1>
-            <p className="mb-6 text-center text-sm text-white/60">
+            <p className="mb-4 text-center text-sm text-white/60">
               Pick {GENRE_PICK_COUNT} genres so we can recommend books made for you. You can change these anytime.
             </p>
 
             <GenreGrid selected={selected} onToggle={(g) => setSelected((prev) => toggleGenre(prev, g))} />
-            <p className="mt-3 text-center text-xs text-white/40">
+            <p className="mt-2 text-center text-xs text-white/40">
               {selected.length}/{GENRE_PICK_COUNT} selected
             </p>
 
-            <div className="mt-6">
-              <label htmlFor="lastBook" className="mb-2 block text-sm font-bold text-white/80">
+            <div className="mt-4">
+              <label htmlFor="lastBook" className="mb-1.5 block text-sm font-bold text-white/80">
                 What&rsquo;s the last book you read? <span className="font-medium text-white/40">(optional)</span>
               </label>
               <input
@@ -103,7 +108,7 @@ export default function OnboardingPage() {
                 value={lastBook}
                 onChange={(e) => setLastBook(e.target.value)}
                 placeholder="Enter a book title"
-                className={`min-h-[48px] w-full rounded-xl border bg-[#1a1a1a] px-4 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-[#00D4FF] focus:outline-none ${
+                className={`min-h-[44px] w-full rounded-xl border bg-[#1a1a1a] px-4 py-2.5 text-base text-white placeholder:text-white/40 transition-all focus:border-[#00D4FF] focus:outline-none ${
                   genresComplete && !lastBook.trim()
                     ? "border-[#00D4FF]/60 shadow-[0_0_15px_rgba(0,212,255,0.25)]"
                     : "border-white/15"
@@ -115,7 +120,7 @@ export default function OnboardingPage() {
             </div>
 
             {error && (
-              <div className="mt-4 rounded-lg border border-[#FF006E]/30 bg-[#FF006E]/10 px-4 py-2.5 text-center text-sm text-[#FF006E]">
+              <div className="mt-3 rounded-lg border border-[#FF006E]/30 bg-[#FF006E]/10 px-4 py-2.5 text-center text-sm text-[#FF006E]">
                 {error}
               </div>
             )}
@@ -123,7 +128,7 @@ export default function OnboardingPage() {
             <button
               onClick={handleGenresContinue}
               disabled={!genresComplete}
-              className={`mt-6 min-h-[48px] w-full rounded-full px-8 text-base font-bold transition-all ${
+              className={`mt-4 min-h-[44px] w-full rounded-full px-8 text-base font-bold transition-all ${
                 !genresComplete
                   ? "cursor-not-allowed bg-white/10 text-white/40"
                   : "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white hover:scale-[1.02] shadow-lg shadow-pink-500/20"

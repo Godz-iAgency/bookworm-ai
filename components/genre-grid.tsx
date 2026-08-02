@@ -15,7 +15,7 @@ interface GenreGridProps {
  */
 export function GenreGrid({ selected, onToggle, max = GENRE_PICK_COUNT }: GenreGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
       {GENRES.map((genre) => {
         const isSelected = selected.includes(genre);
         const atMax = !isSelected && selected.length >= max;
@@ -26,7 +26,7 @@ export function GenreGrid({ selected, onToggle, max = GENRE_PICK_COUNT }: GenreG
             onClick={() => onToggle(genre)}
             disabled={atMax}
             aria-pressed={isSelected}
-            className={`min-h-[46px] rounded-xl border px-3 py-2.5 text-sm font-bold transition-all ${
+            className={`min-h-[40px] rounded-xl border px-3 py-2 text-sm font-bold transition-all ${
               isSelected
                 ? "border-transparent bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white shadow-[0_0_15px_rgba(0,212,255,0.3)]"
                 : atMax

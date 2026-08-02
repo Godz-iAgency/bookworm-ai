@@ -19,6 +19,7 @@ import {
   getPlanLimits,
   type BillingProfile,
 } from "@/lib/billing";
+import { planFromId } from "@/lib/plans";
 import { useDayContent } from "@/lib/useDayContent";
 import { useChatQuota } from "@/lib/useChatQuota";
 import { CalendarDays, MessageCircle, Layers, Home, CircleUser, ChevronLeft, type LucideIcon } from "lucide-react";
@@ -410,8 +411,19 @@ export default function DashboardPage() {
                     Set your vibe
                   </span>
                 </div>
-                {/* Spacer keeps the header text truly centered (mirrors Home). */}
-                <div className="w-20 shrink-0" />
+                {/* Was just an empty spacer to balance the logo for centering.
+                    Now doing double duty: same width, but showing which plan
+                    is actually active instead of sitting blank. */}
+                <div className="flex w-20 shrink-0 justify-end">
+                  {billing && (
+                    // Not uppercase/tracked like the app's other badges: "Page
+                    // Turner" in caps with letter-spacing didn't fit this
+                    // 80px slot at all. Plain case does, for every plan name.
+                    <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-1 text-[10px] font-bold text-[#00D4FF] truncate">
+                      {billing.trialStatus === "active" ? "Trial" : planFromId(getEffectivePlanId(billing)).name}
+                    </span>
+                  )}
+                </div>
               </>
             )}
           </div>
