@@ -73,10 +73,10 @@ export default function OnboardingPage() {
     // Continue button by only ~4px), and the fix is to fit within one
     // screen rather than lean on a scroll gesture that may not even be
     // needed once things are tightened up.
-    <div className="relative flex min-h-dvh w-full flex-col items-center overflow-y-auto bg-[#0a0a0a] py-4 text-white">
+    <div className="relative flex min-h-dvh w-full flex-col items-center overflow-y-auto bg-[#0a0a0a] py-3 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-5">
+      <div className="z-10 mb-3 flex w-full max-w-2xl items-center justify-between px-5">
         <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
         <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">
           Step {step} of 2
@@ -89,7 +89,7 @@ export default function OnboardingPage() {
             <h1 className="mb-1 text-center text-xl font-bold tracking-tight md:text-3xl">
               What do you love to read?
             </h1>
-            <p className="mb-4 text-center text-sm text-white/60">
+            <p className="mb-3 text-center text-sm text-white/60">
               Pick {GENRE_PICK_COUNT} genres so we can recommend books made for you. You can change these anytime.
             </p>
 
