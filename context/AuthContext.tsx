@@ -67,8 +67,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Covers the mobile/Kindle redirect flow where the doc wasn't yet made.
-        await ensureUserDocument(firebaseUser);
+        // Deliberately NOT calling ensureUserDocument here. Every real sign-in
+        // path (popup above, getRedirectResult above, signInWithEmail,
+        // signUpWithEmail) already calls it and captures whether the account
+        // was new. This listener fires for the same sign-in at nearly the same
+        // moment; a second concurrent call raced the first one for who creates
+        // the doc, and Google's account-picker delay was consistently enough
+        // for this listener to win — so brand-new Google signups saw isNew
+        // come back false and skipped onboarding entirely.
         setUser(firebaseUser);
       } else {
         setUser(null);
