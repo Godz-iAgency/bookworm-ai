@@ -13,6 +13,7 @@ import { generateCourseDays, buildCourse } from "@/lib/generate-course";
 import { getStripeClient } from "@/lib/stripe/client";
 import { postAuthed } from "@/lib/api-client";
 import { READING_LEVELS } from "@/lib/reading-levels";
+import { parseLesson } from "@/lib/lesson";
 import { db } from "@/lib/firebase/config";
 import { doc, updateDoc, increment } from "firebase/firestore";
 
@@ -117,20 +118,57 @@ export default function PreviewPage() {
 
         <h1 className="mb-6 text-center text-2xl font-bold tracking-tight">Your 7-Day Course Is Ready</h1>
 
-        {/* Locked day list */}
+        {/* Day 1 is free to read, right here, before any card is asked for.
+            Its lesson is already written by this point (the outline call
+            produces it), so locking it gained nothing and made the reader
+            judge the course sight-unseen. Days 2-7 stay locked. */}
         <div className="mb-6 w-full space-y-2">
-          {days.map((day) => (
-            <div
-              key={day.dayNumber}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-[#1a1a1a]/60 px-4 py-3"
-            >
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#00D4FF]">Day {day.dayNumber}</p>
-                <p className="text-sm font-medium text-white/90">{day.title}</p>
+          {days.map((day) =>
+            day.dayNumber === 1 ? (
+              <div
+                key={day.dayNumber}
+                className="rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] px-4 py-4 shadow-[0_0_20px_rgba(0,212,255,0.12)]"
+              >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#00D4FF]">Day 1</p>
+                    <p className="text-sm font-medium text-white/90">{day.title}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
+                    Free to read
+                  </span>
+                </div>
+
+                {day.lesson ? (
+                  <details className="group">
+                    <summary className="cursor-pointer list-none text-sm font-bold text-[#00D4FF] transition-opacity hover:opacity-80">
+                      <span className="group-open:hidden">Read Day 1 now →</span>
+                      <span className="hidden group-open:inline">Hide Day 1</span>
+                    </summary>
+                    <div className="mt-3 max-h-[45vh] overflow-y-auto border-t border-white/10 pt-3">
+                      <LessonPreview lesson={day.lesson} />
+                    </div>
+                  </details>
+                ) : (
+                  <p className="text-sm text-white/60">{day.previewText}</p>
+                )}
               </div>
-              <Lock className="h-4 w-4 shrink-0 text-white/30" strokeWidth={2} />
-            </div>
-          ))}
+            ) : (
+              // Days 2-7 are one tight row each. They exist to show the arc is
+              // real, not to be studied — and on a phone six tall cards pushed
+              // the card form far below the fold.
+              <div
+                key={day.dayNumber}
+                className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#1a1a1a]/60 px-3 py-2"
+              >
+                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-white/40">
+                  Day {day.dayNumber}
+                </span>
+                <p className="min-w-0 flex-1 truncate text-[13px] text-white/70">{day.title}</p>
+                <Lock className="h-3.5 w-3.5 shrink-0 text-white/25" strokeWidth={2} />
+              </div>
+            )
+          )}
           <div className="flex items-center gap-2 pt-2 text-sm text-white/60">
             <span>+ AI Chat — Ask the book anything</span>
           </div>
@@ -142,7 +180,7 @@ export default function PreviewPage() {
         <div className="mb-6 h-px w-full bg-white/10" />
 
         {/* Soft gate */}
-        <h2 className="mb-2 text-center text-xl font-bold">Your course is ready to generate.</h2>
+        <h2 className="mb-2 text-center text-xl font-bold">Liked Day 1? Unlock the other six.</h2>
         <p className="mb-5 max-w-md text-center text-sm leading-relaxed text-white/70">
           We save a payment method on file — just in case you love it and want to keep learning after your 7 days.
           <br />
@@ -162,6 +200,19 @@ export default function PreviewPage() {
           ))}
         </div>
 
+        {/* Restates the deal immediately above the card field. By the time a
+            phone reader has scrolled here, the "Day 1 is free" framing from the
+            top of the page is long off-screen — and that framing is the whole
+            reason the ask feels fair. */}
+        <div className="mb-4 w-full rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.07] px-4 py-3 text-center">
+          <p className="text-sm font-bold text-white">
+            Day 1 was free. Your card unlocks Days 2 to 7.
+          </p>
+          <p className="mt-0.5 text-xs text-white/60">
+            Nothing is charged for 7 days. Cancel any time before then and you pay nothing.
+          </p>
+        </div>
+
         {stripeConfigured ? (
           <Elements stripe={getStripeClient()}>
             <SoftGateForm onActivated={handleActivated} />
@@ -177,6 +228,28 @@ export default function PreviewPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Day 1's lesson, rendered with the same parser and reading serif the real
+ * reader uses, so the free sample looks like the product rather than a teaser.
+ */
+function LessonPreview({ lesson }: { lesson: string }) {
+  return (
+    <article className="font-reading">
+      {parseLesson(lesson).map((b, i) =>
+        b.type === "heading" ? (
+          <h4 key={i} className="mb-1.5 mt-4 text-[15px] font-bold text-white first:mt-0">
+            {b.text}
+          </h4>
+        ) : (
+          <p key={i} className="mb-3 text-[14px] leading-7 text-white/80">
+            {b.text}
+          </p>
+        )
+      )}
+    </article>
   );
 }
 

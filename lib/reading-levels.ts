@@ -15,6 +15,13 @@ export interface ReadingLevel {
   desc: string;
 }
 
+/**
+ * Pre-selected wherever a level is asked for. Scholar is the middle tier and
+ * the one that suits most readers, so the choice becomes "scan and adjust"
+ * rather than "decide from scratch".
+ */
+export const DEFAULT_READING_LEVEL: ReadingLevelId = "scholar";
+
 export const READING_LEVELS: ReadingLevel[] = [
   {
     id: "explorer",

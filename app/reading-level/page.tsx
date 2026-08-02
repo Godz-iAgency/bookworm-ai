@@ -5,37 +5,31 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
+import { GeneratingOverlay } from "@/components/generating-overlay";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext } from "@/lib/BookwormContext";
-import { READING_LEVELS } from "@/lib/reading-levels";
-import { db } from "@/lib/firebase/config";
-import { doc, updateDoc, increment } from "firebase/firestore";
-import { generateCourseDays, buildCourse } from "@/lib/generate-course";
-import {
-  getBillingProfile,
-  hasActiveAccess,
-  canGenerate,
-  getEffectivePlanId,
-  getPlanLimits,
-  isBillingEnabled,
-} from "@/lib/billing";
+import { READING_LEVELS, DEFAULT_READING_LEVEL } from "@/lib/reading-levels";
+import { getUserProfile } from "@/lib/firebase/profile";
+import { useCourseGeneration } from "@/lib/useCourseGeneration";
 
-const GENERATION_STEPS = [
-  "Reading the book's core ideas...",
-  "Breaking it into 7 concepts...",
-  "Writing your daily lessons...",
-  "Building your flashcards...",
-  "Almost ready...",
-];
-
+/**
+ * Change the reading level for the book about to be generated.
+ *
+ * Most readers no longer land here: the level is chosen once during onboarding
+ * and /search generates straight away. This remains for anyone who signed up
+ * before onboarding asked for a level, and for the "change level" link on the
+ * book confirmation card.
+ */
 export default function ReadingLevelPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { currentBook, setCurrentReadingLevel, courses, setCourses, setActiveCourseId } = useBookwormContext();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [genStep, setGenStep] = useState(0);
+  const { currentBook } = useBookwormContext();
+  const { start, isGenerating, genStep, error } = useCourseGeneration();
+
+  // Never an empty choice: pre-select the reader's saved level, falling back to
+  // the middle tier. An unselected three-way pick is a decision to make; a
+  // pre-filled one is just something to scan and accept.
+  const [selected, setSelected] = useState<string>(DEFAULT_READING_LEVEL);
 
   // Guard step order: must be signed in (Step 0) and have a confirmed book (Step 1).
   useEffect(() => {
@@ -47,108 +41,28 @@ export default function ReadingLevelPage() {
     }
   }, [loading, user, currentBook, router]);
 
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-  const handleContinue = async () => {
-    if (!selected || !user || !currentBook) return;
-    setError(null);
-
-    // Save the chosen level to the user's profile (don't block on it).
-    updateDoc(doc(db, "users", user.uid), { readingLevel: selected }).catch((e) =>
-      console.error("Could not save reading level:", e)
-    );
-    setCurrentReadingLevel(selected);
-
-    // Billing checks only apply once Stripe is actually configured. Before
-    // that the soft gate can't collect a card, so gating here would dead-end
-    // every user — instead the app behaves exactly as it did pre-billing.
-    const profile = isBillingEnabled() ? await getBillingProfile(user.uid) : null;
-
-    if (isBillingEnabled()) {
-      // Brand-new users (no trial started, no plan yet) go through the soft
-      // gate — it re-runs generation itself and collects the card before
-      // saving the course. Only existing subscribers generate directly here.
-      if (!profile || !hasActiveAccess(profile)) {
-        router.push("/preview");
-        return;
-      }
-
-      const gen = canGenerate(profile);
-      if (!gen.allowed) {
-        setError(
-          gen.reason === "monthly_cap"
-            ? "You've used all your book generations for this month."
-            : "You've reached your plan's limit."
-        );
-        return;
-      }
-      const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
-      if (courses.length >= maxOpenBooks) {
-        setError("Your library is full for your plan — delete a book to add a new one.");
-        return;
-      }
-    }
-
-    setIsGenerating(true);
-    setGenStep(0);
-
-    // Kick off the real generation and the step animation in parallel.
-    const genTask = generateCourseDays(currentBook.title, currentBook.author, selected);
-
-    for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
-      setGenStep(i);
-      await sleep(1800);
-    }
-    setGenStep(GENERATION_STEPS.length - 1);
-
-    const result = await genTask;
-
-    if ("error" in result) {
-      console.error("Generation error:", result.error);
-      setError("We couldn't build your course right now. Please try again in a moment.");
-      setIsGenerating(false);
-      return;
-    }
-
-    const newCourse = buildCourse(currentBook, selected, result.days);
-    setCourses([...courses, newCourse]);
-    setActiveCourseId(newCourse.id);
-
-    updateDoc(doc(db, "users", user.uid), {
-      generationsThisMonth: increment(1),
-    }).catch((e) => console.error("Could not update generation count:", e));
-
-    router.push("/dashboard");
-  };
+  // Seed from the saved profile once it loads, so returning readers see their
+  // own level highlighted rather than the generic default.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getUserProfile(user.uid)
+      .then((profile) => {
+        if (cancelled || !profile?.readingLevel) return;
+        if (READING_LEVELS.some((l) => l.id === profile.readingLevel)) {
+          setSelected(profile.readingLevel);
+        }
+      })
+      .catch((e) => console.error("Could not load reading level:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Avoid a flash before auth/book checks resolve.
   if (loading || !user || !currentBook) return null;
 
-  // Full-screen generation animation.
-  if (isGenerating) {
-    return (
-      <div className="fixed inset-0 z-50 flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
-        <style>{`@keyframes slide-gradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`}</style>
-        <div className="flex w-full max-w-md flex-col items-center text-center">
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={220} height={56} priority className="mb-14 drop-shadow-2xl" />
-          <div className="mb-8 h-3 w-full overflow-hidden rounded-full border border-white/5 bg-[#1a1a1a] shadow-inner">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#00D4FF] via-[#FF006E] to-[#00D4FF]"
-              style={{
-                backgroundSize: "200% auto",
-                animation: "slide-gradient 2s linear infinite",
-                width: `${((genStep + 1) / GENERATION_STEPS.length) * 100}%`,
-                transition: "width 1.5s linear",
-              }}
-            />
-          </div>
-          <h2 className="h-10 animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-xl font-bold text-transparent md:text-2xl">
-            {GENERATION_STEPS[genStep]}
-          </h2>
-        </div>
-      </div>
-    );
-  }
+  if (isGenerating) return <GeneratingOverlay step={genStep} />;
 
   return (
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
@@ -160,7 +74,6 @@ export default function ReadingLevelPage() {
           <BackButton to="/search" label="Back to book search" />
           <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
         </div>
-        <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">Step 2 of 2</span>
       </div>
 
       {/* Main */}
@@ -219,13 +132,8 @@ export default function ReadingLevelPage() {
         )}
 
         <Button
-          onClick={handleContinue}
-          disabled={!selected}
-          className={`h-12 w-full max-w-xs rounded-full px-12 text-base font-bold transition-all duration-300 ${
-            selected
-              ? "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white hover:scale-105 shadow-lg shadow-pink-500/20"
-              : "cursor-not-allowed bg-white/10 text-white/40"
-          }`}
+          onClick={() => start(currentBook, selected)}
+          className="h-12 w-full max-w-xs rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-12 text-base font-bold text-white shadow-lg shadow-pink-500/20 transition-all duration-300 hover:scale-105"
         >
           Generate My Course →
         </Button>

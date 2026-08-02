@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,16 +9,54 @@ import { Input } from "@/components/ui/input";
 import { useBookwormContext, Book } from "@/lib/BookwormContext";
 import { searchGoogleBooks } from "@/lib/api";
 import { BackButton } from "@/components/back-button";
+import { GeneratingOverlay } from "@/components/generating-overlay";
+import { useAuth } from "@/context/AuthContext";
+import { getUserProfile } from "@/lib/firebase/profile";
+import { READING_LEVELS } from "@/lib/reading-levels";
+import { useCourseGeneration } from "@/lib/useCourseGeneration";
 
 export default function SearchPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const { setCurrentBook } = useBookwormContext();
-  
+  const { start, isGenerating, genStep, error: genError } = useCourseGeneration();
+
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchedBook, setSearchedBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // The level chosen during onboarding. When it's known, confirming a book
+  // generates immediately — asking again on a separate screen would be asking
+  // the same question twice in one sitting. null means we haven't loaded it
+  // yet; "" means this account predates onboarding asking for one.
+  const [savedLevel, setSavedLevel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    // Signed out, or the lookup failed: fall back to "" so the confirm button
+    // still works and routes through /reading-level (which sends a signed-out
+    // visitor to /login). Leaving it null would disable the button forever.
+    if (!user) {
+      setSavedLevel("");
+      return;
+    }
+    let cancelled = false;
+    getUserProfile(user.uid)
+      .then((profile) => {
+        if (cancelled) return;
+        const lvl = profile?.readingLevel ?? "";
+        setSavedLevel(READING_LEVELS.some((l) => l.id === lvl) ? lvl : "");
+      })
+      .catch((e) => {
+        console.error("Could not load reading level:", e);
+        if (!cancelled) setSavedLevel("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,8 +81,14 @@ export default function SearchPage() {
   };
 
   const handleConfirm = () => {
-    if (searchedBook) {
-      setCurrentBook(searchedBook);
+    if (!searchedBook) return;
+    setCurrentBook(searchedBook);
+    // Level already settled during onboarding — go straight to the course.
+    // Otherwise fall back to the standalone step for accounts that never had
+    // a level asked for.
+    if (savedLevel) {
+      void start(searchedBook, savedLevel);
+    } else {
       router.push("/reading-level");
     }
   };
@@ -54,6 +98,10 @@ export default function SearchPage() {
     setQuery("");
     setError("Try adding the author's name for better results");
   };
+
+  if (isGenerating) return <GeneratingOverlay step={genStep} />;
+
+  const activeLevel = READING_LEVELS.find((l) => l.id === savedLevel);
 
   return (
     <div className="relative min-h-dvh w-full bg-[#0a0a0a] bg-dot-grid text-white overflow-hidden flex flex-col items-center">
@@ -124,14 +172,42 @@ export default function SearchPage() {
               by <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E]">{searchedBook.author || "Unknown Author"}</span>
             </p>
             
-            <p className="text-white/70 mb-8 max-w-sm">
+            <p className="text-white/70 mb-6 max-w-sm">
               {searchedBook.description}
             </p>
-            
+
+            {/* The level this course will be written in, with an escape hatch.
+                Shown rather than re-asked, so the reader can override it for
+                this book without being made to choose again by default. */}
+            {activeLevel && (
+              <div className="mb-6 flex flex-wrap items-center justify-center gap-2 text-sm">
+                <span className="text-white/50">Written for</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 font-semibold text-white">
+                  <activeLevel.Icon className="h-3.5 w-3.5 text-[#00D4FF]" strokeWidth={2} />
+                  {activeLevel.label}
+                </span>
+                <button
+                  onClick={() => {
+                    setCurrentBook(searchedBook);
+                    router.push("/reading-level");
+                  }}
+                  className="font-semibold text-[#00D4FF] underline-offset-2 transition-opacity hover:opacity-80 hover:underline"
+                >
+                  change
+                </button>
+              </div>
+            )}
+
+            {genError && (
+              <div className="mb-4 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-center text-sm text-red-400">
+                {genError}
+              </div>
+            )}
+
             <div className="flex flex-col gap-3 w-full">
-              <Button 
+              <Button
                 onClick={handleConfirm}
-                disabled={isSaving}
+                disabled={isSaving || savedLevel === null}
                 className="w-full h-14 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-bold text-lg rounded-xl transition-transform hover:scale-105 disabled:opacity-70 disabled:hover:scale-100"
               >
                 {isSaving ? "Saving..." : "Yes, that's it!"}

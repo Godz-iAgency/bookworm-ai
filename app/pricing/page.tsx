@@ -8,8 +8,40 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
-import { PLANS, type Plan } from "@/lib/plans";
+import { PLANS, planFromId, type Plan } from "@/lib/plans";
 import { getBillingProfile, getEffectivePlanId, type BillingProfile } from "@/lib/billing";
+
+/**
+ * A smaller, truer way to read the same price. A monthly figure in isolation
+ * is judged against other monthly bills; the same number per day, or split
+ * across a Book Club's members, is judged against pocket change. Derived from
+ * the plan data so it can never drift from the price beside it.
+ */
+function priceAnchor(plan: Plan): string | null {
+  const monthly = Number(plan.price.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(monthly) || monthly <= 0) return null;
+
+  if (plan.maxMembers && plan.maxMembers > 1) {
+    return `About $${(monthly / plan.maxMembers).toFixed(2)} per person`;
+  }
+  return `About $${(monthly / 30).toFixed(2)} a day`;
+}
+
+/** What /api/stripe/preview-upgrade reports a tier change would cost. */
+interface UpgradeQuote {
+  mode: "charge_now" | "next_invoice";
+  amount: number; // in the currency's smallest unit (cents)
+  currency: string;
+  endsTrial?: boolean;
+  nextInvoiceAt?: string | null;
+}
+
+function formatMoney(amountInCents: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: (currency || "usd").toUpperCase(),
+  }).format(amountInCents / 100);
+}
 
 function planPerks(plan: Plan): string[] {
   const perks = [
@@ -31,6 +63,8 @@ export default function PricingPage() {
   const [error, setError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pending, setPending] = useState<{ planId: Plan["id"]; quote: UpgradeQuote } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -45,11 +79,28 @@ export default function PricingPage() {
 
   const currentPlan = billing ? getEffectivePlanId(billing) : "free";
 
+  // Changing tiers moves real money, so it never happens on a single tap.
+  // Ask Stripe what it would actually cost, show that exact figure, and only
+  // switch once the reader has agreed to it.
   const handleChoose = async (planId: Plan["id"]) => {
     setBusyPlan(planId);
     setError(null);
-    const res = await postAuthed("/api/stripe/upgrade", { targetPlan: planId });
+    const res = await postAuthed("/api/stripe/preview-upgrade", { targetPlan: planId });
     setBusyPlan(null);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setPending({ planId, quote: res });
+  };
+
+  const handleConfirm = async () => {
+    if (!pending) return;
+    setConfirming(true);
+    setError(null);
+    const res = await postAuthed("/api/stripe/upgrade", { targetPlan: pending.planId });
+    setConfirming(false);
+    setPending(null);
     if (res.error) {
       setError(res.error);
       return;
@@ -125,10 +176,13 @@ export default function PricingPage() {
                   {plan.name}
                 </h2>
                 <p className="mb-3 text-[13px] leading-snug text-white/60">{plan.tagline}</p>
-                <p className="mb-4 text-3xl font-black">
+                <p className="text-3xl font-black">
                   {plan.price}
                   <span className="text-sm font-medium text-white/50">/month</span>
                 </p>
+                {priceAnchor(plan) && (
+                  <p className="mb-4 mt-0.5 text-xs font-semibold text-[#00D4FF]">{priceAnchor(plan)}</p>
+                )}
 
                 <ul className="mb-5 flex-1 space-y-2">
                   {planPerks(plan).map((perk) => (
@@ -148,12 +202,87 @@ export default function PricingPage() {
                       : "bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white hover:scale-105"
                   }`}
                 >
-                  {isCurrent ? "Your plan" : busyPlan === plan.id ? "Switching..." : "Choose"}
+                  {isCurrent ? "Your plan" : busyPlan === plan.id ? "Checking price..." : "Choose"}
                 </Button>
               </div>
             );
           })}
         </div>
+
+        {/* Confirmation — never switch tiers on a single tap. States the real
+            figure Stripe gave us and whether it lands today or next cycle. */}
+        {pending && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="switch-plan-title"
+            onClick={() => !confirming && setPending(null)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141414] p-5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+            >
+              <h3 id="switch-plan-title" className="mb-1 text-lg font-bold">
+                Switch to {planFromId(pending.planId).name}?
+              </h3>
+
+              {pending.quote.mode === "charge_now" ? (
+                <>
+                  <p className="mb-4 text-sm leading-relaxed text-white/70">
+                    {pending.quote.endsTrial
+                      ? "This ends your free trial straight away and starts your plan today."
+                      : "This starts your plan today."}
+                  </p>
+                  <div className="mb-4 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.07] px-4 py-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Charged today</p>
+                    <p className="text-2xl font-black text-white">
+                      {formatMoney(pending.quote.amount, pending.quote.currency)}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mb-4 text-sm leading-relaxed text-white/70">
+                    Your new plan starts right away. Nothing is charged today, the difference is
+                    added to your next invoice.
+                  </p>
+                  <div className="mb-4 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.07] px-4 py-3 text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                      Your next invoice
+                      {pending.quote.nextInvoiceAt
+                        ? ` · ${new Date(pending.quote.nextInvoiceAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}`
+                        : ""}
+                    </p>
+                    <p className="text-2xl font-black text-white">
+                      {formatMoney(pending.quote.amount, pending.quote.currency)}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => setPending(null)}
+                  disabled={confirming}
+                  className="flex-1 rounded-full border border-white/15 px-4 py-2.5 text-sm font-bold text-white/80 transition-all hover:bg-white/5 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={confirming}
+                  className="flex-1 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2.5 text-sm font-bold text-white transition-all hover:scale-[1.02] disabled:opacity-60"
+                >
+                  {confirming ? "Switching..." : "Confirm switch"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Book Club owners manage their members here. */}
         {billing?.isFamilyOwner && (

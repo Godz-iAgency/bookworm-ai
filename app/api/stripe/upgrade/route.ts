@@ -90,6 +90,18 @@ export async function POST(req: Request) {
       });
       updates.familyId = familyRef.id;
       updates.isFamilyOwner = true;
+    } else if (targetPlan !== "book_club" && user.isFamilyOwner && user.familyId) {
+      // Leaving Book Club as its owner. getEffectivePlanId checks familyId
+      // before plan, so without this the account would be reported as
+      // "on Book Club" forever no matter what plan is chosen next — the
+      // switch would succeed on Stripe but look like it silently failed here.
+      // Members lose Book Club access too: the plan they were sharing is gone.
+      await db.collection("families").doc(user.familyId).update({
+        status: "cancelled",
+        cancelledAt: FieldValue.serverTimestamp(),
+      });
+      updates.familyId = null;
+      updates.isFamilyOwner = false;
     }
 
     await userRef.update(updates);
