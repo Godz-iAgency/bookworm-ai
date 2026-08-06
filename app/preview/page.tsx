@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Lock } from "lucide-react";
@@ -16,6 +16,7 @@ import { postAuthed } from "@/lib/api-client";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { parseLesson } from "@/lib/lesson";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
+import { getBillingProfile, hasActiveAccess, isBillingEnabled } from "@/lib/billing";
 import { db } from "@/lib/firebase/config";
 import { doc, updateDoc, increment } from "firebase/firestore";
 
@@ -36,6 +37,14 @@ export default function PreviewPage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [genStep, setGenStep] = useState(0);
 
+  // Whether this reader is already paying. null while we find out.
+  //
+  // Nobody should reach the soft gate twice — useCourseGeneration only sends
+  // readers here when they have no access. But "asked for a card again after
+  // I subscribed" is the single worst way for that to be wrong, so the gate
+  // verifies for itself rather than trusting how it was reached.
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
@@ -46,6 +55,27 @@ export default function PreviewPage() {
       router.push("/reading-level");
     }
   }, [loading, user, currentBook, currentReadingLevel, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!isBillingEnabled()) {
+      setSubscribed(false);
+      return;
+    }
+    let cancelled = false;
+    getBillingProfile(user.uid)
+      .then((profile) => {
+        if (!cancelled) setSubscribed(!!profile && hasActiveAccess(profile));
+      })
+      .catch((e) => {
+        // Fail towards the gate rather than towards free access.
+        console.error("Could not check billing status:", e);
+        if (!cancelled) setSubscribed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user || !currentBook || !currentReadingLevel) return;
@@ -79,18 +109,37 @@ export default function PreviewPage() {
     };
   }, [user, currentBook, currentReadingLevel]);
 
-  const handleActivated = () => {
-    if (!user || !currentBook || !currentReadingLevel || !days) return;
-    const newCourse = buildCourse(currentBook, currentReadingLevel, days);
-    setCourses([...courses, newCourse]);
-    setActiveCourseId(newCourse.id);
-    // activate-trial already reset this to 0 server-side; this is the
-    // trial's first generated book, counted against the 3-book trial cap.
-    updateDoc(doc(db, "users", user.uid), { generationsThisMonth: increment(1) }).catch((e) =>
-      console.error("Could not update generation count:", e)
-    );
-    router.push("/dashboard?trial=started");
-  };
+  // The course is only ever saved once, whether that's the card form finishing
+  // or the already-subscribed shortcut below firing first.
+  const savedRef = useRef(false);
+
+  const saveCourse = useCallback(
+    (destination: string) => {
+      if (savedRef.current) return;
+      if (!user || !currentBook || !currentReadingLevel || !days) return;
+      savedRef.current = true;
+
+      const newCourse = buildCourse(currentBook, currentReadingLevel, days);
+      setCourses([...courses, newCourse]);
+      setActiveCourseId(newCourse.id);
+      // For a new trial, activate-trial already reset this to 0 server-side and
+      // this is the first of the 3 trial books. For an existing subscriber it
+      // counts against their monthly quota the same as any other generation.
+      updateDoc(doc(db, "users", user.uid), { generationsThisMonth: increment(1) }).catch((e) =>
+        console.error("Could not update generation count:", e)
+      );
+      router.push(destination);
+    },
+    [user, currentBook, currentReadingLevel, days, courses, setCourses, setActiveCourseId, router]
+  );
+
+  const handleActivated = () => saveCourse("/dashboard?trial=started");
+
+  // Already paying: the course is written, so keep it and go. Showing a card
+  // form to someone who has already given us one reads as a double charge.
+  useEffect(() => {
+    if (days && subscribed === true) saveCourse("/dashboard");
+  }, [days, subscribed, saveCourse]);
 
   if (loading || !user || !currentBook || !currentReadingLevel) return null;
 
@@ -153,7 +202,7 @@ export default function PreviewPage() {
                 <span className="group-open:hidden">Read Day 1 now →</span>
                 <span className="hidden group-open:inline">Hide Day 1</span>
               </summary>
-              <div className="mt-3 max-h-[45vh] overflow-y-auto border-t border-white/10 pt-3">
+              <div className="mt-3 border-t border-white/10 pt-3">
                 <LessonPreview lesson={days[0].lesson} />
               </div>
             </details>
@@ -166,7 +215,13 @@ export default function PreviewPage() {
             wall of locked rows and fine print. That list moves below, for
             anyone who wants more convincing before deciding; it's no longer
             what stands between "I liked Day 1" and being able to act on it. */}
-        <div className="mb-6 w-full rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.05] px-4 py-4">
+        {/* Only for readers who haven't paid. While `subscribed` is still
+            unknown the ask is held back rather than shown and retracted. */}
+        <div
+          className={`mb-6 w-full rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.05] px-4 py-4 ${
+            subscribed === false ? "" : "hidden"
+          }`}
+        >
           <p className="mb-3 text-center text-sm font-bold text-white">
             Day 1 was free. Your card unlocks Days 2 to 7.
           </p>
@@ -237,11 +292,11 @@ function LessonPreview({ lesson }: { lesson: string }) {
     <article className="font-reading">
       {parseLesson(lesson).map((b, i) =>
         b.type === "heading" ? (
-          <h4 key={i} className="mb-1.5 mt-4 text-[15px] font-bold text-white first:mt-0">
+          <h4 key={i} className="mb-2 mt-5 text-[22px] font-bold leading-snug text-white first:mt-0">
             {b.text}
           </h4>
         ) : (
-          <p key={i} className="mb-3 text-[14px] leading-7 text-white/80">
+          <p key={i} className="mb-4 text-[18px] leading-[1.75] text-white/85">
             {b.text}
           </p>
         )
