@@ -31,14 +31,31 @@ export const CLIENT_PROJECT_ID = "bookworm-ai-ca43d";
  *   2. one line with literal \n       — copied out of the service-account JSON
  *   3. either of the above, but still wrapped in the quotes that made it a
  *      single value inside .env.local
+ *   4. the entire service-account JSON file, pasted whole — that's the file
+ *      Firebase actually hands you, and grabbing just the private_key field
+ *      out of it is an easy step to miss
  *
  * Local dev only ever sees (1), because Next's env parser strips the quotes
  * for us. Vercel stores exactly what you paste, quotes included, and cert()
  * then rejects the key — which used to surface to the reader as
- * "Not authenticated." All three shapes are normalised to a real PEM here.
+ * "Not authenticated." All four shapes are normalised to a real PEM here.
  */
 function normalizePrivateKey(raw: string): string {
   let key = raw.trim();
+
+  if (key.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(key);
+      if (typeof parsed.private_key === "string") {
+        // JSON.parse has already turned any \n escapes into real newlines.
+        return parsed.private_key.trim();
+      }
+    } catch {
+      // Starts with `{` but isn't parseable JSON either — fall through and
+      // let the caller's PEM-shape check produce the real error.
+    }
+  }
+
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
     key = key.slice(1, -1);
   }
