@@ -75,8 +75,15 @@ export function getPlanLimits(planId: Plan["id"] | "free"): { maxOpenBooks: numb
  * Whether Stripe is actually wired up. Until keys exist, the soft gate can't
  * collect a card, so the app must keep working exactly as it did pre-billing
  * rather than dead-ending users at a form that can't submit.
+ *
+ * NEXT_PUBLIC_BILLING_PAUSED is a manual kill switch on top of that, for the
+ * case where Stripe's keys are present but the Firebase Admin credential the
+ * soft gate needs (see lib/firebase/admin.ts) is broken on this deployment —
+ * that turned every course generation into a dead-end trial screen. Flip it
+ * back off once /api/health/billing reports ready: true.
  */
 export function isBillingEnabled(): boolean {
+  if (process.env.NEXT_PUBLIC_BILLING_PAUSED === "true") return false;
   return !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 }
 
