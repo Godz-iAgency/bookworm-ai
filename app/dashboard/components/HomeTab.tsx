@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Flame, Lock, MoreVertical } from "lucide-react";
+import { Plus, Flame, Lock, MoreVertical, Sparkles, ChevronRight } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
 import { BADGES } from "@/lib/badges";
 import { getCountdown } from "@/lib/countdown";
@@ -253,6 +253,37 @@ export default function HomeTab({
           })}
         </div>
       </div>
+
+      {/* Personal Development — a separate shelf from the 7-day courses below.
+          Sits above them because it's a doorway to a curated library rather
+          than another card in the reader's own collection. */}
+      <Link
+        href="/mastery"
+        className="group mb-8 flex items-center gap-4 rounded-2xl p-4 transition-all hover:shadow-[0_0_25px_rgba(255,0,110,0.2)]"
+        style={{
+          border: "1.5px solid transparent",
+          background:
+            "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
+        }}
+      >
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/25 to-[#FF006E]/25">
+          <Sparkles className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold">
+            <span className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-transparent">
+              Personal Development
+            </span>
+          </p>
+          <p className="text-xs text-white/55">
+            Six pillars, 150 books. Full summaries, no course required.
+          </p>
+        </div>
+        <ChevronRight
+          className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70"
+          strokeWidth={2}
+        />
+      </Link>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {courses.map((course) => {
