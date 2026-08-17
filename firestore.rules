@@ -75,6 +75,15 @@ service cloud.firestore {
       match /courses/{courseId} {
         allow read, write: if isOwner(uid);
       }
+
+      // Personal Development summaries — same ownership rule as courses.
+      // Unlike courses, these carry no billing gate (see isBillingEnabled()
+      // in lib/billing.ts), so there is nothing server-only about them here;
+      // the client SDK writing them directly is the intended design, not a
+      // shortcut around one.
+      match /summaries/{summaryId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     // Book Club membership. Readable by members so the UI can show the roster;
