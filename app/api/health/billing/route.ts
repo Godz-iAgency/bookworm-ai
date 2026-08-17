@@ -28,10 +28,22 @@ export async function GET() {
     priceBookClubSet: !!process.env.STRIPE_PRICE_BOOK_CLUB,
   };
 
-  const ready = admin.initializes && stripe.secretKeySet && stripe.publishableKeySet;
+  // The kill switch in lib/billing.ts's isBillingEnabled(). When it's on, the
+  // app never calls any of the routes this check is diagnosing, so a broken
+  // admin credential stops mattering to what a reader actually experiences.
+  const billingPaused = process.env.NEXT_PUBLIC_BILLING_PAUSED === "true";
+
+  const configReady = admin.initializes && stripe.secretKeySet && stripe.publishableKeySet;
 
   return NextResponse.json({
-    ready,
+    // What matters to a reader right now: is the app either working (paused)
+    // or fully configured? False only means readers are hitting the broken
+    // trial gate.
+    ready: billingPaused || configReady,
+    billingPaused,
+    // Whether paid billing COULD run if the pause switch were removed — stays
+    // useful even while paused, so this doesn't need rechecking twice.
+    configReady,
     expectedFirebaseProject: CLIENT_PROJECT_ID,
     firebaseAdmin: admin,
     stripe,
