@@ -260,8 +260,75 @@ body {
      band below the content on mobile. */
   background: #0a0a0a;
   /* Nunito is already fairly narrow; the tight tracking that suited Geist
-     makes it look cramped, so let it sit at its natural spacing. */
+     makes it look cramped, so body text sits at its natural spacing. Display
+     sizes are tightened separately below rather than by one blanket value:
+     letters read as drifting apart the larger they get, so the correct
+     tracking is a function of size, and any single figure is wrong somewhere. */
   letter-spacing: normal;
+}
+
+/* Size-specific tracking. Applied by font-size utility so it follows the type
+   scale automatically instead of needing a tracking class per heading, and
+   kept in @layer base so an explicit tracking-* utility still overrides it. */
+@layer base {
+  .text-2xl,
+  .text-3xl {
+    letter-spacing: -0.011em;
+  }
+  .text-4xl,
+  .text-5xl {
+    letter-spacing: -0.018em;
+  }
+  .text-6xl,
+  .text-7xl {
+    letter-spacing: -0.024em;
+  }
+  /* Small text goes the other way: a touch of positive tracking keeps caps and
+     tabular figures legible at 10-12px, where Nunito's counters get tight. */
+  .text-\[10px\],
+  .text-\[11px\],
+  .text-xs {
+    letter-spacing: 0.006em;
+  }
+}
+
+/* Press response for every interactive element.
+ *
+ * A touchscreen has no hover, so the app's ~30 hover:scale rules gave a phone
+ * reader nothing: a tap produced no acknowledgement until the action itself
+ * finished. Feedback belongs on pointer-down, so this lives on :active and is
+ * global rather than per-button, since the gap was almost everywhere.
+ *
+ * In @layer base so any component that wants a different press (a bigger
+ * squeeze, none at all) still wins with a utility. Opt out with
+ * data-no-press on anything the squeeze looks wrong on. */
+@layer base {
+  button:not(:disabled),
+  [role="button"],
+  a[href] {
+    transition: transform 150ms ease-out;
+  }
+
+  button:not(:disabled):not([data-no-press]):active,
+  [role="button"]:not([data-no-press]):active,
+  a[href]:not([data-no-press]):active {
+    transform: scale(0.97);
+    /* Faster going down than coming back up, so the press feels immediate and
+       the release feels like it settles. */
+    transition-duration: 75ms;
+  }
+}
+
+/* Reduced motion gets the same acknowledgement without the movement: the point
+   of the press state is confirmation, and removing it entirely would take away
+   feedback rather than just motion. */
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):not([data-no-press]):active,
+  [role="button"]:not([data-no-press]):active,
+  a[href]:not([data-no-press]):active {
+    transform: none;
+    opacity: 0.7;
+  }
 }
 
 /* Mobile: keep scrolling, drop the scrollbar chrome. Android renders it as a
@@ -280,10 +347,41 @@ body {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* 只保留opacity的过渡效果，移除颜色相关的过渡 */
-* {
-  transition-property: opacity;
-  transition-duration: 100ms;
+/* A `* { transition-property: opacity; transition-duration: 100ms }` rule lived
+   here, inherited from the starter template. Because it was unlayered it beat
+   every Tailwind transition utility in @layer utilities regardless of
+   specificity, so `transition-transform`, `transition-all` and
+   `transition-colors` all silently resolved to opacity-only at 100ms. Every
+   hover:scale and active:scale in the app snapped instantly instead of
+   animating. Removed; the utilities now do what they say. */
+
+/* Reduced motion: a baseline for anything driven by CSS. Gesture and spring
+   motion is handled per component via useReducedMotion() from motion/react,
+   which can substitute a cross-fade rather than merely shortening a slide.
+   Opacity is deliberately left alive here - fades aid comprehension and are
+   not vestibular, so this pins down movement, not all feedback. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Translucent chrome goes frosty-solid when the reader has asked for less
+   transparency, rather than staying see-through at lower contrast. */
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop-blur-sm,
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl {
+    backdrop-filter: none !important;
+    background-color: #141414 !important;
+  }
 }
 
 /* 自定义滚动条 */

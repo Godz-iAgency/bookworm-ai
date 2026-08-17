@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, type ReactNode } from "react"
+import { motion, useReducedMotion } from "motion/react"
 
 interface FeatureFlipCardProps {
   icon: ReactNode
@@ -18,6 +19,7 @@ interface FeatureFlipCardProps {
  */
 export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
   const [flipped, setFlipped] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   return (
     <div
@@ -27,6 +29,7 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
       tabIndex={0}
       aria-label={`${title}. Tap to flip for details.`}
       aria-pressed={flipped}
+      data-no-press
       onClick={() => setFlipped((f) => !f)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -35,13 +38,20 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
         }
       }}
     >
-      <div
+      {/* A spring rather than a 600ms curve: tapping twice quickly used to have
+          to wait out the first flip, where a spring re-targets from the angle
+          the card is currently at and carries its velocity through the
+          reversal. Rotation is the one place Apple ship real bounce, so it
+          keeps a little. */}
+      <motion.div
         className="relative h-full w-full"
-        style={{
-          transformStyle: "preserve-3d",
-          transition: "transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}
+        style={{ transformStyle: "preserve-3d" }}
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={
+          reduceMotion
+            ? { duration: 0.2 }
+            : { type: "spring", bounce: 0.2, duration: 0.45 }
+        }
       >
         {/* Front — gradient border + glow, matching the in-app cards. */}
         <div
@@ -75,7 +85,7 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
           <p className="text-sm leading-relaxed text-white/85">{back}</p>
           <span className="mt-4 text-xs text-white/40">← Tap to flip back</span>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

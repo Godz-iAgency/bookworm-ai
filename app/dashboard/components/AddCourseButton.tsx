@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 
 // A quick "start a new course" button for the Home + Course headers. Uses the
 // app's card language — gradient border + glow, dark interior, gradient "+" —
@@ -46,20 +47,31 @@ export default function AddCourseButton({
           +
         </button>
 
-        {showLimit && (
-          <div
-            role="status"
-            onClick={() => setShowLimit(false)}
-            className="absolute right-0 top-full z-30 mt-2 w-56 cursor-pointer rounded-xl border border-white/10 bg-[#1a1a1a] p-3 text-left shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200"
-          >
-            <p className="text-xs font-bold text-white">
-              Your shelf is full{maxOpenBooks ? ` (${maxOpenBooks} of ${maxOpenBooks})` : ""}
-            </p>
-            <p className="mt-1 text-[11px] leading-snug text-white/60">
-              Finish a book or remove one from your shelf to start a new course.
-            </p>
-          </div>
-        )}
+        {/* Grows out of the button that opened it (transform-origin top right)
+            and shrinks back into it on dismiss, so the panel and its trigger
+            stay visibly connected. It also auto-dismisses on a timer, which
+            made the missing exit animation especially abrupt. */}
+        <AnimatePresence>
+          {showLimit && (
+            <motion.div
+              role="status"
+              onClick={() => setShowLimit(false)}
+              className="absolute right-0 top-full z-30 mt-2 w-56 cursor-pointer rounded-xl border border-white/10 bg-[#1a1a1a] p-3 text-left shadow-2xl"
+              style={{ transformOrigin: "top right" }}
+              initial={{ opacity: 0, scale: 0.92, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: -4 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.25 }}
+            >
+              <p className="text-xs font-bold text-white">
+                Your shelf is full{maxOpenBooks ? ` (${maxOpenBooks} of ${maxOpenBooks})` : ""}
+              </p>
+              <p className="mt-1 text-[11px] leading-snug text-white/60">
+                Finish a book or remove one from your shelf to start a new course.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

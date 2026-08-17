@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Check, Loader2, Copy } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
@@ -65,6 +66,18 @@ export default function PricingPage() {
   const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState<{ planId: Plan["id"]; quote: UpgradeQuote } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  // The dialog is a bottom sheet on a phone and a centred card above it (the
+  // layout switches at sm:), so its entrance has to match wherever it actually
+  // sits: rising from the bottom edge on a phone, scaling up in place on a
+  // desktop. `exit` reuses `initial`, which is what keeps the two symmetric.
+  const isSheet = typeof window !== "undefined" && window.innerWidth < 640;
+  const sheetMotion = reduceMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+    : isSheet
+      ? { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 } }
+      : { initial: { opacity: 0, scale: 0.96 }, animate: { opacity: 1, scale: 1 } };
 
   useEffect(() => {
     if (loading) return;
@@ -211,18 +224,35 @@ export default function PricingPage() {
 
         {/* Confirmation — never switch tiers on a single tap. States the real
             figure Stripe gave us and whether it lands today or next cycle. */}
-        {pending && (
-          <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="switch-plan-title"
-            onClick={() => !confirming && setPending(null)}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141414] p-5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
+        <AnimatePresence>
+          {pending && (
+            <motion.div
+              className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="switch-plan-title"
+              onClick={() => !confirming && setPending(null)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
+              {/* Leaves the way it arrived: down and out on a phone, back into
+                  its own centre on a desktop. Previously this slid up on open
+                  and then simply vanished on dismiss, which read as a glitch
+                  rather than a dialog closing. */}
+              <motion.div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#141414] p-5 shadow-2xl"
+                initial={sheetMotion.initial}
+                animate={sheetMotion.animate}
+                exit={sheetMotion.initial}
+                transition={
+                  reduceMotion
+                    ? { duration: 0.2 }
+                    : { type: "spring", bounce: 0.2, duration: 0.4 }
+                }
+              >
               <h3 id="switch-plan-title" className="mb-1 text-lg font-bold">
                 Switch to {planFromId(pending.planId).name}?
               </h3>
@@ -280,9 +310,10 @@ export default function PricingPage() {
                   {confirming ? "Switching..." : "Confirm switch"}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Book Club owners manage their members here. */}
         {billing?.isFamilyOwner && (

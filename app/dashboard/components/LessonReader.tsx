@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, X, Check, BookOpen, ScrollText } from "lucide-react";
+import { motion, useMotionValue, animate, useReducedMotion } from "motion/react";
 import { parseLesson } from "@/lib/lesson";
 import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
 import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
@@ -11,8 +12,34 @@ import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 // out of alignment as you turn.
 const COLUMN_GAP = 48;
 
-// Horizontal distance that counts as a page turn rather than a stray touch.
-const SWIPE_THRESHOLD = 45;
+// Movement before a horizontal drag is treated as a page turn at all, so a
+// tap or a slightly-off vertical scroll doesn't start dragging the page.
+const DRAG_HYSTERESIS = 10;
+
+/**
+ * Deceleration constant for momentum projection, matching the value Apple use
+ * for normal scroll feel. Higher means a flick coasts further.
+ */
+const DECELERATION = 0.998;
+
+/**
+ * Where a flick would come to rest, given its release velocity. This is the
+ * exponential-decay projection UIScrollView uses, not the v^2/2a from physics
+ * class: the point is to land where the gesture was *going*, so a fast flick
+ * throws the page and a slow drag does not.
+ */
+function projectMomentum(velocity: number, deceleration = DECELERATION) {
+  return ((velocity / 1000) * deceleration) / (1 - deceleration);
+}
+
+/**
+ * Progressive resistance past the first and last page. A hard stop reads as
+ * frozen; resistance that grows with distance reads as responsive but empty.
+ */
+function rubberband(overshoot: number, dimension: number, constant = 0.55) {
+  if (dimension <= 0) return 0;
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
 
 // Vertical breathing room above and below the text block, in px.
 const PAGE_PAD_Y = 20;
@@ -68,6 +95,7 @@ export default function LessonReader({
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
   const scale = FONT_SCALE[fontSize];
   const paged = readingMode === "page";
+  const reduceMotion = useReducedMotion();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [page, setPage] = useState(0);
@@ -77,7 +105,23 @@ export default function LessonReader({
 
   const frameRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
+
+  // The live horizontal offset of the column stack. A motion value rather than
+  // React state on purpose: it is written on every pointermove and must not
+  // re-render the lesson to move the page.
+  const x = useMotionValue(0);
+
+  // Gesture bookkeeping. Refs, not state, for the same reason.
+  const drag = useRef({
+    active: false,
+    committed: false,
+    startX: 0,
+    startY: 0,
+    baseX: 0,
+    // Short history of recent positions, so release velocity comes from the
+    // last few moves rather than one possibly-stationary final event.
+    samples: [] as { x: number; t: number }[],
+  });
 
   const blocks = parseLesson(lesson);
 
@@ -172,8 +216,52 @@ export default function LessonReader({
     setPage(0);
   }, [lesson]);
 
-  const goPrev = useCallback(() => setPage((p) => Math.max(0, p - 1)), []);
-  const goNext = useCallback(() => setPage((p) => Math.min(pageCount - 1, p + 1)), [pageCount]);
+  // Distance from one page to the next, gutter included.
+  const stride = pageWidth + COLUMN_GAP;
+  const offsetForPage = useCallback((p: number) => -p * stride, [stride]);
+
+  /**
+   * Animate to a page, optionally inheriting the gesture's velocity so there is
+   * no seam between dragging and animating.
+   *
+   * Always springs from wherever the page currently *is* on screen, which is
+   * what makes an interrupted turn resumable: motion re-targets from the live
+   * value and blends the existing velocity rather than cutting to a new
+   * animation and producing a visible jump.
+   */
+  const settleTo = useCallback(
+    (target: number, velocity = 0) => {
+      const clamped = Math.max(0, Math.min(pageCount - 1, target));
+      setPage(clamped);
+
+      if (reduceMotion) {
+        x.set(offsetForPage(clamped));
+        return;
+      }
+
+      animate(x, offsetForPage(clamped), {
+        type: "spring",
+        velocity,
+        // A page turn that the reader threw deserves a little overshoot; one
+        // driven by a button or an arrow key does not, so bounce follows
+        // whether the gesture actually carried momentum.
+        bounce: Math.abs(velocity) > 50 ? 0.18 : 0,
+        duration: 0.4,
+      });
+    },
+    [pageCount, offsetForPage, reduceMotion, x]
+  );
+
+  const goPrev = useCallback(() => settleTo(page - 1), [settleTo, page]);
+  const goNext = useCallback(() => settleTo(page + 1), [settleTo, page]);
+
+  // Keep the offset correct when geometry changes under us (rotation, a text
+  // size bump, the settings panel opening). No animation: nothing moved from
+  // the reader's point of view, the page is simply a different width now.
+  useEffect(() => {
+    if (!paged || drag.current.active) return;
+    x.set(offsetForPage(page));
+  }, [paged, page, offsetForPage, x]);
 
   // Arrow keys, for anyone reading on a laptop or with a keyboard case.
   useEffect(() => {
@@ -186,16 +274,94 @@ export default function LessonReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [paged, goPrev, goNext]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+  // ---- Drag to turn ---------------------------------------------------------
+  // Pointer Events rather than touch events so a mouse and a stylus behave the
+  // same as a finger, and with pointer capture so a drag that leaves the
+  // element keeps tracking instead of stranding the page mid-turn.
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    // button 0 covers touch, pen and a left mouse press; a right-click drag
+    // should not turn pages.
+    if (!paged || e.button !== 0) return;
+    const d = drag.current;
+    d.active = true;
+    d.committed = false;
+    d.startX = e.clientX;
+    d.startY = e.clientY;
+    // Grabbing mid-flight takes over from wherever the page is right now, so a
+    // turn can be caught and reversed without waiting for it to land.
+    d.baseX = x.get();
+    d.samples = [{ x: e.clientX, t: performance.now() }];
+    animate(x, x.get(), { duration: 0 }).stop();
   };
 
-  const onTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (dx <= -SWIPE_THRESHOLD) goNext();
-    if (dx >= SWIPE_THRESHOLD) goPrev();
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d.active) return;
+
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+
+    if (!d.committed) {
+      // Wait for a clear horizontal intent. Comparing against vertical travel
+      // means a diagonal thumb swipe doesn't start turning pages.
+      if (Math.abs(dx) < DRAG_HYSTERESIS || Math.abs(dx) <= Math.abs(dy)) return;
+      d.committed = true;
+      // Capture keeps tracking if the finger leaves the element mid-turn. It
+      // throws when the pointer is no longer active (a cancelled touch, a
+      // synthetic event), and losing capture is far better than losing the
+      // whole gesture, so a failure here is not fatal.
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        // Tracking continues without capture.
+      }
+    }
+
+    d.samples.push({ x: e.clientX, t: performance.now() });
+    if (d.samples.length > 5) d.samples.shift();
+
+    // 1:1 with the finger inside the book, with resistance past either end.
+    const raw = d.baseX + dx;
+    const min = offsetForPage(pageCount - 1);
+    const max = 0;
+    let next = raw;
+    if (raw > max) next = max + rubberband(raw - max, frame.w || stride);
+    else if (raw < min) next = min - rubberband(min - raw, frame.w || stride);
+    x.set(next);
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const wasCommitted = d.committed;
+    d.active = false;
+    d.committed = false;
+    if (!wasCommitted) return;
+
+    // Velocity from the recent sample window, in px/s.
+    const samples = d.samples;
+    const first = samples[0];
+    const last = samples[samples.length - 1];
+    const dt = last && first ? last.t - first.t : 0;
+    const velocity = dt > 0 ? ((last.x - first.x) / dt) * 1000 : 0;
+
+    // Land where the throw was heading, not where the finger happened to lift.
+    const projected = x.get() + projectMomentum(velocity);
+    const projectedPage = Math.round(-projected / stride);
+
+    // One page per gesture, at most.
+    //
+    // The projection above uses the deceleration constant tuned for scrolling,
+    // where coasting a long way is the point. Pages are not scroll: a flick
+    // that lands three pages on is a reader who has lost their place, and a
+    // book that turns an unpredictable number of pages per swipe cannot be
+    // aimed. Velocity still decides whether the turn commits at all or springs
+    // back, and it still feeds the spring, so the throw keeps its weight
+    // without becoming a guess.
+    const target = Math.max(page - 1, Math.min(page + 1, projectedPage));
+
+    settleTo(target, velocity);
   };
 
   // Shared typography for both modes, so switching between them changes only
@@ -321,8 +487,14 @@ export default function LessonReader({
           sweep, which is why physical books are the width they are. */}
       <div
         className={`min-h-0 flex-1 px-5 md:px-8 ${paged ? "overflow-hidden" : "overflow-y-auto"}`}
-        onTouchStart={paged ? onTouchStart : undefined}
-        onTouchEnd={paged ? onTouchEnd : undefined}
+        // touch-action pan-y: the browser keeps vertical scrolling, we take
+        // horizontal. Without it Chrome claims the gesture and the page never
+        // follows the finger.
+        style={paged ? { touchAction: "pan-y" } : undefined}
+        onPointerDown={paged ? onPointerDown : undefined}
+        onPointerMove={paged ? onPointerMove : undefined}
+        onPointerUp={paged ? endDrag : undefined}
+        onPointerCancel={paged ? endDrag : undefined}
       >
         {paged ? (
           // frameRef is the padding-free measuring box; the page box inside it
@@ -336,22 +508,25 @@ export default function LessonReader({
                 paddingBottom: PAGE_PAD_Y,
               }}
             >
-              <div
+              {/* x is a motion value driven by the drag and the spring, so
+                  turning a page never re-renders the lesson - it only moves
+                  the compositor's transform. */}
+              <motion.div
                 ref={columnsRef}
                 className="font-reading"
                 style={{
+                  x,
                   height: columnHeight > 0 ? columnHeight : "100%",
                   columnWidth: columnWidth ? `${columnWidth}px` : undefined,
                   columnGap: `${COLUMN_GAP}px`,
                   // "auto" fills each column before starting the next; the
                   // default "balance" evens them out and breaks pagination.
                   columnFill: "auto",
-                  transform: `translateX(-${page * (pageWidth + COLUMN_GAP)}px)`,
-                  transition: "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  willChange: "transform",
                 }}
               >
                 {body}
-              </div>
+              </motion.div>
             </div>
           </div>
         ) : (
