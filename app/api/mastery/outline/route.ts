@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       frameworks: Array.isArray(parsed.frameworks)
         ? parsed.frameworks.filter((f: any) => typeof f === "string").map(stripEmDashes)
         : [],
-      sections: sections.slice(0, 9).map((s: any) => ({
+      sections: sections.slice(0, 5).map((s: any) => ({
         title: typeof s?.title === "string" ? stripEmDashes(s.title) : "Untitled",
         focus: typeof s?.focus === "string" ? stripEmDashes(s.focus) : "",
         keyIdeas: Array.isArray(s?.keyIdeas)

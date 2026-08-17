@@ -40,7 +40,9 @@ export async function generateGroqContent(
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Groq API Error:", errorText);
-    throw new Error(`Groq API failed: ${res.statusText}`);
+    // Status carried on the error so callers can tell a rate limit (retry
+    // later helps) apart from a real failure (retrying immediately won't).
+    throw Object.assign(new Error(`Groq API failed: ${res.statusText}`), { status: res.status });
   }
 
   const data = await res.json();

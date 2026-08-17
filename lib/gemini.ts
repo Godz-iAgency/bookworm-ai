@@ -47,7 +47,9 @@ async function callGemini(
   if (!res.ok) {
     const errorText = await res.text();
     console.error("Gemini API Error:", errorText);
-    throw new Error(`Gemini API failed: ${res.statusText}`);
+    // Status carried on the error so callers can tell a rate limit (retry
+    // later helps) apart from a real failure (retrying immediately won't).
+    throw Object.assign(new Error(`Gemini API failed: ${res.statusText}`), { status: res.status });
   }
 
   const data = await res.json();

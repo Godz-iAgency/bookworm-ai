@@ -33,14 +33,6 @@ export interface MasterySummary {
  */
 export const summaryId = (pillarSlug: string, bookSlug: string) => `${pillarSlug}__${bookSlug}`;
 
-/**
- * How many section calls run at once. Sequential would put a 9 section
- * summary somewhere north of two minutes; unbounded parallel invites rate
- * limiting from the model provider. Three keeps the whole thing to roughly
- * the length of a course generation.
- */
-const CONCURRENCY = 3;
-
 async function postJson(path: string, body: unknown) {
   const res = await fetch(path, {
     method: "POST",
@@ -84,42 +76,49 @@ export function useSummaryGeneration() {
         setPhase("writing");
         setProgress({ done: 0, total: plan.length });
 
-        // Fixed-size slots pulling from a shared cursor, so a fast section
-        // never sits waiting on a slow one in the same batch.
+        // One section at a time, deliberately. Three at once was enough to
+        // trip Gemini's burst limit, which cascaded into the Groq fallback
+        // taking the same hit simultaneously and failing too - one rate
+        // limited call turned into the whole summary coming back empty.
+        // Sequential costs time; nothing else was actually reliable.
         const written: (string | null)[] = new Array(plan.length).fill(null);
-        let cursor = 0;
-        let completed = 0;
+        const failures: string[] = [];
 
-        const worker = async () => {
-          while (true) {
-            const i = cursor++;
-            if (i >= plan.length) return;
-            const section = plan[i];
-            const res = await postJson("/api/mastery/section", {
-              title: book.title,
-              author: book.author,
-              thesis: outline.thesis,
-              allTitles,
-              index: i,
-              sectionTitle: section.title,
-              focus: section.focus,
-              keyIdeas: section.keyIdeas,
-            });
-            // One failed section must not sink the whole summary; it is
-            // recorded as missing and the reader can regenerate.
-            written[i] = typeof res?.prose === "string" ? res.prose : null;
-            completed++;
-            setProgress({ done: completed, total: plan.length });
+        for (let i = 0; i < plan.length; i++) {
+          const section = plan[i];
+          const res = await postJson("/api/mastery/section", {
+            title: book.title,
+            author: book.author,
+            thesis: outline.thesis,
+            allTitles,
+            index: i,
+            sectionTitle: section.title,
+            focus: section.focus,
+            keyIdeas: section.keyIdeas,
+          });
+          // One failed section must not sink the whole summary; it is
+          // recorded as missing and the reader can regenerate.
+          if (typeof res?.prose === "string") {
+            written[i] = res.prose;
+          } else {
+            console.error(`Section ${i + 1} ("${section.title}") failed:`, res?.error);
+            failures.push(section.title);
           }
-        };
-
-        await Promise.all(
-          Array.from({ length: Math.min(CONCURRENCY, plan.length) }, () => worker())
-        );
+          setProgress({ done: i + 1, total: plan.length });
+        }
 
         const sections: SummarySection[] = plan
           .map((s, i) => ({ title: s.title, prose: written[i] ?? "" }))
           .filter((s) => s.prose.trim().length > 0);
+
+        // Some, but not all, sections failed: still worth saving, but the
+        // reader should know it's incomplete rather than assume 5 was the
+        // whole book.
+        if (failures.length > 0 && sections.length > 0) {
+          setError(
+            `${failures.length} of ${plan.length} sections couldn't be generated (${failures.join(", ")}). Regenerate to try again for a complete summary.`
+          );
+        }
 
         if (sections.length === 0) {
           setError("The summary came back empty. Please try again.");

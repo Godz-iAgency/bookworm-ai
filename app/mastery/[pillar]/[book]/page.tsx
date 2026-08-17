@@ -111,7 +111,7 @@ export default function SummaryPage({
           </div>
 
           <p className="mt-4 text-xs text-white/40">
-            A full summary runs 5,000 words or so. This takes a minute.
+            5 sections, written one at a time so nothing gets skipped. Takes a minute or two.
           </p>
         </div>
       </div>
@@ -198,8 +198,8 @@ export default function SummaryPage({
               <h2 className="mb-2 font-bold">What you&apos;ll get</h2>
               <ul className="space-y-2 text-sm text-white/70">
                 <li className="flex gap-2">
-                  <span className="text-[#00D4FF]">✓</span>A long-form summary, roughly 15 to 20
-                  pages, following the book&apos;s real structure front to back.
+                  <span className="text-[#00D4FF]">✓</span>A long-form summary, roughly 18 to 25
+                  pages across 5 sections, following the book&apos;s real structure front to back.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-[#00D4FF]">✓</span>The author&apos;s actual frameworks and

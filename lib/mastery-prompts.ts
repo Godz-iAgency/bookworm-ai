@@ -62,7 +62,7 @@ First, identify:
 - "frameworks": the named models, laws, steps, stages, or rules this book is known for. Use the author's exact names. Empty array if the book genuinely has none.
 - "confident": true only if you reliably know this specific book's actual content. False if you are working from general knowledge of the author or the topic.
 
-Then break the book into 7 to 9 sections that follow its real progression from front to back. These are not invented themes: they should map onto the book's actual parts, chapters, or movements. For each section give:
+Then break the book into exactly 5 sections that follow its real progression from front to back. These are not invented themes: they should map onto the book's actual parts, chapters, or movements, grouped so each section covers a substantial piece of ground. For each section give:
 - "title": 2 to 6 words, using the author's language where the book has a name for this part.
 - "focus": one sentence on what this section of the book establishes.
 - "keyIdeas": 3 to 5 short strings naming the specific concepts, frameworks, studies, or stories the author uses HERE. These drive the writing later, so be concrete and specific to this book.
@@ -77,16 +77,16 @@ Return ONLY this JSON:
   ]
 }
 
-"sections" must contain between 7 and 9 items.`;
+"sections" must contain exactly 5 items.`;
 
   return { system, user };
 }
 
 /**
- * Call 2..N: one section's prose. Each runs independently so they can go in
- * parallel, which is what keeps a 6,000 word summary inside a sane wait. The
- * full outline is passed every time so sections stay in their lane and pick
- * up where the previous one left off instead of each restating the basics.
+ * Call 2..N: one section's prose. Run sequentially, one section at a time -
+ * see useSummaryGeneration.ts for why. The full outline is passed every time
+ * so sections stay in their lane and pick up where the previous one left off
+ * instead of each restating the basics.
  */
 export function buildSummarySectionMessages(
   title: string,
@@ -107,8 +107,8 @@ ${VOICE_RULES}
 ${STYLE_RULES}
 
 SECTION FORMATTING RULES:
-- Write 700 to 900 words of flowing prose. Do not write short.
-- Break the section into 2 to 4 subsections. Each begins with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 5 word title, then a blank line, then that subsection's paragraphs.
+- Write 1100 to 1400 words of flowing prose. Do not write short. This section is one fifth of a 15 to 20 page summary, so it needs to actually cover its ground, not sketch it.
+- Break the section into 3 to 5 subsections. Each begins with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 5 word title, then a blank line, then that subsection's paragraphs.
 - Use "## " ONLY for headings. No other markdown, no asterisks, no bullet symbols.
 - Where the author gives a numbered sequence, you may lay it out as lines beginning "1.", "2.", "3." and so on.
 - Separate every heading and paragraph with a single blank line.
