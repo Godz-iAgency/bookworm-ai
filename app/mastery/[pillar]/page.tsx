@@ -123,10 +123,10 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                         />
                       </div>
                       <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/35">
-                        {partial
-                          ? `${entry.sectionsWritten}/${entry.sectionsPlanned} written`
-                          : entry.complete
-                            ? "Read"
+                        {entry.complete
+                          ? "Read"
+                          : partial
+                            ? `${entry.sectionsWritten}/${entry.sectionsPlanned} sections`
                             : pct > 0
                               ? `${pct}%`
                               : "Not started"}
@@ -142,7 +142,7 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                   </span>
                 ) : entry ? (
                   <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-white/55">
-                    {pct > 0 ? "Resume" : "Ready"}
+                    {pct > 0 ? "Resume" : "Read"}
                   </span>
                 ) : (
                   <ChevronRight

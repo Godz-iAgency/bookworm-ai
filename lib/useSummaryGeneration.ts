@@ -109,7 +109,10 @@ function indexEntryFor(summary: MasterySummary): SummaryIndexEntry {
     sectionsPlanned: summary.plan?.length ?? summary.sections.length,
     wordCount: summary.wordCount,
     progress: summary.progress ?? 0,
-    complete: !!summary.completedAt,
+    // Read to the end AND actually finished. A two-section stub that the reader
+    // paged through is not a book they have read, and badging it Complete hides
+    // the eight sections still waiting to be written.
+    complete: !!summary.completedAt && isFullyWritten(summary),
     updatedAt: summary.updatedAt ?? summary.createdAt,
   };
 }
@@ -153,6 +156,18 @@ export function missingSectionIndexes(summary: MasterySummary): number[] {
   return out;
 }
 
+/** The next section waiting to be written, or null when the book is finished. */
+export function nextSectionIndex(summary: MasterySummary): number | null {
+  const missing = missingSectionIndexes(summary);
+  return missing.length > 0 ? missing[0] : null;
+}
+
+/** True only when every planned section has prose. Gates the Amazon offer. */
+export function isFullyWritten(summary: MasterySummary): boolean {
+  const planned = summary.plan?.length ?? summary.sections.length;
+  return planned > 0 && writtenSections(summary).length >= planned;
+}
+
 function countWords(sections: SummarySection[]): number {
   return sections.reduce((n, s) => {
     const t = s.prose.trim();
@@ -173,95 +188,84 @@ export function useSummaryGeneration() {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Sections finished so far, and how many there are in total. */
+  /** Sections written so far, and how many the plan has in total. */
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [phase, setPhase] = useState<"idle" | "planning" | "writing" | "saving">("idle");
-  /**
-   * The summary as it fills in. Ten sections is a three to five minute wait, so
-   * the caller gets each section as it lands and can show real work happening
-   * rather than a number ticking up.
-   */
-  const [partial, setPartial] = useState<MasterySummary | null>(null);
+  /** Which section is being written right now, zero-based, for the wait screen. */
+  const [writingIndex, setWritingIndex] = useState<number | null>(null);
 
-  // Guards a second Generate tap from starting a parallel run, which would have
-  // two loops writing the same doc and racing over the sections array.
+  // Guards a second tap from starting a parallel run, which would have two
+  // writers racing over the same sections array.
   const running = useRef(false);
 
   /**
-   * Write the sections a plan is missing, one at a time, saving after each.
+   * Write exactly one section and save it.
    *
-   * One at a time is deliberate. Three at once was enough to trip Gemini's
-   * burst limit, which cascaded into the Groq fallback taking the same hit
-   * simultaneously and failing too: one rate-limited call turned into the whole
-   * summary coming back empty. Sequential costs time; nothing else was reliable.
+   * One section per user action, never a batch. Generating all ten in a loop was
+   * the original design and it was wrong for two reasons that turned out to be
+   * the same reason. Gemini's free tier allows twenty requests per day for the
+   * whole project, so a ten-call burst either consumed half the day's budget in
+   * one go or, once the budget was gone, failed eight of the ten and left a
+   * two-section stub presented as a finished book. And a reader does not want
+   * ten sections at once anyway: they want to read one, then decide.
    *
-   * Saving after each is also deliberate, and matters more at ten sections than
-   * it did at five. A single save at the end means a closed tab, a dead phone or
-   * a failure on section nine throws away everything already paid for. Saving as
-   * we go turns any interruption into a resumable summary.
+   * Making the section the unit of work fixes both. Each tap is one request, the
+   * quota stretches across a real reading session, and a failure costs one
+   * section that can simply be asked for again.
    */
-  const fillSections = useCallback(
-    async (uid: string, base: MasterySummary, targets: number[]): Promise<MasterySummary> => {
+  const writeSection = useCallback(
+    async (uid: string, base: MasterySummary, index: number): Promise<MasterySummary> => {
       const plan = base.plan ?? [];
-      const allTitles = plan.map((s) => s.title);
-      let current = base;
-      const failures: string[] = [];
+      const item = plan[index];
+      if (!item) return base;
 
       setPhase("writing");
-      setProgress({ done: plan.length - targets.length, total: plan.length });
+      setWritingIndex(index);
+      setProgress({ done: writtenSections(base).length, total: plan.length });
 
-      for (const i of targets) {
-        const item = plan[i];
-        const res = await postJson("/api/mastery/section", {
-          title: base.title,
-          author: base.author,
-          thesis: base.thesis,
-          allTitles,
-          index: i,
-          sectionTitle: item.title,
-          focus: item.focus,
-          keyIdeas: item.keyIdeas,
-        });
+      const res = await postJson("/api/mastery/section", {
+        title: base.title,
+        author: base.author,
+        thesis: base.thesis,
+        allTitles: plan.map((s) => s.title),
+        index,
+        sectionTitle: item.title,
+        focus: item.focus,
+        keyIdeas: item.keyIdeas,
+      });
 
-        if (typeof res?.prose === "string" && res.prose.trim()) {
-          const sections = [...current.sections];
-          sections[i] = { title: item.title, prose: res.prose };
-          current = {
-            ...current,
-            sections,
-            wordCount: countWords(sections),
-            updatedAt: new Date().toISOString(),
-          };
-          // Land it before moving on, so this section is safe even if the next
-          // call fails or the reader walks away.
-          await setDoc(summaryRef(uid, current.id), current);
-          await writeIndexEntry(uid, current);
-          setPartial(current);
-        } else {
-          // One failed section must not sink the whole summary; it stays a hole
-          // in the plan and Continue will come back for it.
-          console.error(`Section ${i + 1} ("${item.title}") failed:`, res?.error);
-          failures.push(item.title);
-        }
-
-        setProgress((p) => ({ done: p.done + 1, total: plan.length }));
-      }
-
-      if (failures.length > 0) {
-        const written = writtenSections(current).length;
+      if (typeof res?.prose !== "string" || !res.prose.trim()) {
+        console.error(`Section ${index + 1} ("${item.title}") failed:`, res?.error);
         setError(
-          written === 0
-            ? "None of the sections came back. This is usually the daily AI quota being used up. Try again later."
-            : `${failures.length} of ${plan.length} sections didn't come back (${failures.join(", ")}). Everything else is saved, and Continue will pick up the rest.`
+          `Section ${index + 1} didn't come back. This is usually the daily AI limit being used up, so it is worth trying again in a moment, or tomorrow.`
         );
+        return base;
       }
 
-      return current;
+      const sections = [...base.sections];
+      sections[index] = { title: item.title, prose: res.prose };
+      const next: MasterySummary = {
+        ...base,
+        sections,
+        wordCount: countWords(sections),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setPhase("saving");
+      await setDoc(summaryRef(uid, next.id), next);
+      await writeIndexEntry(uid, next);
+      setProgress({ done: writtenSections(next).length, total: plan.length });
+      return next;
     },
     []
   );
 
-  /** Plan a book from scratch and write all ten sections. */
+  /**
+   * Plan a book and write its first section only.
+   *
+   * Starting a book costs two requests, not ten: the outline, then section one.
+   * Everything after that is the reader's choice, one section at a time.
+   */
   const generate = useCallback(
     async (pillarSlug: string, book: MasteryBook): Promise<MasterySummary | null> => {
       if (!user || running.current) return null;
@@ -271,7 +275,7 @@ export function useSummaryGeneration() {
       setIsGenerating(true);
       setPhase("planning");
       setProgress({ done: 0, total: 0 });
-      setPartial(null);
+      setWritingIndex(null);
 
       try {
         const outline = await postJson("/api/mastery/outline", {
@@ -309,15 +313,8 @@ export function useSummaryGeneration() {
         };
         await setDoc(summaryRef(user.uid, shell.id), shell);
         await writeIndexEntry(user.uid, shell);
-        setPartial(shell);
 
-        const filled = await fillSections(
-          user.uid,
-          shell,
-          plan.map((_, i) => i)
-        );
-
-        return writtenSections(filled).length > 0 ? filled : null;
+        return await writeSection(user.uid, shell, 0);
       } catch (e) {
         console.error("Summary generation failed:", e);
         setError("We couldn't build this summary right now. Please try again in a moment.");
@@ -326,39 +323,53 @@ export function useSummaryGeneration() {
         running.current = false;
         setIsGenerating(false);
         setPhase("idle");
+        setWritingIndex(null);
       }
     },
-    [user, fillSections]
+    [user, writeSection]
   );
 
-  /** Fill in the sections an interrupted or partly-failed summary is missing. */
-  const continueGeneration = useCallback(
+  /**
+   * Write the next section the reader has asked for: the lowest-numbered one
+   * still missing, so a section that failed earlier is retried before the book
+   * moves on and leaves a hole in the middle of the argument.
+   */
+  const generateNextSection = useCallback(
     async (existing: MasterySummary): Promise<MasterySummary | null> => {
       if (!user || running.current) return null;
-      const targets = missingSectionIndexes(existing);
-      if (targets.length === 0) return existing;
+      const index = nextSectionIndex(existing);
+      if (index === null) return existing;
       running.current = true;
 
       setError(null);
       setIsGenerating(true);
-      setPartial(existing);
 
       try {
-        return await fillSections(user.uid, existing, targets);
+        return await writeSection(user.uid, existing, index);
       } catch (e) {
-        console.error("Summary continuation failed:", e);
-        setError("We couldn't finish this summary right now. Please try again in a moment.");
+        console.error("Section generation failed:", e);
+        setError("We couldn't write that section right now. Please try again in a moment.");
         return null;
       } finally {
         running.current = false;
         setIsGenerating(false);
         setPhase("idle");
+        setWritingIndex(null);
       }
     },
-    [user, fillSections]
+    [user, writeSection]
   );
 
-  return { generate, continueGeneration, isGenerating, error, progress, phase, partial, setError };
+  return {
+    generate,
+    generateNextSection,
+    isGenerating,
+    error,
+    progress,
+    phase,
+    writingIndex,
+    setError,
+  };
 }
 
 export async function loadSummary(uid: string, id: string): Promise<MasterySummary | null> {

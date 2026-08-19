@@ -16,7 +16,7 @@ import {
   deleteSummary,
   saveReadingProgress,
   summaryId,
-  missingSectionIndexes,
+  nextSectionIndex,
   writtenSections,
   type MasterySummary,
 } from "@/lib/useSummaryGeneration";
@@ -30,11 +30,13 @@ export default function SummaryPage({
   const { pillar: pillarSlug, book: bookSlug } = use(params);
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { generate, continueGeneration, isGenerating, error, progress, phase, partial } =
+  const { generate, generateNextSection, isGenerating, error, progress, phase, writingIndex } =
     useSummaryGeneration();
 
   const [summary, setSummary] = useState<MasterySummary | null>(null);
   const [checked, setChecked] = useState(false);
+  /** Section to open the reader at after it has just been written. */
+  const [jumpToSection, setJumpToSection] = useState<number | null>(null);
 
   const pillar = pillarBySlug(pillarSlug);
   const book = bookBySlug(pillarSlug, bookSlug);
@@ -68,11 +70,22 @@ export default function SummaryPage({
     if (result) setSummary(result);
   }, [book, generate, pillarSlug]);
 
-  const handleContinue = useCallback(async () => {
+  /**
+   * Write the next section, then drop the reader into it.
+   *
+   * The target is captured before the call, because once it lands it is no
+   * longer "next" and there would be nothing left to point the reader at.
+   */
+  const handleGenerateNext = useCallback(async () => {
     if (!summary) return;
-    const result = await continueGeneration(summary);
-    if (result) setSummary(result);
-  }, [summary, continueGeneration]);
+    const target = nextSectionIndex(summary);
+    const result = await generateNextSection(summary);
+    if (!result) return;
+    setSummary(result);
+    if (target !== null && result.sections[target]?.prose?.trim()) {
+      setJumpToSection(target);
+    }
+  }, [summary, generateNextSection]);
 
   const handleDelete = useCallback(async () => {
     if (!user) return;
@@ -118,58 +131,40 @@ export default function SummaryPage({
     );
   }
 
-  // Generation in flight. Ten sections is a several-minute wait, so this shows
-  // the sections landing one by one rather than a spinner: the reader can see it
-  // is working, and can see exactly how much is left.
+  // One section is in flight. Roughly a minute, for one section, so this is a
+  // single focused wait rather than the multi-minute progress board the old
+  // generate-everything flow needed.
   if (isGenerating) {
-    const shown = partial ?? summary;
     const total = progress.total || SUMMARY_SECTION_COUNT;
-    const pct = total > 0 ? Math.round((progress.done / total) * 100) : 0;
+    const shownIndex = writingIndex ?? progress.done;
+    const planned = summary?.plan;
+    const title = planned?.[shownIndex]?.title;
     return (
-      <div className="flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] px-6 py-10 text-white">
-        <div className="w-full max-w-sm">
-          <p className="mb-1 text-center text-sm font-semibold text-[#00D4FF]">{book.title}</p>
-          <h2 className="mb-6 text-center text-xl font-bold">
+      <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-white">
+        <div className="w-full max-w-sm text-center">
+          <p className="mb-1 text-sm font-semibold text-[#00D4FF]">{book.title}</p>
+          <h2 className="mb-2 text-xl font-bold">
             {phase === "planning"
               ? "Mapping the book's structure..."
-              : `Writing section ${Math.min(progress.done + 1, total)} of ${total}...`}
+              : `Writing section ${shownIndex + 1} of ${total}`}
           </h2>
+          {phase !== "planning" && title && (
+            <p className="mb-6 text-sm text-white/60">{title}</p>
+          )}
 
           <div className="h-2 w-full overflow-hidden rounded-full border border-white/10 bg-black">
             <div
-              className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
-              style={{ width: `${phase === "planning" ? 4 : Math.max(pct, 4)}%` }}
+              className="h-full animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E]"
+              style={{
+                width: `${phase === "planning" ? 8 : Math.round(((shownIndex + 0.5) / total) * 100)}%`,
+              }}
             />
           </div>
 
-          {shown?.plan && shown.plan.length > 0 && (
-            <div className="mt-6 flex flex-col gap-1">
-              {shown.plan.map((item, i) => {
-                const done = !!shown.sections[i]?.prose?.trim();
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] transition-colors ${
-                      done ? "text-white/80" : "text-white/30"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black ${
-                        done ? "bg-[#00D4FF] text-black" : "border border-white/20"
-                      }`}
-                    >
-                      {done ? "✓" : i + 1}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <p className="mt-6 text-center text-xs leading-relaxed text-white/40">
-            {total} sections, written one at a time so nothing gets skipped, and saved as each one
-            lands. You can leave this page and come back, nothing already written is lost.
+          <p className="mt-5 text-xs leading-relaxed text-white/40">
+            {phase === "planning"
+              ? `Planning all ${total} sections, then writing the first one. The rest are written when you ask for them.`
+              : "About a minute. It saves as soon as it lands, so nothing is lost if you leave."}
           </p>
         </div>
       </div>
@@ -183,11 +178,12 @@ export default function SummaryPage({
         summary={summary}
         pillarName={pillar.name}
         backHref={`/mastery/${pillarSlug}`}
-        missingCount={missingSectionIndexes(summary).length}
-        onContinue={handleContinue}
+        onGenerateNext={handleGenerateNext}
         onRegenerate={handleGenerate}
         onDelete={handleDelete}
         onProgress={handleProgress}
+        jumpToSection={jumpToSection}
+        onJumped={() => setJumpToSection(null)}
       />
     );
   }
@@ -235,20 +231,28 @@ export default function SummaryPage({
         {!checked ? null : (
           <div className="mt-8">
             <div className="rounded-2xl border border-white/10 bg-[#1a1a1a]/60 p-5">
-              <h2 className="mb-2 font-bold">What you&apos;ll get</h2>
+              <h2 className="mb-2 font-bold">How this one works</h2>
               <ul className="space-y-2 text-sm text-white/70">
                 <li className="flex gap-2">
-                  <span className="text-[#00D4FF]">✓</span>A long-form summary, roughly 45 to 60
-                  pages across {SUMMARY_SECTION_COUNT} sections, following the book&apos;s real
-                  structure front to back.
+                  <span className="text-[#00D4FF]">✓</span>
+                  {SUMMARY_SECTION_COUNT} sections following the book&apos;s real structure front to
+                  back, around 45 to 60 pages once it&apos;s all written.
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[#00D4FF]">✓</span>
+                  <span>
+                    <span className="text-white/90">One section at a time.</span> You get section one
+                    now, and each following section when you ask for it, so you read at your pace
+                    instead of waiting on the whole book.
+                  </span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-[#00D4FF]">✓</span>The author&apos;s actual frameworks and
                   terminology, defined and worked through their own examples.
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-[#00D4FF]">✓</span>A proper paged reader that remembers where
-                  you stopped, and keeps the book on your shelf for good.
+                  <span className="text-[#00D4FF]">✓</span>A paged reader that remembers where you
+                  stopped. Nothing expires, and it stays on your shelf.
                 </li>
               </ul>
             </div>
@@ -260,15 +264,15 @@ export default function SummaryPage({
             )}
 
             <button
-              onClick={planned > 0 ? handleContinue : handleGenerate}
+              onClick={planned > 0 ? handleGenerateNext : handleGenerate}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.02]"
             >
               <Sparkles className="h-4 w-4" strokeWidth={2.5} />
-              {planned > 0 ? "Try these sections again" : "Generate Summary"}
+              {planned > 0 ? "Try section 1 again" : "Start with section 1"}
             </button>
             <p className="mt-3 text-center text-xs leading-relaxed text-white/40">
-              Free, and it doesn&apos;t use a course generation. Takes a few minutes, and saves as it
-              goes.
+              Free, and it doesn&apos;t use a course generation. About a minute for the first
+              section.
             </p>
           </div>
         )}

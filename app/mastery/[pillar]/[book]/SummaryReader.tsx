@@ -22,7 +22,11 @@ import { buildAmazonLink } from "@/lib/amazon";
 import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
 import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 import { usePagedReader, COLUMN_GAP, PAGE_PAD_Y } from "@/lib/usePagedReader";
-import { writtenSections, type MasterySummary } from "@/lib/useSummaryGeneration";
+import {
+  isFullyWritten,
+  nextSectionIndex,
+  type MasterySummary,
+} from "@/lib/useSummaryGeneration";
 
 /** How long the reader has to sit still on a page before the position is saved. */
 const PROGRESS_SAVE_DELAY = 1200;
@@ -70,13 +74,18 @@ interface SummaryReaderProps {
   pillarName: string;
   /** Back to the pillar's book list. */
   backHref: string;
-  /** Sections planned but not yet written, if any. */
-  missingCount: number;
-  onContinue: () => void;
+  /** Write the next section that has not been written yet. */
+  onGenerateNext: () => void;
   onRegenerate: () => void;
   onDelete: () => void;
   /** Fired on settled page changes, already debounced by this component. */
   onProgress: (progress: number, complete: boolean) => void;
+  /**
+   * A section to open at as soon as it has been laid out, used to drop the
+   * reader straight into a section they just asked to be written.
+   */
+  jumpToSection: number | null;
+  onJumped: () => void;
 }
 
 /**
@@ -92,11 +101,12 @@ export default function SummaryReader({
   summary,
   pillarName,
   backHref,
-  missingCount,
-  onContinue,
+  onGenerateNext,
   onRegenerate,
   onDelete,
   onProgress,
+  jumpToSection,
+  onJumped,
 }: SummaryReaderProps) {
   const { fontSize, setFontSize } = useReadingPrefs();
   const scale = FONT_SCALE[fontSize];
@@ -106,19 +116,37 @@ export default function SummaryReader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Keyed on the sections array, not the summary object: marking the book
-  // complete produces a new summary object with the same prose, and re-parsing
-  // 12,000 words to light up a badge would be a visible stall.
-  const sections = useMemo(() => writtenSections(summary), [summary.sections]);
+  const plan = summary.plan ?? summary.sections.map((s) => ({ title: s.title, focus: "", keyIdeas: [] }));
+  const totalPlanned = plan.length;
+  const fullyWritten = isFullyWritten(summary);
+  const nextIndex = nextSectionIndex(summary);
+
+  /**
+   * The sections that exist, tagged with their place in the plan.
+   *
+   * Carrying the plan index matters: if section 3 failed and 4 was written, the
+   * third rendered section is plan item 4, and a contents list built on rendered
+   * position alone would send the reader to the wrong chapter. Keyed on the
+   * sections array rather than the summary object so marking the book complete
+   * does not re-parse 12,000 words to light up a badge.
+   */
+  const written = useMemo(
+    () =>
+      plan
+        .map((item, index) => ({ index, title: item.title, prose: summary.sections[index]?.prose ?? "" }))
+        .filter((s) => s.prose.trim().length > 0),
+    [summary.sections]
+  );
 
   // Parsed once per summary rather than on every page turn: at 12,000 words this
   // is real work, and a page turn must not pay for it.
   const parsed = useMemo(
-    () => sections.map((s) => ({ title: s.title, blocks: parseLesson(s.prose) })),
-    [sections]
+    () => written.map((s) => ({ index: s.index, title: s.title, blocks: parseLesson(s.prose) })),
+    [written]
   );
 
-  const handlePageChange = usePersistProgress(onProgress);
+  // Completion needs the book to actually be finished, not just paged through.
+  const handlePageChange = usePersistProgress(onProgress, fullyWritten);
 
   const reader = usePagedReader({
     enabled: paged,
@@ -126,7 +154,7 @@ export default function SummaryReader({
     // No remeasureKey for the panel on purpose: it floats over the text rather
     // than shortening it, so opening it cannot change the pagination. That is
     // what makes the page numbers in the contents list trustworthy.
-    contentKey: `${fontSize}|${summary.wordCount}|${sections.length}`,
+    contentKey: `${fontSize}|${summary.wordCount}|${written.length}`,
     resetKey: summary.id,
     initialProgress: summary.progress ?? 0,
     onPageChange: handlePageChange,
@@ -168,7 +196,7 @@ export default function SummaryReader({
     };
   }, [paged, reader.columnWidth, reader.spread, reader.columnsRef, pageCount, fontSize]);
 
-  // The section the reader is currently inside, for the header.
+  // The section the reader is currently inside, as a position in `written`.
   const currentSection = useMemo(() => {
     let found = -1;
     for (let i = 0; i < sectionPages.length; i++) {
@@ -176,6 +204,28 @@ export default function SummaryReader({
     }
     return found;
   }, [sectionPages, page]);
+
+  /**
+   * Drop the reader into a section they just had written, once it has been laid
+   * out and its page is known. Without this, appending a section re-paginates the
+   * book and the fraction-preserving rescale leaves the reader somewhere in the
+   * middle of what they had already read, rather than at the new material they
+   * just waited for.
+   */
+  useEffect(() => {
+    if (jumpToSection === null) return;
+    if (!paged) {
+      scrollToSection(jumpToSection);
+      onJumped();
+      return;
+    }
+    const position = written.findIndex((s) => s.index === jumpToSection);
+    if (position < 0) return;
+    const target = sectionPages[position];
+    if (typeof target !== "number") return;
+    jumpTo(target);
+    onJumped();
+  }, [jumpToSection, sectionPages, written, paged, jumpTo, onJumped]);
 
   // Arrow keys, for anyone reading on a laptop or with a keyboard case.
   useEffect(() => {
@@ -244,14 +294,14 @@ export default function SummaryReader({
       )}
 
       <p className="mt-6 text-[11px] font-semibold uppercase tracking-wide text-white/30">
-        {sections.length} sections · {summary.wordCount.toLocaleString()} words
+        {written.length} of {totalPlanned} sections · {summary.wordCount.toLocaleString()} words
         {paged && pageCount > 1 ? ` · ${pageCount} pages` : ""}
       </p>
     </div>
   );
 
   const bookBody = parsed.map((section, i) => (
-    <section key={i} id={`summary-section-${i}`}>
+    <section key={section.index} id={`summary-section-${section.index}`}>
       <h2
         ref={(el) => {
           sectionAnchors.current[i] = el;
@@ -268,7 +318,9 @@ export default function SummaryReader({
           breakAfter: "avoid",
         }}
       >
-        <span className="mr-2 text-[#00D4FF]/50 tabular-nums">{i + 1}.</span>
+        {/* Numbered by its place in the plan, not by how many are written, so
+            section 4 is called 4 even when it is the newest thing here. */}
+        <span className="mr-2 text-[#00D4FF]/50 tabular-nums">{section.index + 1}.</span>
         {section.title}
       </h2>
 
@@ -307,69 +359,117 @@ export default function SummaryReader({
     </section>
   ));
 
-  // The last page. Same offer the 7-day course makes when a book is finished:
-  // the summary is the map, the book is the territory.
+  /**
+   * The page after the last written section.
+   *
+   * Two different pages depending on where the book is. Mid-book it is the
+   * handoff: you have finished what exists, here is what comes next, write it
+   * when you want it. Only once all ten sections exist does it become the
+   * finish line, and only then is the book offered on Amazon: pitching the
+   * purchase after two of ten sections would be asking the reader to buy on the
+   * strength of a summary they have not actually read yet.
+   */
   const endPage = (
     <div style={{ breakBefore: "column" }}>
-      {missingCount > 0 ? (
+      {!fullyWritten && nextIndex !== null ? (
         <>
-          <h2 className="font-bold text-white" style={{ fontSize: scale.heading }}>
-            {missingCount} {missingCount === 1 ? "section" : "sections"} still to write
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[#00D4FF]">
+            End of section {written.length > 0 ? written[written.length - 1].index + 1 : 0}
+          </p>
+          <h2
+            className="mt-2 font-black leading-tight text-white"
+            style={{ fontSize: scale.heading + 2 }}
+          >
+            Next up: {plan[nextIndex]?.title}
           </h2>
           <p
-            className="mt-2 text-white/60"
+            className="mt-2.5 text-white/60"
             style={{ fontSize: scale.body - 2, lineHeight: scale.lineHeight }}
           >
-            Everything written so far is saved. Continue to fill in the rest.
+            {plan[nextIndex]?.focus ||
+              "The next movement of the book, written to pick up exactly where this left off."}
           </p>
+
           <button
-            onClick={onContinue}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3 text-sm font-bold text-white"
+            onClick={onGenerateNext}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3.5 text-sm font-bold text-white"
           >
             <Sparkles className="h-4 w-4" strokeWidth={2.5} />
-            Continue the summary
+            Write section {nextIndex + 1} of {totalPlanned}
           </button>
+
+          <p
+            className="mt-3 text-center text-white/35"
+            style={{ fontSize: Math.max(11, scale.body - 6) }}
+          >
+            One section at a time, about a minute each. {totalPlanned - written.length}{" "}
+            {totalPlanned - written.length === 1 ? "section" : "sections"} left after this one.
+          </p>
+
+          {/* The contents of what is still to come, so the shape of the rest of
+              the book is visible even before it is written. */}
+          <div className="mt-7 border-t border-white/10 pt-5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/30">
+              Still to come
+            </p>
+            {plan.slice(nextIndex).map((item, i) => (
+              <div key={nextIndex + i} className="flex gap-2.5 py-1">
+                <span className="w-4 shrink-0 text-right text-[11px] font-bold tabular-nums text-white/25">
+                  {nextIndex + i + 1}
+                </span>
+                <span
+                  className="min-w-0 flex-1 text-white/45"
+                  style={{ fontSize: Math.max(12, scale.body - 5) }}
+                >
+                  {item.title}
+                </span>
+              </div>
+            ))}
+          </div>
         </>
       ) : (
         <>
           <p className="text-3xl">🎉</p>
-          <h2 className="mt-3 font-black leading-tight text-white" style={{ fontSize: scale.heading + 2 }}>
+          <h2
+            className="mt-3 font-black leading-tight text-white"
+            style={{ fontSize: scale.heading + 2 }}
+          >
             That&apos;s the whole book.
           </h2>
           <p
             className="mt-2.5 text-white/60"
             style={{ fontSize: scale.body - 2, lineHeight: scale.lineHeight }}
           >
-            You&apos;ve read all {sections.length} sections of {summary.title}. This stays on your
+            All {totalPlanned} sections of {summary.title}, start to finish. This stays on your
             shelf, so you can come back to any part of it whenever you want.
           </p>
+
+          <div className="mt-6 border-t border-white/10 pt-6">
+            <p
+              className="text-white/70"
+              style={{ fontSize: scale.body - 2, lineHeight: scale.lineHeight }}
+            >
+              Want the real thing on your shelf? A summary gets you the argument; the book gets you
+              the author.
+            </p>
+            <a
+              href={amazonHref}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3 text-sm font-bold text-white"
+            >
+              <ShoppingCart className="h-4 w-4" strokeWidth={2.5} />
+              Get the Book on Amazon →
+            </a>
+            <Link
+              href={backHref}
+              className="mt-2.5 flex w-full items-center justify-center rounded-full border border-white/20 py-3 text-sm font-bold text-white/80"
+            >
+              Back to {pillarName}
+            </Link>
+          </div>
         </>
       )}
-
-      <div className="mt-6 border-t border-white/10 pt-6">
-        <p
-          className="text-white/70"
-          style={{ fontSize: scale.body - 2, lineHeight: scale.lineHeight }}
-        >
-          Want the real thing on your shelf? A summary gets you the argument; the book gets you the
-          author.
-        </p>
-        <a
-          href={amazonHref}
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3 text-sm font-bold text-white"
-        >
-          <ShoppingCart className="h-4 w-4" strokeWidth={2.5} />
-          Get the Book on Amazon →
-        </a>
-        <Link
-          href={backHref}
-          className="mt-2.5 flex w-full items-center justify-center rounded-full border border-white/20 py-3 text-sm font-bold text-white/80"
-        >
-          Back to {pillarName}
-        </Link>
-      </div>
     </div>
   );
 
@@ -398,19 +498,29 @@ export default function SummaryReader({
             {summary.title}
           </p>
           <p className="truncate text-sm font-bold text-white">
-            {currentSection >= 0 && sections[currentSection]
-              ? `${currentSection + 1}. ${sections[currentSection].title}`
+            {currentSection >= 0 && written[currentSection]
+              ? `${written[currentSection].index + 1}. ${written[currentSection].title}`
               : summary.author}
           </p>
         </div>
 
-        {finished && (
+        {finished ? (
           <span
             className="flex shrink-0 items-center gap-1 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[10px] font-bold text-[#00D4FF]"
-            title="You've read this one all the way through"
+            title="All sections written, and read all the way through"
           >
             <Check className="h-3 w-3" strokeWidth={3} />
             Complete
+          </span>
+        ) : (
+          /* How much of the book exists, always visible. The old build showed a
+             two-section stub with a Complete badge and no hint that eight
+             sections were missing. */
+          <span
+            className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold tabular-nums text-white/55"
+            title={`${written.length} of ${totalPlanned} sections written`}
+          >
+            {written.length}/{totalPlanned}
           </span>
         )}
 
@@ -495,22 +605,60 @@ export default function SummaryReader({
               </div>
             </div>
 
-            {/* Contents. Page numbers make the jump predictable and double as a
-                sense of how much of the book each part takes up. */}
+            {/* Contents. Every planned section is listed, written or not, so the
+                shape of the whole book is visible from section one and it is
+                obvious what is still to come. Page numbers make the jump
+                predictable and double as a sense of how much space each part
+                takes up. */}
             <div>
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40">
-                Contents
+                Contents · {written.length} of {totalPlanned} written
               </p>
               <div className="flex flex-col">
-                {sections.map((s, i) => {
-                  const at = sectionPages[i];
-                  const active = currentSection === i;
+                {plan.map((item, planIndex) => {
+                  const position = written.findIndex((w) => w.index === planIndex);
+                  const at = position >= 0 ? sectionPages[position] : undefined;
+                  const active = position >= 0 && currentSection === position;
+                  const isNext = planIndex === nextIndex;
+
+                  // Unwritten sections are listed but inert: there is nowhere to
+                  // jump to yet. The next one up gets the action instead.
+                  if (position < 0) {
+                    return (
+                      <div
+                        key={planIndex}
+                        className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-left"
+                      >
+                        <span className="w-4 shrink-0 text-center text-[11px] font-bold tabular-nums text-white/20">
+                          {planIndex + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-white/35">
+                          {item.title}
+                        </span>
+                        {isNext ? (
+                          <button
+                            onClick={() => {
+                              setMenuOpen(false);
+                              onGenerateNext();
+                            }}
+                            className="flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-2.5 py-1 text-[10px] font-bold text-white"
+                          >
+                            <Sparkles className="h-3 w-3" strokeWidth={2.5} />
+                            Write
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-[10px] text-white/20">not written</span>
+                        )}
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
-                      key={i}
+                      key={planIndex}
                       onClick={() => {
                         if (paged && typeof at === "number") jumpTo(at);
-                        else scrollToSection(i);
+                        else scrollToSection(planIndex);
                         setMenuOpen(false);
                       }}
                       className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${
@@ -522,10 +670,10 @@ export default function SummaryReader({
                           active ? "text-[#00D4FF]" : "text-white/30"
                         }`}
                       >
-                        {i + 1}
+                        {planIndex + 1}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-                        {s.title}
+                        {item.title}
                       </span>
                       {paged && typeof at === "number" && (
                         <span className="shrink-0 text-[10px] tabular-nums text-white/30">
@@ -538,29 +686,33 @@ export default function SummaryReader({
               </div>
             </div>
 
-            {missingCount > 0 && (
+            {nextIndex !== null && (
               <button
                 onClick={() => {
                   setMenuOpen(false);
-                  onContinue();
+                  onGenerateNext();
                 }}
                 className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-2.5 text-xs font-bold text-white"
               >
                 <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Write the {missingCount} missing {missingCount === 1 ? "section" : "sections"}
+                Write section {nextIndex + 1}: {plan[nextIndex]?.title}
               </button>
             )}
 
             <div className="flex flex-col gap-2 border-t border-white/10 pt-3 sm:flex-row">
-              <a
-                href={amazonHref}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 py-2.5 text-xs font-bold text-white/80 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                <ShoppingCart className="h-3.5 w-3.5" strokeWidth={2} />
-                Buy the book
-              </a>
+              {/* The purchase offer waits until the book is actually finished,
+                  the same rule the end page follows. */}
+              {fullyWritten && (
+                <a
+                  href={amazonHref}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 py-2.5 text-xs font-bold text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+                >
+                  <ShoppingCart className="h-3.5 w-3.5" strokeWidth={2} />
+                  Buy the book
+                </a>
+              )}
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -719,9 +871,15 @@ function scrollToSection(i: number) {
  * that only matters when the reader leaves. Waiting for the page to sit still
  * collapses a burst of flicking through the book into a single write.
  */
-function usePersistProgress(onProgress: (progress: number, complete: boolean) => void) {
+function usePersistProgress(
+  onProgress: (progress: number, complete: boolean) => void,
+  /** False while sections are still missing, so a stub can't report Complete. */
+  canComplete: boolean
+) {
   const cbRef = useRef(onProgress);
   cbRef.current = onProgress;
+  const completeRef = useRef(canComplete);
+  completeRef.current = canComplete;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaved = useRef<number | null>(null);
 
@@ -738,7 +896,9 @@ function usePersistProgress(onProgress: (progress: number, complete: boolean) =>
     if (pageCount <= 1) return;
 
     const value = page / (pageCount - 1);
-    const complete = page >= pageCount - 1;
+    // Reaching the last written page is only finishing the book if the book is
+    // all there. Otherwise it is just the end of what exists so far.
+    const complete = page >= pageCount - 1 && completeRef.current;
 
     if (
       !complete &&
