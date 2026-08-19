@@ -1,24 +1,26 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { AlertTriangle, RefreshCw, Trash2, Type } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { BookCover } from "@/components/book-cover";
 import { useAuth } from "@/context/AuthContext";
 import { bookBySlug, pillarBySlug } from "@/lib/mastery-library";
+import { SUMMARY_SECTION_COUNT } from "@/lib/mastery-prompts";
 import {
   useSummaryGeneration,
   loadSummary,
   deleteSummary,
+  saveReadingProgress,
   summaryId,
+  missingSectionIndexes,
+  writtenSections,
   type MasterySummary,
 } from "@/lib/useSummaryGeneration";
-import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
-import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
-import { parseLesson } from "@/lib/lesson";
+import SummaryReader from "./SummaryReader";
 
 export default function SummaryPage({
   params,
@@ -28,15 +30,15 @@ export default function SummaryPage({
   const { pillar: pillarSlug, book: bookSlug } = use(params);
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { fontSize, setFontSize } = useReadingPrefs();
-  const { generate, isGenerating, error, progress, phase } = useSummaryGeneration();
+  const { generate, continueGeneration, isGenerating, error, progress, phase, partial } =
+    useSummaryGeneration();
 
   const [summary, setSummary] = useState<MasterySummary | null>(null);
   const [checked, setChecked] = useState(false);
-  const [showSizes, setShowSizes] = useState(false);
 
   const pillar = pillarBySlug(pillarSlug);
   const book = bookBySlug(pillarSlug, bookSlug);
+  const id = summaryId(pillarSlug, bookSlug);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -45,7 +47,7 @@ export default function SummaryPage({
   useEffect(() => {
     if (!user || !book) return;
     let cancelled = false;
-    loadSummary(user.uid, summaryId(pillarSlug, bookSlug))
+    loadSummary(user.uid, id)
       .then((s) => {
         if (cancelled) return;
         setSummary(s);
@@ -58,7 +60,47 @@ export default function SummaryPage({
     return () => {
       cancelled = true;
     };
-  }, [user, book, pillarSlug, bookSlug]);
+  }, [user, book, id]);
+
+  const handleGenerate = useCallback(async () => {
+    if (!book) return;
+    const result = await generate(pillarSlug, book);
+    if (result) setSummary(result);
+  }, [book, generate, pillarSlug]);
+
+  const handleContinue = useCallback(async () => {
+    if (!summary) return;
+    const result = await continueGeneration(summary);
+    if (result) setSummary(result);
+  }, [summary, continueGeneration]);
+
+  const handleDelete = useCallback(async () => {
+    if (!user) return;
+    await deleteSummary(user.uid, id);
+    setSummary(null);
+  }, [user, id]);
+
+  // Position is written straight through rather than held in state: the reader
+  // already debounces, and re-rendering to record a page number on every turn
+  // would be work for something nothing on screen displays.
+  //
+  // Finishing the book is the exception. That does change what is on screen (the
+  // Complete badge), and a reader who just turned the last page should see it
+  // then, not the next time they open the book.
+  const handleProgress = useCallback(
+    (value: number, complete: boolean) => {
+      if (!user) return;
+      if (complete) {
+        setSummary((s) =>
+          s && !s.completedAt ? { ...s, progress: value, completedAt: new Date().toISOString() } : s
+        );
+      }
+      saveReadingProgress(user.uid, id, value, complete).catch((e) =>
+        console.error("Could not save reading position:", e)
+      );
+    },
+    [user, id]
+  );
 
   if (loading || !user) return null;
 
@@ -76,49 +118,82 @@ export default function SummaryPage({
     );
   }
 
-  const handleGenerate = async () => {
-    const result = await generate(pillarSlug, book);
-    if (result) setSummary(result);
-  };
-
-  const handleDelete = async () => {
-    if (!user) return;
-    await deleteSummary(user.uid, summaryId(pillarSlug, bookSlug));
-    setSummary(null);
-  };
-
-  // Generation in flight: real progress, since a full summary is a long wait
-  // and a spinner alone gives the reader nothing to judge it by.
+  // Generation in flight. Ten sections is a several-minute wait, so this shows
+  // the sections landing one by one rather than a spinner: the reader can see it
+  // is working, and can see exactly how much is left.
   if (isGenerating) {
-    const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+    const shown = partial ?? summary;
+    const total = progress.total || SUMMARY_SECTION_COUNT;
+    const pct = total > 0 ? Math.round((progress.done / total) * 100) : 0;
     return (
-      <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
+      <div className="flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] px-6 py-10 text-white">
         <div className="w-full max-w-sm">
-          <p className="mb-1 text-sm font-semibold text-[#00D4FF]">{book.title}</p>
-          <h2 className="mb-6 text-xl font-bold">
+          <p className="mb-1 text-center text-sm font-semibold text-[#00D4FF]">{book.title}</p>
+          <h2 className="mb-6 text-center text-xl font-bold">
             {phase === "planning"
               ? "Mapping the book's structure..."
-              : phase === "saving"
-                ? "Saving to your shelf..."
-                : `Writing section ${Math.min(progress.done + 1, progress.total)} of ${progress.total}...`}
+              : `Writing section ${Math.min(progress.done + 1, total)} of ${total}...`}
           </h2>
 
           <div className="h-2 w-full overflow-hidden rounded-full border border-white/10 bg-black">
             <div
               className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-all duration-500"
-              style={{ width: `${phase === "planning" ? 6 : pct}%` }}
+              style={{ width: `${phase === "planning" ? 4 : Math.max(pct, 4)}%` }}
             />
           </div>
 
-          <p className="mt-4 text-xs text-white/40">
-            5 sections, written one at a time so nothing gets skipped. Takes a minute or two.
+          {shown?.plan && shown.plan.length > 0 && (
+            <div className="mt-6 flex flex-col gap-1">
+              {shown.plan.map((item, i) => {
+                const done = !!shown.sections[i]?.prose?.trim();
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] transition-colors ${
+                      done ? "text-white/80" : "text-white/30"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black ${
+                        done ? "bg-[#00D4FF] text-black" : "border border-white/20"
+                      }`}
+                    >
+                      {done ? "✓" : i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="mt-6 text-center text-xs leading-relaxed text-white/40">
+            {total} sections, written one at a time so nothing gets skipped, and saved as each one
+            lands. You can leave this page and come back, nothing already written is lost.
           </p>
         </div>
       </div>
     );
   }
 
-  const scale = FONT_SCALE[fontSize];
+  // A summary exists: hand the whole screen over to the reader.
+  if (summary && writtenSections(summary).length > 0) {
+    return (
+      <SummaryReader
+        summary={summary}
+        pillarName={pillar.name}
+        backHref={`/mastery/${pillarSlug}`}
+        missingCount={missingSectionIndexes(summary).length}
+        onContinue={handleContinue}
+        onRegenerate={handleGenerate}
+        onDelete={handleDelete}
+        onProgress={handleProgress}
+      />
+    );
+  }
+
+  // Nothing generated yet (or a plan whose every section failed).
+  const planned = summary?.plan?.length ?? 0;
 
   return (
     <div className="relative min-h-dvh w-full overflow-y-auto bg-[#0a0a0a] text-white">
@@ -137,40 +212,6 @@ export default function SummaryPage({
               className="opacity-90"
             />
           </Link>
-
-          {summary && (
-            <div className="relative ml-auto">
-              <button
-                onClick={() => setShowSizes((o) => !o)}
-                aria-label="Text size"
-                aria-expanded={showSizes}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <Type className="h-4 w-4" strokeWidth={2} />
-              </button>
-              {showSizes && (
-                <div className="absolute right-0 top-full z-30 mt-2 flex gap-1 rounded-xl border border-white/10 bg-[#1a1a1a] p-1.5 shadow-2xl">
-                  {FONT_SIZE_ORDER.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => {
-                        setFontSize(size);
-                        setShowSizes(false);
-                      }}
-                      className={`h-9 w-9 rounded-lg text-sm font-bold transition-colors ${
-                        fontSize === size
-                          ? "bg-[#00D4FF]/20 text-[#00D4FF]"
-                          : "text-white/50 hover:bg-white/10"
-                      }`}
-                      style={{ fontSize: `${10 + FONT_SIZE_ORDER.indexOf(size) * 2}px` }}
-                    >
-                      {FONT_SCALE[size].sample}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="flex items-start gap-4">
@@ -191,23 +232,23 @@ export default function SummaryPage({
           </div>
         </div>
 
-        {!checked ? null : !summary ? (
-          /* Nothing generated yet. */
+        {!checked ? null : (
           <div className="mt-8">
             <div className="rounded-2xl border border-white/10 bg-[#1a1a1a]/60 p-5">
               <h2 className="mb-2 font-bold">What you&apos;ll get</h2>
               <ul className="space-y-2 text-sm text-white/70">
                 <li className="flex gap-2">
-                  <span className="text-[#00D4FF]">✓</span>A long-form summary, roughly 18 to 25
-                  pages across 5 sections, following the book&apos;s real structure front to back.
+                  <span className="text-[#00D4FF]">✓</span>A long-form summary, roughly 45 to 60
+                  pages across {SUMMARY_SECTION_COUNT} sections, following the book&apos;s real
+                  structure front to back.
                 </li>
                 <li className="flex gap-2">
                   <span className="text-[#00D4FF]">✓</span>The author&apos;s actual frameworks and
                   terminology, defined and worked through their own examples.
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-[#00D4FF]">✓</span>Written in the register of the book
-                  itself, not a neutral textbook voice.
+                  <span className="text-[#00D4FF]">✓</span>A proper paged reader that remembers where
+                  you stopped, and keeps the book on your shelf for good.
                 </li>
               </ul>
             </div>
@@ -219,116 +260,17 @@ export default function SummaryPage({
             )}
 
             <button
-              onClick={handleGenerate}
-              className="mt-5 h-13 w-full rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.02]"
+              onClick={planned > 0 ? handleContinue : handleGenerate}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] py-3.5 text-base font-bold text-white transition-transform hover:scale-[1.02]"
             >
-              Generate Summary →
+              <Sparkles className="h-4 w-4" strokeWidth={2.5} />
+              {planned > 0 ? "Try these sections again" : "Generate Summary"}
             </button>
-            <p className="mt-3 text-center text-xs text-white/40">
-              Free. This doesn&apos;t use a course generation.
+            <p className="mt-3 text-center text-xs leading-relaxed text-white/40">
+              Free, and it doesn&apos;t use a course generation. Takes a few minutes, and saves as it
+              goes.
             </p>
           </div>
-        ) : (
-          /* The summary itself. */
-          <>
-            {!summary.confident && (
-              <div className="mt-5 flex gap-3 rounded-xl border border-[#FFB020]/40 bg-[#FFB020]/10 px-4 py-3">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-[#FFB020]" strokeWidth={2} />
-                <p className="text-xs leading-relaxed text-[#FFB020]">
-                  This one was written from general knowledge of the author and topic rather than
-                  detailed recall of the book, so treat the specifics with care.
-                </p>
-              </div>
-            )}
-
-            {summary.thesis && (
-              <div className="mt-5 rounded-xl border-l-2 border-[#00D4FF] bg-[#00D4FF]/[0.06] py-3 pl-4 pr-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#00D4FF]">
-                  The argument
-                </p>
-                <p className="mt-1.5 font-reading text-[15px] leading-relaxed text-white/85">
-                  {summary.thesis}
-                </p>
-              </div>
-            )}
-
-            {summary.frameworks.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {summary.frameworks.map((f) => (
-                  <span
-                    key={f}
-                    className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70"
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-white/30">
-              {summary.sections.length} sections · {summary.wordCount.toLocaleString()} words · about{" "}
-              {Math.max(1, Math.round(summary.wordCount / 250))} pages
-            </p>
-
-            <div className="my-6 h-px w-full bg-white/10" />
-
-            <article className="font-reading">
-              {summary.sections.map((section, i) => (
-                <section key={i} className="mb-10">
-                  <h2
-                    className="mb-4 font-bold leading-tight text-white"
-                    style={{ fontSize: `${scale.heading + 4}px` }}
-                  >
-                    <span className="mr-2 text-[#00D4FF]/60">{i + 1}.</span>
-                    {section.title}
-                  </h2>
-
-                  {parseLesson(section.prose).map((b, j) =>
-                    b.type === "heading" ? (
-                      <h3
-                        key={j}
-                        className="mb-2 mt-6 font-bold text-white/90"
-                        style={{ fontSize: `${scale.heading}px` }}
-                      >
-                        {b.text}
-                      </h3>
-                    ) : (
-                      <p
-                        key={j}
-                        className={`mb-4 text-white/85 ${b.type === "item" ? "pl-4" : ""}`}
-                        style={{ fontSize: `${scale.body}px`, lineHeight: scale.lineHeight }}
-                      >
-                        {b.text}
-                      </p>
-                    )
-                  )}
-                </section>
-              ))}
-            </article>
-
-            {error && (
-              <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-center text-sm text-red-400">
-                {error}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2 border-t border-white/10 pt-6 sm:flex-row">
-              <button
-                onClick={handleGenerate}
-                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 py-3 text-sm font-bold text-white/80 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                <RefreshCw className="h-4 w-4" strokeWidth={2} />
-                Regenerate
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/20 py-3 text-sm font-bold text-white/50 transition-colors hover:border-[#FF006E]/50 hover:bg-[#FF006E]/10 hover:text-[#FF006E]"
-              >
-                <Trash2 className="h-4 w-4" strokeWidth={2} />
-                Remove
-              </button>
-            </div>
-          </>
         )}
       </div>
     </div>

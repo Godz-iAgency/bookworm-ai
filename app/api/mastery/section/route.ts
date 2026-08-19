@@ -7,8 +7,8 @@ export const maxDuration = 60;
 
 /**
  * Step 2 of a Personal Development summary: one section's prose. The client
- * fires these in small parallel batches, which is what keeps a 6,000 word
- * summary to a reasonable wait instead of a sequential crawl.
+ * calls this once per section, strictly one at a time, and saves each result as
+ * it lands - see useSummaryGeneration.ts for why both of those matter.
  */
 export async function POST(req: Request) {
   try {

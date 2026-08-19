@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { CalendarClock } from "lucide-react";
 import { useBookwormContext, Course } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
+import { buildAmazonLink } from "@/lib/amazon";
 import LessonReader from "./LessonReader";
 
 export default function CourseTab({
@@ -310,13 +311,6 @@ function Day1DeletionNote({ expiresAt }: { expiresAt: string }) {
       </p>
     </div>
   );
-}
-
-// Builds an Amazon search link (title + author) tagged with our affiliate code.
-// A search link works for every book without needing a stored ASIN.
-function buildAmazonLink(title: string, author: string) {
-  const q = encodeURIComponent(`${title} ${author}`.trim());
-  return `https://www.amazon.com/s?k=${q}&tag=bookwormapp-20`;
 }
 
 // Shown once all 7 days are completed — celebrates the finish and prompts the

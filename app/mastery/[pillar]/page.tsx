@@ -9,14 +9,21 @@ import { BackButton } from "@/components/back-button";
 import { BookCover } from "@/components/book-cover";
 import { useAuth } from "@/context/AuthContext";
 import { pillarBySlug } from "@/lib/mastery-library";
-import { loadAllSummaries, summaryId } from "@/lib/useSummaryGeneration";
+import { loadSummaryIndex, summaryId, type SummaryIndex } from "@/lib/useSummaryGeneration";
 
-/** One pillar's 25 books. A tick marks the ones already summarised. */
+/**
+ * One pillar's 25 books, each showing where the reader is in it.
+ *
+ * The whole point of a shelf you keep is being able to see it: which books are
+ * read, which are part-read and where you stopped, which are untouched. A list
+ * where all 25 rows look identical whether you have read none of a book or all
+ * of it makes coming back to one a matter of remembering rather than looking.
+ */
 export default function PillarPage({ params }: { params: Promise<{ pillar: string }> }) {
   const { pillar: pillarSlug } = use(params);
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [have, setHave] = useState<Set<string>>(new Set());
+  const [index, setIndex] = useState<SummaryIndex>({});
 
   const pillar = pillarBySlug(pillarSlug);
 
@@ -27,11 +34,11 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    loadAllSummaries(user.uid)
-      .then((all) => {
-        if (!cancelled) setHave(new Set(all.map((s) => s.id)));
+    loadSummaryIndex(user.uid)
+      .then((idx) => {
+        if (!cancelled) setIndex(idx);
       })
-      .catch((e) => console.error("Could not load summaries:", e));
+      .catch((e) => console.error("Could not load the summary index:", e));
     return () => {
       cancelled = true;
     };
@@ -83,7 +90,10 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
 
         <div className="space-y-2">
           {pillar.books.map((book, i) => {
-            const done = have.has(summaryId(pillar.slug, book.slug));
+            const entry = index[summaryId(pillar.slug, book.slug)];
+            const pct = entry ? Math.round(entry.progress * 100) : 0;
+            const partial =
+              !!entry && entry.sectionsPlanned > 0 && entry.sectionsWritten < entry.sectionsPlanned;
             return (
               <Link
                 key={book.slug}
@@ -101,11 +111,38 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold">{book.title}</p>
                   <p className="truncate text-xs text-white/50">{book.author}</p>
+
+                  {/* Only generated books get a second line, so an untouched
+                      shelf stays quiet and a part-read one stands out. */}
+                  {entry && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E]"
+                          style={{ width: `${entry.complete ? 100 : Math.max(pct, 2)}%` }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/35">
+                        {partial
+                          ? `${entry.sectionsWritten}/${entry.sectionsPlanned} written`
+                          : entry.complete
+                            ? "Read"
+                            : pct > 0
+                              ? `${pct}%`
+                              : "Not started"}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {done ? (
+
+                {entry?.complete ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[10px] font-bold text-[#00D4FF]">
                     <Check className="h-3 w-3" strokeWidth={3} />
-                    Ready
+                    Complete
+                  </span>
+                ) : entry ? (
+                  <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-white/55">
+                    {pct > 0 ? "Resume" : "Ready"}
                   </span>
                 ) : (
                   <ChevronRight

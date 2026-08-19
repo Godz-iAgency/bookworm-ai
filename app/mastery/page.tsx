@@ -16,7 +16,7 @@ import {
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
 import { MASTERY_PILLARS } from "@/lib/mastery-library";
-import { loadAllSummaries } from "@/lib/useSummaryGeneration";
+import { loadSummaryIndex } from "@/lib/useSummaryGeneration";
 
 const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
   sales: TrendingUp,
@@ -35,25 +35,31 @@ const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
 export default function MasteryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, { started: number; read: number }>>({});
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
 
-  // How many summaries the reader already has in each pillar, so the shelf
-  // shows progress rather than looking identical every visit.
+  // What the reader has generated in each pillar and how much of it they have
+  // actually finished, so the shelf shows progress rather than looking identical
+  // every visit. Read from the index, not the summaries: the text itself is tens
+  // of thousands of words per book and none of it is needed here.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    loadAllSummaries(user.uid)
-      .then((all) => {
+    loadSummaryIndex(user.uid)
+      .then((index) => {
         if (cancelled) return;
-        const next: Record<string, number> = {};
-        for (const s of all) next[s.pillarSlug] = (next[s.pillarSlug] ?? 0) + 1;
+        const next: Record<string, { started: number; read: number }> = {};
+        for (const entry of Object.values(index)) {
+          const slot = (next[entry.pillarSlug] ??= { started: 0, read: 0 });
+          slot.started += 1;
+          if (entry.complete) slot.read += 1;
+        }
         setCounts(next);
       })
-      .catch((e) => console.error("Could not load summaries:", e));
+      .catch((e) => console.error("Could not load the summary index:", e));
     return () => {
       cancelled = true;
     };
@@ -86,14 +92,14 @@ export default function MasteryPage() {
           </span>
         </h1>
         <p className="mx-auto mt-2 mb-8 max-w-md text-center text-sm text-white/60">
-          Six pillars, 25 books each. Pick one and get a full long-form summary, no 7-day course,
-          no flashcards. Just the book.
+          Six pillars, 25 books each. Pick one and get a full long-form summary you keep, no 7-day
+          course, no flashcards, nothing that expires. Just the book.
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {MASTERY_PILLARS.map((pillar) => {
             const Icon = PILLAR_ICONS[pillar.slug] ?? Brain;
-            const done = counts[pillar.slug] ?? 0;
+            const tally = counts[pillar.slug];
             return (
               <Link
                 key={pillar.slug}
@@ -108,7 +114,8 @@ export default function MasteryPage() {
                   <p className="truncate text-xs text-white/55">{pillar.blurb}</p>
                   <p className="mt-1 text-[11px] font-semibold text-white/35">
                     {pillar.books.length} books
-                    {done > 0 ? ` · ${done} summarised` : ""}
+                    {tally ? ` · ${tally.started} on your shelf` : ""}
+                    {tally && tally.read > 0 ? ` · ${tally.read} read` : ""}
                   </p>
                 </div>
                 <ChevronRight

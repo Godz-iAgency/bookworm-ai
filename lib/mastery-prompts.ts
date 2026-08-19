@@ -19,6 +19,13 @@
 import { STYLE_RULES } from "./course-prompts";
 
 /**
+ * Sections per summary. Ten at 1100-1400 words each lands around 12,000 words,
+ * or a 45 to 60 page read: long enough that the book's actual argument survives
+ * rather than being compressed into its headlines.
+ */
+export const SUMMARY_SECTION_COUNT = 10;
+
+/**
  * The accuracy contract, attached to every call. The failure mode this exists
  * to prevent is confident genre-mush: a "summary" of a book the model half
  * remembers, padded with plausible-sounding advice that book never gave.
@@ -62,7 +69,7 @@ First, identify:
 - "frameworks": the named models, laws, steps, stages, or rules this book is known for. Use the author's exact names. Empty array if the book genuinely has none.
 - "confident": true only if you reliably know this specific book's actual content. False if you are working from general knowledge of the author or the topic.
 
-Then break the book into exactly 5 sections that follow its real progression from front to back. These are not invented themes: they should map onto the book's actual parts, chapters, or movements, grouped so each section covers a substantial piece of ground. For each section give:
+Then break the book into exactly 10 sections that follow its real progression from front to back. These are not invented themes: they should map onto the book's actual parts, chapters, or movements. Ten sections is enough to give each major movement of the book its own room, so do not group aggressively and do not pad: if the book has fewer than ten natural divisions, split its longest and densest parts into their component arguments rather than inventing new topics. For each section give:
 - "title": 2 to 6 words, using the author's language where the book has a name for this part.
 - "focus": one sentence on what this section of the book establishes.
 - "keyIdeas": 3 to 5 short strings naming the specific concepts, frameworks, studies, or stories the author uses HERE. These drive the writing later, so be concrete and specific to this book.
@@ -77,7 +84,7 @@ Return ONLY this JSON:
   ]
 }
 
-"sections" must contain exactly 5 items.`;
+"sections" must contain exactly 10 items.`;
 
   return { system, user };
 }
@@ -107,7 +114,7 @@ ${VOICE_RULES}
 ${STYLE_RULES}
 
 SECTION FORMATTING RULES:
-- Write 1100 to 1400 words of flowing prose. Do not write short. This section is one fifth of a 15 to 20 page summary, so it needs to actually cover its ground, not sketch it.
+- Write 1100 to 1400 words of flowing prose. Do not write short. This section is one tenth of a 45 to 60 page summary, so it needs to actually cover its ground, not sketch it. Treat the word floor as a floor: a section that comes in under it has skipped something the author spent pages on.
 - Break the section into 3 to 5 subsections. Each begins with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 5 word title, then a blank line, then that subsection's paragraphs.
 - Use "## " ONLY for headings. No other markdown, no asterisks, no bullet symbols.
 - Where the author gives a numbered sequence, you may lay it out as lines beginning "1.", "2.", "3." and so on.
@@ -135,7 +142,7 @@ Stay inside this section's scope. Assume the reader has read the sections before
 
 Return ONLY this JSON:
 {
-  "prose": "700-900 words following the formatting rules"
+  "prose": "1100-1400 words following the formatting rules"
 }`;
 
   return { system, user };
