@@ -89,8 +89,8 @@ export default function MasteryPage() {
           </span>
         </h1>
         <p className="mx-auto mt-2 mb-8 max-w-md text-center text-sm text-white/60">
-          Six pillars, 25 books each. The ones people actually reach for, picked so you don&apos;t
-          have to know the title already. Tap one to start its 7-day course.
+          Six pillars, 150+ books. The ones people actually reach for, picked so you don&apos;t have
+          to know the title already. Tap one to start its 7-day course.
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

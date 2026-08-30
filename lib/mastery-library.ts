@@ -1,11 +1,12 @@
 /**
- * The Personal Development library: six pillars, 25 books each.
+ * The Personal Development library: six curated pillars. Most hold 25 books;
+ * Business holds 28, with the three added Hormozi titles kept as individual
+ * books rather than one bundle entry.
  *
- * Separate from the main course flow on purpose. A course turns a book the
- * reader searched for into a 7-day arc with chat and flashcards; a mastery
- * summary is a single long-form read of a book from this fixed shelf, with
- * none of that scaffolding. Different shape, different route, different
- * storage collection.
+ * A recommendation shelf, not a different kind of content: tapping a book here
+ * starts the same 7-day course search does. It exists so a reader who knows
+ * they want to get better at negotiating, say, doesn't have to already know
+ * which book to search for.
  */
 
 export interface MasteryBook {
@@ -170,6 +171,11 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
     name: "Business",
     blurb: "Building things that last and scale.",
     books: shelf([
+      // Kept as three separate books rather than one "trilogy" entry, so each
+      // gets its own cover, its own progress, and its own course.
+      ["$100M Offers", "Alex Hormozi"],
+      ["$100M Leads", "Alex Hormozi"],
+      ["$100M Money Models", "Alex Hormozi"],
       ["Good to Great", "Jim Collins"],
       ["The E-Myth Revisited", "Michael Gerber"],
       ["The Innovator's Dilemma", "Clayton Christensen"],

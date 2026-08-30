@@ -12,7 +12,7 @@ import { useBookwormContext } from "@/lib/BookwormContext";
 import { pillarBySlug } from "@/lib/mastery-library";
 
 /**
- * One pillar's 25 books, each showing whether it is already on the reader's
+ * One pillar's books, each showing whether it is already on the reader's
  * shelf and how far through it they are.
  *
  * Progress comes from the courses the reader already has, matched by title,

@@ -276,7 +276,7 @@ export default function HomeTab({
             </span>
           </p>
           <p className="text-xs text-white/55">
-            Six pillars, 150 books. Full summaries, no course required.
+            Six pillars, 150+ books. Full summaries.
           </p>
         </div>
         <ChevronRight
