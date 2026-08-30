@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { CalendarClock } from "lucide-react";
-import { useBookwormContext, Course } from "@/lib/BookwormContext";
+import { useBookwormContext, type Book, type Course, type Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 import { buildAmazonLink } from "@/lib/amazon";
 import LessonReader from "./LessonReader";
@@ -56,6 +56,11 @@ export default function CourseTab({
           dayNumber,
           dayTitle: day?.title ?? `Day ${dayNumber}`,
           allTitles: course.days.map((d) => d.title),
+          // What the outline established about this book, so a day opened days
+          // later is still written about the same book it planned.
+          thesis: course.thesis ?? "",
+          frameworks: course.frameworks ?? [],
+          keyIdeas: day?.keyIdeas ?? [],
         }),
       });
       const data = await res.json();
@@ -137,12 +142,20 @@ export default function CourseTab({
   // the full area and handles its own scrolling or paging.
   const readingDay = openDay !== null ? course.days.find((d) => d.dayNumber === openDay) : undefined;
   if (readingDay?.lesson) {
+    const nextDay = course.days.find((d) => d.dayNumber === readingDay.dayNumber + 1);
     return (
       <LessonReader
         dayNumber={readingDay.dayNumber}
         dayTitle={readingDay.title}
         lesson={readingDay.lesson}
         intro={readingDay.dayNumber === 1 ? <Day1DeletionNote expiresAt={course.expiresAt} /> : undefined}
+        outro={
+          nextDay ? (
+            <NextDayCard day={nextDay} />
+          ) : (
+            <LastDayCard book={course.book} />
+          )
+        }
         canComplete={readingDay.isUnlocked && !readingDay.isCompleted}
         onComplete={() => handleMarkComplete(readingDay.dayNumber)}
         onClose={() => setOpenDay(null)}
@@ -308,6 +321,45 @@ function Day1DeletionNote({ expiresAt }: { expiresAt: string }) {
         <span className="font-bold text-[#00D4FF]">{formatted}</span>, then it
         clears to keep your shelf focused. Read one lesson a day. Finishing all
         7 before then is how the ideas really stick.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The last thing in a lesson: what tomorrow covers.
+ *
+ * The outline names and previews all seven days up front, and until now that
+ * information only existed on the timeline behind the reader. Ending a lesson on
+ * it turns seven separate lessons into one argument that is going somewhere,
+ * and gives the reader a reason to come back tomorrow.
+ */
+function NextDayCard({ day }: { day: Day }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
+        Tomorrow · Day {day.dayNumber}
+      </p>
+      <h4 className="mt-2 text-lg font-bold leading-tight text-white">{day.title}</h4>
+      {day.previewText && (
+        <p className="mt-2 text-sm leading-relaxed text-white/60">{day.previewText}</p>
+      )}
+    </div>
+  );
+}
+
+/** Day 7 has no tomorrow, so it closes the book instead of pointing forward. */
+function LastDayCard({ book }: { book: Book }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
+        The last day
+      </p>
+      <h4 className="mt-2 text-lg font-bold leading-tight text-white">
+        That&apos;s all seven days of {book.title}.
+      </h4>
+      <p className="mt-2 text-sm leading-relaxed text-white/60">
+        Mark this one complete to finish the course.
       </p>
     </div>
   );

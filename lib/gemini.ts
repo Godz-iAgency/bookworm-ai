@@ -53,10 +53,30 @@ async function callGemini(
   }
 
   const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+  const text = candidate?.content?.parts?.[0]?.text;
 
   if (!text) {
     throw new Error("Gemini API returned empty response.");
+  }
+
+  /**
+   * A run that stopped early still returns usable-looking text, and in JSON
+   * mode it can even still parse: the model closes the object it is inside and
+   * the result is valid JSON that is simply missing most of what was asked for.
+   * That produced a course with one day in it and no flashcards, which reached
+   * the reader looking like a finished course rather than a failed generation.
+   * Treating it as a failure lets generateJson retry instead.
+   */
+  const finishReason = candidate?.finishReason;
+  if (finishReason && finishReason !== "STOP") {
+    const usage = data.usageMetadata ?? {};
+    console.error(
+      `Gemini stopped early: ${finishReason}`,
+      `(prompt ${usage.promptTokenCount ?? "?"}, output ${usage.candidatesTokenCount ?? "?"},`,
+      `limit ${maxOutputTokens ?? "default"})`
+    );
+    throw new Error(`Gemini stopped early (${finishReason}).`);
   }
 
   return text;

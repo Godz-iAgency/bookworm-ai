@@ -64,6 +64,13 @@ export function useDayContent(
               dayNumber: day.dayNumber,
               dayTitle: day.title,
               allTitles: course.days.map((d) => d.title),
+              // What the outline established about this book. Without these a
+              // day generated here would be written from the title alone,
+              // which is exactly the generic-summary failure the outline's key
+              // ideas exist to prevent.
+              thesis: course.thesis ?? "",
+              frameworks: course.frameworks ?? [],
+              keyIdeas: day.keyIdeas ?? [],
             }
           : {
               title: course.book.title,

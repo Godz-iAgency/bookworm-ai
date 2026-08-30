@@ -14,6 +14,12 @@ interface LessonReaderProps {
   lesson: string;
   /** Rendered above the lesson (the Day 1 expiry note). */
   intro?: ReactNode;
+  /**
+   * Rendered as the last thing in the lesson, on its own page in paged mode.
+   * Carries the handoff to tomorrow's day, so finishing a lesson ends on what
+   * comes next rather than stopping dead.
+   */
+  outro?: ReactNode;
   /** True while this is the reader's current day, so completing it is offered. */
   canComplete: boolean;
   onComplete: () => void;
@@ -33,6 +39,7 @@ export default function LessonReader({
   dayTitle,
   lesson,
   intro,
+  outro,
   canComplete,
   onComplete,
   onClose,
@@ -50,7 +57,9 @@ export default function LessonReader({
     lineHeightPx: scale.body * scale.lineHeight,
     // The settings panel floats over the text rather than shortening it, so
     // opening it does not re-paginate and the reader keeps their exact page.
-    contentKey: `${fontSize}|${lesson.length}`,
+    // The outro is part of the key because it adds a page: without it the page
+    // counter could be a page behind what the reader can actually turn to.
+    contentKey: `${fontSize}|${lesson.length}|${outro ? 1 : 0}`,
     // A different day is a different chapter: always start at page one.
     resetKey: lesson,
   });
@@ -106,6 +115,9 @@ export default function LessonReader({
           </p>
         );
       })}
+      {/* Starts its own page in paged mode: the handoff is a beat of its own,
+          not a footnote crowded under the last paragraph of the lesson. */}
+      {outro && <div style={{ breakBefore: "column", breakInside: "avoid" }}>{outro}</div>}
     </>
   );
 

@@ -110,7 +110,13 @@ export function useCourseGeneration() {
         return;
       }
 
-      const newCourse = buildCourse(book, readingLevel, result.days);
+      const newCourse = buildCourse(
+        book,
+        readingLevel,
+        result.days,
+        result.thesis,
+        result.frameworks
+      );
       setCourses([...courses, newCourse]);
       setActiveCourseId(newCourse.id);
 

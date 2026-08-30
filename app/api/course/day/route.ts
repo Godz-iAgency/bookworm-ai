@@ -7,7 +7,8 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { title, author, readingLevel, dayNumber, dayTitle, allTitles } = await req.json();
+    const { title, author, readingLevel, dayNumber, dayTitle, allTitles, thesis, frameworks, keyIdeas } =
+      await req.json();
     if (!title || !dayNumber || !dayTitle) {
       return NextResponse.json({ error: "Missing day details." }, { status: 400 });
     }
@@ -18,14 +19,15 @@ export async function POST(req: Request) {
       readingLevel,
       dayNumber,
       dayTitle,
-      Array.isArray(allTitles) ? allTitles : []
+      Array.isArray(allTitles) ? allTitles : [],
+      typeof thesis === "string" ? thesis : "",
+      Array.isArray(frameworks) ? frameworks : [],
+      Array.isArray(keyIdeas) ? keyIdeas : []
     );
 
-    const parsed = await generateJson(user, system, 8192);
-
-    if (!parsed?.lesson) {
-      throw new Error("Day generation returned no lesson.");
-    }
+    const parsed = await generateJson(user, system, 8192, 3, (p) =>
+      typeof p?.lesson === "string" && p.lesson.trim() ? null : "Day generation returned no lesson."
+    );
 
     // The prompt asks for no em dashes; this is what actually guarantees it.
     return NextResponse.json({

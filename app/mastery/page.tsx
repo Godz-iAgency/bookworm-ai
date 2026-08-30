@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { useAuth } from "@/context/AuthContext";
+import { useBookwormContext } from "@/lib/BookwormContext";
 import { MASTERY_PILLARS } from "@/lib/mastery-library";
-import { loadSummaryIndex } from "@/lib/useSummaryGeneration";
 
 const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
   sales: TrendingUp,
@@ -28,42 +28,39 @@ const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
 };
 
 /**
- * Personal Development: the six pillars. A fixed curated shelf, distinct from
- * the search-any-book course flow, so it gets its own route rather than a tab
- * inside the dashboard.
+ * Personal Development: the six pillars, as a recommendation shelf.
+ *
+ * These 150 books are the ones people actually reach for in this space, grouped
+ * so a reader who knows they want to get better at negotiating does not have to
+ * already know which book to ask for. Tapping one starts the ordinary 7-day
+ * course, so this is a way in to the course rather than a separate product.
  */
 export default function MasteryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [counts, setCounts] = useState<Record<string, { started: number; read: number }>>({});
+  const { courses } = useBookwormContext();
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
 
-  // What the reader has generated in each pillar and how much of it they have
-  // actually finished, so the shelf shows progress rather than looking identical
-  // every visit. Read from the index, not the summaries: the text itself is tens
-  // of thousands of words per book and none of it is needed here.
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    loadSummaryIndex(user.uid)
-      .then((index) => {
-        if (cancelled) return;
-        const next: Record<string, { started: number; read: number }> = {};
-        for (const entry of Object.values(index)) {
-          const slot = (next[entry.pillarSlug] ??= { started: 0, read: 0 });
-          slot.started += 1;
-          if (entry.complete) slot.read += 1;
-        }
-        setCounts(next);
-      })
-      .catch((e) => console.error("Could not load the summary index:", e));
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  // How many books in each pillar are already on the shelf, and how many are
+  // finished. Derived from the reader's actual courses rather than tracked
+  // separately, so it can never disagree with what the shelf shows.
+  const counts = useMemo(() => {
+    const onShelf = new Map(courses.map((c) => [c.book.title.trim().toLowerCase(), c]));
+    const next: Record<string, { started: number; read: number }> = {};
+    for (const pillar of MASTERY_PILLARS) {
+      for (const book of pillar.books) {
+        const course = onShelf.get(book.title.trim().toLowerCase());
+        if (!course) continue;
+        const slot = (next[pillar.slug] ??= { started: 0, read: 0 });
+        slot.started += 1;
+        if (course.days.every((d) => d.isCompleted)) slot.read += 1;
+      }
+    }
+    return next;
+  }, [courses]);
 
   if (loading || !user) return null;
 
@@ -92,8 +89,8 @@ export default function MasteryPage() {
           </span>
         </h1>
         <p className="mx-auto mt-2 mb-8 max-w-md text-center text-sm text-white/60">
-          Six pillars, 25 books each. Pick one and get a full long-form summary you keep, no 7-day
-          course, no flashcards, nothing that expires. Just the book.
+          Six pillars, 25 books each. The ones people actually reach for, picked so you don&apos;t
+          have to know the title already. Tap one to start its 7-day course.
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

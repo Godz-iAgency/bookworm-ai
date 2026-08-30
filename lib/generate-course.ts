@@ -8,11 +8,18 @@ import type { Book, Course, Day } from "./BookwormContext";
  * in app/reading-level/page.tsx) and the soft-gate preview
  * (app/preview/page.tsx, brand-new users before their card is on file).
  */
+export interface GeneratedCourse {
+  days: Day[];
+  /** The outline's reading of the book, stored so later days inherit it. */
+  thesis: string;
+  frameworks: string[];
+}
+
 export async function generateCourseDays(
   title: string,
   author: string,
   readingLevel: string,
-): Promise<{ days: Day[] } | { error: string }> {
+): Promise<GeneratedCourse | { error: string }> {
   try {
     const res = await fetch("/api/course/generate", {
       method: "POST",
@@ -29,6 +36,10 @@ export async function generateCourseDays(
       dayNumber: d.dayNumber ?? i + 1,
       title: d.title ?? `Day ${i + 1}`,
       previewText: d.previewText ?? "",
+      // The anchors this day gets written from when the reader opens it.
+      keyIdeas: Array.isArray(d.keyIdeas)
+        ? d.keyIdeas.filter((k: unknown) => typeof k === "string").slice(0, 5)
+        : [],
       lesson: d.lesson ?? "",
       flashcards: Array.isArray(d.flashcards) ? d.flashcards.slice(0, 3) : [],
       chatSeed: Array.isArray(d.chatSeed) ? d.chatSeed.slice(0, 3) : [],
@@ -36,13 +47,23 @@ export async function generateCourseDays(
       isCompleted: false,
     }));
 
-    return { days };
+    return {
+      days,
+      thesis: typeof data.thesis === "string" ? data.thesis : "",
+      frameworks: Array.isArray(data.frameworks) ? data.frameworks : [],
+    };
   } catch (e: any) {
     return { error: e.message || "We couldn't build your course right now. Please try again in a moment." };
   }
 }
 
-export function buildCourse(book: Book, readingLevel: string, days: Day[]): Course {
+export function buildCourse(
+  book: Book,
+  readingLevel: string,
+  days: Day[],
+  thesis = "",
+  frameworks: string[] = []
+): Course {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 8);
   return {
@@ -52,5 +73,7 @@ export function buildCourse(book: Book, readingLevel: string, days: Day[]): Cour
     status: "active",
     days,
     expiresAt: expiresAt.toISOString(),
+    thesis,
+    frameworks,
   };
 }

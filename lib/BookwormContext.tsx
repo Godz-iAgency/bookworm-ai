@@ -21,6 +21,14 @@ export interface Day {
   dayNumber: number;
   title: string;
   previewText: string;
+  /**
+   * The specific concepts, frameworks, studies or stories this day covers,
+   * captured by the outline before any lesson was written. Handed back to the
+   * generator when this day is finally opened, which is what keeps a later day
+   * about the book's actual fifth movement rather than about the topic in
+   * general. Undefined on courses generated before the outline captured them.
+   */
+  keyIdeas?: string[];
   /** Full 800–1200 word AI-generated lesson (Phase 4). */
   lesson: string;
   /** Exactly 3 flashcards for this day. */
@@ -38,6 +46,12 @@ export interface Course {
   status: 'active' | 'expired' | 'completed';
   days: Day[];
   expiresAt: string;
+  /**
+   * What the outline established about the book, kept so every later day is
+   * generated against the same reading of it. Undefined on older courses.
+   */
+  thesis?: string;
+  frameworks?: string[];
   /**
    * The day the reader most recently opened. Flashcards + Chat follow this so
    * they stay pinned to the last lesson read — they only change when the reader

@@ -31,13 +31,28 @@ export async function generateJson(
   userPrompt: string,
   systemPrompt: string,
   maxOutputTokens: number,
-  attempts = 3
+  attempts = 3,
+  /**
+   * Optional shape check, run inside the retry loop. Return a message to reject
+   * the result and try again, or null to accept it.
+   *
+   * Parsing successfully is not the same as getting what was asked for. A run
+   * that stops early can still produce valid JSON holding a fraction of the
+   * request, and without this that fraction is indistinguishable from a good
+   * result: a course with one of its seven days in it was saved to a reader's
+   * shelf and looked finished. Validating here rather than at the call site
+   * means a short result costs a retry instead of the whole generation.
+   */
+  validate?: (parsed: any) => string | null
 ): Promise<any> {
   let lastError: any;
   for (let i = 0; i < attempts; i++) {
     try {
       const raw = await generateGeminiContent(userPrompt, systemPrompt, true, maxOutputTokens, 0);
-      return safeParseJson(raw);
+      const parsed = safeParseJson(raw);
+      const problem = validate?.(parsed);
+      if (problem) throw new Error(problem);
+      return parsed;
     } catch (err: any) {
       lastError = err;
       console.warn(`generateJson attempt ${i + 1}/${attempts} failed:`, err?.message);

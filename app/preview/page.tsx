@@ -34,6 +34,16 @@ export default function PreviewPage() {
   const { currentBook, currentReadingLevel, courses, setCourses, setActiveCourseId } = useBookwormContext();
 
   const [days, setDays] = useState<Day[] | null>(null);
+  /**
+   * The outline's reading of the book, held alongside the days so the course
+   * saved from the soft gate carries the same anchors a directly-generated one
+   * does. Without it, a reader's very first book would be the one course whose
+   * later days had nothing to write from.
+   */
+  const [outline, setOutline] = useState<{ thesis: string; frameworks: string[] }>({
+    thesis: "",
+    frameworks: [],
+  });
   const [genError, setGenError] = useState<string | null>(null);
   const [genStep, setGenStep] = useState(0);
 
@@ -101,6 +111,7 @@ export default function PreviewPage() {
         setGenError(result.error);
       } else {
         setDays(result.days);
+        setOutline({ thesis: result.thesis, frameworks: result.frameworks });
       }
     })();
 
@@ -119,7 +130,13 @@ export default function PreviewPage() {
       if (!user || !currentBook || !currentReadingLevel || !days) return;
       savedRef.current = true;
 
-      const newCourse = buildCourse(currentBook, currentReadingLevel, days);
+      const newCourse = buildCourse(
+        currentBook,
+        currentReadingLevel,
+        days,
+        outline.thesis,
+        outline.frameworks
+      );
       setCourses([...courses, newCourse]);
       setActiveCourseId(newCourse.id);
       // For a new trial, activate-trial already reset this to 0 server-side and
@@ -130,7 +147,7 @@ export default function PreviewPage() {
       );
       router.push(destination);
     },
-    [user, currentBook, currentReadingLevel, days, courses, setCourses, setActiveCourseId, router]
+    [user, currentBook, currentReadingLevel, days, outline, courses, setCourses, setActiveCourseId, router]
   );
 
   const handleActivated = () => saveCourse("/dashboard?trial=started");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,41 +8,38 @@ import { Check, ChevronRight } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { BookCover } from "@/components/book-cover";
 import { useAuth } from "@/context/AuthContext";
+import { useBookwormContext } from "@/lib/BookwormContext";
 import { pillarBySlug } from "@/lib/mastery-library";
-import { loadSummaryIndex, summaryId, type SummaryIndex } from "@/lib/useSummaryGeneration";
 
 /**
- * One pillar's 25 books, each showing where the reader is in it.
+ * One pillar's 25 books, each showing whether it is already on the reader's
+ * shelf and how far through it they are.
  *
- * The whole point of a shelf you keep is being able to see it: which books are
- * read, which are part-read and where you stopped, which are untouched. A list
- * where all 25 rows look identical whether you have read none of a book or all
- * of it makes coming back to one a matter of remembering rather than looking.
+ * Progress comes from the courses the reader already has, matched by title,
+ * rather than from anything this screen stores of its own. A recommendation
+ * list that tracked its own separate idea of "read" would drift out of step
+ * with the shelf the moment a course expired or was deleted.
  */
 export default function PillarPage({ params }: { params: Promise<{ pillar: string }> }) {
   const { pillar: pillarSlug } = use(params);
   const router = useRouter();
   const { user, loading } = useAuth();
-  const [index, setIndex] = useState<SummaryIndex>({});
+  const { courses } = useBookwormContext();
 
   const pillar = pillarBySlug(pillarSlug);
+
+  // Title is the only thing a catalog entry and a generated course reliably
+  // share, so it is the join key. Normalised, because the book lookup that
+  // created the course may have returned a differently-cased title.
+  const byTitle = useMemo(() => {
+    const map = new Map<string, (typeof courses)[number]>();
+    for (const c of courses) map.set(c.book.title.trim().toLowerCase(), c);
+    return map;
+  }, [courses]);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
   }, [loading, user, router]);
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    loadSummaryIndex(user.uid)
-      .then((idx) => {
-        if (!cancelled) setIndex(idx);
-      })
-      .catch((e) => console.error("Could not load the summary index:", e));
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   if (loading || !user) return null;
 
@@ -85,15 +82,16 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
           </span>
         </h1>
         <p className="mx-auto mt-1.5 mb-6 max-w-sm text-center text-sm text-white/60">
-          {pillar.blurb} Tap a book to generate its summary.
+          {pillar.blurb} Tap a book to start its 7-day course.
         </p>
 
         <div className="space-y-2">
           {pillar.books.map((book, i) => {
-            const entry = index[summaryId(pillar.slug, book.slug)];
-            const pct = entry ? Math.round(entry.progress * 100) : 0;
-            const partial =
-              !!entry && entry.sectionsPlanned > 0 && entry.sectionsWritten < entry.sectionsPlanned;
+            const course = byTitle.get(book.title.trim().toLowerCase());
+            const doneDays = course?.days.filter((d) => d.isCompleted).length ?? 0;
+            const totalDays = course?.days.length ?? 7;
+            const complete = !!course && doneDays >= totalDays;
+            const pct = course ? Math.round((doneDays / totalDays) * 100) : 0;
             return (
               <Link
                 key={book.slug}
@@ -112,37 +110,31 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                   <p className="truncate text-sm font-bold">{book.title}</p>
                   <p className="truncate text-xs text-white/50">{book.author}</p>
 
-                  {/* Only generated books get a second line, so an untouched
-                      shelf stays quiet and a part-read one stands out. */}
-                  {entry && (
+                  {/* Only books already on the shelf get a second line, so an
+                      untouched list stays quiet and a started one stands out. */}
+                  {course && (
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
                         <div
                           className="h-full rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E]"
-                          style={{ width: `${entry.complete ? 100 : Math.max(pct, 2)}%` }}
+                          style={{ width: `${Math.max(pct, 2)}%` }}
                         />
                       </div>
                       <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/35">
-                        {entry.complete
-                          ? "Read"
-                          : partial
-                            ? `${entry.sectionsWritten}/${entry.sectionsPlanned} sections`
-                            : pct > 0
-                              ? `${pct}%`
-                              : "Not started"}
+                        {complete ? "Finished" : `Day ${Math.min(doneDays + 1, totalDays)} of ${totalDays}`}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {entry?.complete ? (
+                {complete ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[10px] font-bold text-[#00D4FF]">
                     <Check className="h-3 w-3" strokeWidth={3} />
-                    Complete
+                    Done
                   </span>
-                ) : entry ? (
+                ) : course ? (
                   <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-white/55">
-                    {pct > 0 ? "Resume" : "Read"}
+                    On shelf
                   </span>
                 ) : (
                   <ChevronRight
