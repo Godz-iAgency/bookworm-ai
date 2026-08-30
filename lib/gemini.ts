@@ -1,23 +1,36 @@
 import { generateGroqContent } from "./groq";
 
+/** An inline image attached to a Gemini call, base64-encoded with no data-URL prefix. */
+export interface GeminiImage {
+  mimeType: string;
+  data: string;
+}
+
 /** Direct call to Gemini 2.5 Flash. Throws on any failure. */
 async function callGemini(
   prompt: string,
   systemPrompt?: string,
   isJson: boolean = false,
   maxOutputTokens?: number,
-  thinkingBudget?: number
+  thinkingBudget?: number,
+  image?: GeminiImage
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured.");
   }
 
+  // Image first, then the instruction, matching Gemini's own recommended
+  // ordering for a single-image prompt.
+  const parts: any[] = [];
+  if (image) parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+  parts.push({ text: prompt });
+
   const payload: any = {
     contents: [
       {
         role: "user",
-        parts: [{ text: prompt }]
+        parts
       }
     ]
   };
@@ -86,19 +99,25 @@ async function callGemini(
  * Generate content with Gemini 2.5 Flash, automatically falling back to the
  * free Groq (Llama 3.3 70B) model if Gemini fails for any reason (error, rate
  * limit, empty response). All callers get the fallback transparently.
+ *
+ * The fallback is text-only. A request carrying an image has nothing Groq can
+ * do with it, so it skips straight to the original Gemini error rather than
+ * sending Groq a prompt that silently drops the photo and answers about
+ * nothing.
  */
 export async function generateGeminiContent(
   prompt: string,
   systemPrompt?: string,
   isJson: boolean = false,
   maxOutputTokens?: number,
-  thinkingBudget?: number
+  thinkingBudget?: number,
+  image?: GeminiImage
 ): Promise<string> {
   try {
-    return await callGemini(prompt, systemPrompt, isJson, maxOutputTokens, thinkingBudget);
+    return await callGemini(prompt, systemPrompt, isJson, maxOutputTokens, thinkingBudget, image);
   } catch (err) {
     const hasGroq = process.env.GROQ_API_KEY || process.env.XAI_API_KEY;
-    if (!hasGroq) throw err;
+    if (!hasGroq || image) throw err;
     console.warn("Gemini failed — falling back to Groq.", err);
     return await generateGroqContent(prompt, systemPrompt, isJson, maxOutputTokens);
   }

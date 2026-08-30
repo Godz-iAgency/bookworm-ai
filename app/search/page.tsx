@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useBookwormContext, Book } from "@/lib/BookwormContext";
 import { searchGoogleBooks } from "@/lib/api";
+import { scanBookCover } from "@/lib/scan-cover";
 import { BackButton } from "@/components/back-button";
 import { GeneratingOverlay } from "@/components/generating-overlay";
 import { useAuth } from "@/context/AuthContext";
@@ -23,9 +25,11 @@ export default function SearchPage() {
 
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [searchedBook, setSearchedBook] = useState<Book | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // The level chosen during onboarding. When it's known, confirming a book
   // generates immediately — asking again on a separate screen would be asking
@@ -93,6 +97,50 @@ export default function SearchPage() {
     }
   };
 
+  /**
+   * A photo goes through the same two steps a typed title does: identify the
+   * book, then look it up on Google Books for a real cover and description.
+   * That second step is what lands a scanned book on the exact same
+   * confirmation card as a typed one, rather than a different-looking result
+   * the reader has to learn to trust separately.
+   */
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets the same photo be re-picked after a decline
+    if (!file) return;
+
+    setIsScanning(true);
+    setError(null);
+    setSearchedBook(null);
+
+    try {
+      const scanned = await scanBookCover(file);
+      if (!scanned) {
+        setError(
+          "We couldn't clearly read that cover. Try a straighter, better-lit photo, or type the title instead."
+        );
+        return;
+      }
+
+      const found = await searchGoogleBooks(`${scanned.title} ${scanned.author}`.trim());
+      // A search miss still shouldn't waste the photo: what was actually read
+      // off the cover is a real answer even without Google's cover art.
+      setSearchedBook(
+        found ?? {
+          title: scanned.title,
+          author: scanned.author,
+          coverUrl: "/placeholder.jpg",
+          description: "",
+        }
+      );
+    } catch (err) {
+      console.error("Cover scan failed:", err);
+      setError("We couldn't read that photo. Please try again.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const handleDecline = () => {
     setSearchedBook(null);
     setQuery("");
@@ -145,16 +193,40 @@ export default function SearchPage() {
                   placeholder="Enter a book title..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isScanning}
                 />
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || isScanning}
                   className="h-14 px-8 bg-gradient-to-r from-[#00D4FF] to-[#FF006E] text-white font-semibold text-lg rounded-xl transition-transform hover:scale-105"
                 >
                   {isLoading ? "Searching..." : "Search"}
                 </Button>
               </div>
+
+              {/* A camera photo of the cover is a second way in, not a
+                  replacement — typing still works exactly as it did. The
+                  hidden input's `capture` attribute opens the phone's camera
+                  directly rather than a file browser. */}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhoto}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isLoading || isScanning}
+                onClick={() => photoInputRef.current?.click()}
+                className="h-12 w-full gap-2 rounded-xl border-white/20 bg-transparent text-white/80 font-semibold hover:bg-white/10"
+              >
+                <Camera className="h-4 w-4" strokeWidth={2} />
+                {isScanning ? "Reading the cover..." : "Or scan a book cover"}
+              </Button>
+
               {error && (
                 <p className="text-[#FF006E] text-sm text-center font-medium mt-2">{error}</p>
               )}
