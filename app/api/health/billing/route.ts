@@ -35,7 +35,25 @@ export async function GET() {
 
   const configReady = admin.initializes && stripe.secretKeySet && stripe.publishableKeySet;
 
+  /**
+   * Which commit is actually serving this request.
+   *
+   * Vercel injects these at build time. Without them, "is my fix live yet?"
+   * can only be answered by guessing from behaviour, and this project does not
+   * always auto-deploy on push — so a fix that was pushed, a fix that was
+   * deployed, and a fix that is actually running were indistinguishable, and
+   * more than one bug in this app has been re-diagnosed when the real answer
+   * was a stale build.
+   */
+  const deployment = {
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
+    branch: process.env.VERCEL_GIT_COMMIT_REF ?? "local",
+    message: process.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0] ?? null,
+    env: process.env.VERCEL_ENV ?? "development",
+  };
+
   return NextResponse.json({
+    deployment,
     // What matters to a reader right now: is the app either working (paused)
     // or fully configured? False only means readers are hitting the broken
     // trial gate.
