@@ -1,7 +1,14 @@
 /**
  * Groq fallback model (free tier). Used automatically when the primary Gemini
- * call fails. Groq's API is OpenAI-compatible. Default model is Llama 3.3 70B,
- * overridable via GROQ_MODEL.
+ * call fails. Groq's API is OpenAI-compatible.
+ *
+ * Default model is openai/gpt-oss-120b, overridable via GROQ_MODEL. This used
+ * to default to llama-3.3-70b-versatile, which Groq has since retired
+ * entirely - it no longer appears in this account's model list at all, so
+ * every fallback call failed with a flat 404 "model_not_found", which is what
+ * turned an ordinary Gemini hiccup into a hard failure with no safety net.
+ * Verified live against Groq's own /models endpoint and a real JSON-mode call
+ * before picking this replacement, rather than guessing a name.
  */
 export async function generateGroqContent(
   prompt: string,
@@ -14,7 +21,7 @@ export async function generateGroqContent(
     throw new Error("GROQ_API_KEY is not configured.");
   }
 
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const model = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 
   const messages: { role: string; content: string }[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
