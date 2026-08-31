@@ -114,18 +114,17 @@ export default function DashboardPage() {
       !isCourseExpired(activeCourse.expiresAt)
   );
 
-  // Once loading settles: a logged-out user goes to /login; a signed-in user
-  // with an empty library goes to /search to create their first course.
-  // Handling both prevents a dead white screen (the page renders null when
-  // courses is empty, so it must always redirect somewhere).
+  // Once loading settles, a logged-out user goes to /login. A signed-in user
+  // with an empty shelf stays right here and sees the dashboard's own empty
+  // state (HomeTab renders fine with zero courses - it's just the "Add
+  // Course" tile). This used to force straight to /search instead, which
+  // treated a returning reader between books identically to a brand-new
+  // signup: no shelf, no profile, no Personal Development link, no sign they
+  // were ever a member - just a bare search box.
   useEffect(() => {
     if (coursesLoading) return;
-    if (!user) {
-      router.push("/login");
-    } else if (courses.length === 0) {
-      router.push("/search");
-    }
-  }, [coursesLoading, user, courses.length, router]);
+    if (!user) router.push("/login");
+  }, [coursesLoading, user, router]);
 
   // Keep a valid course selected once loading is done.
   useEffect(() => {
@@ -205,11 +204,12 @@ export default function DashboardPage() {
     );
   }
 
-  // Loaded but empty — the redirect effect above sends us to /search.
-  if (courses.length === 0) return null;
-
-  // Jump into the 3-tab reading experience for a given tab, on the currently active course.
+  // Jump into the 3-tab reading experience for a given tab, on the currently
+  // active course. A no-op with an empty shelf: rather than land on a blank
+  // reading view, the nav item simply does nothing until there's a course to
+  // read - HomeTab's own "Add Course" tile is the actual way in from here.
   const goToTab = (tab: Tab) => {
+    if (!activeCourse) return;
     setActiveTab(tab);
     setView("reading");
   };
