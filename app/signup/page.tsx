@@ -7,6 +7,7 @@ import { signUpWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/fire
 import { useAuth } from "@/context/AuthContext"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
 import { BackButton } from "@/components/back-button"
+import { destinationAfterAuth } from "@/lib/pending-invite"
 
 type FormData = {
   name: string
@@ -16,7 +17,7 @@ type FormData = {
 
 export default function SignUpPage() {
   const router = useRouter()
-  const { user, redirectChecked, redirectIsNew, redirectError } = useAuth()
+  const { user, redirectCompleted, redirectIsNew, redirectError } = useAuth()
   const [formData, setFormData] = useState<FormData>({ name: "", email: "", password: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,9 +25,9 @@ export default function SignUpPage() {
   // Mobile Google sign-up returns here after a full page reload — see the
   // matching effect in app/login/page.tsx.
   useEffect(() => {
-    if (!redirectChecked || !user) return
-    router.push(redirectIsNew ? "/onboarding" : "/dashboard")
-  }, [redirectChecked, user, redirectIsNew, router])
+    if (!redirectCompleted || !user) return
+    router.push(destinationAfterAuth(redirectIsNew))
+  }, [redirectCompleted, user, redirectIsNew, router])
 
   useEffect(() => {
     if (redirectError) setError(redirectError)
@@ -70,7 +71,7 @@ export default function SignUpPage() {
       // New Google accounts go through onboarding just like email signups;
       // an existing user who lands here goes straight to their dashboard.
       // The redirect fallback resumes through AuthContext after the reload.
-      if (user) router.push(isNew ? "/onboarding" : "/dashboard")
+      if (user) router.push(destinationAfterAuth(isNew))
     } catch (err) {
       console.error("Google signup error:", err)
       setError(friendlyAuthError(err))

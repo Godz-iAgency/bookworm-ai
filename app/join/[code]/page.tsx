@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
 import { planFromId } from "@/lib/plans";
+import { storePendingInvite, clearPendingInvite } from "@/lib/pending-invite";
 
 /**
  * Redeems a Book Club invite link (/join/<code>). A signed-out visitor is
@@ -25,14 +26,19 @@ export default function JoinPage() {
   const bookClub = planFromId("book_club");
 
   useEffect(() => {
-    if (loading || user) return;
-    // Remember where to come back to after auth.
-    try {
-      sessionStorage.setItem("pendingInviteCode", code);
-    } catch {
-      /* private mode — the user can re-open the link after signing up */
+    if (loading) return;
+    if (!user) {
+      // Signed out: remember the invite so signing up doesn't lose it, and
+      // send them to create the account this needs to attach to.
+      storePendingInvite(code);
+      router.push("/signup");
+      return;
     }
-    router.push("/signup");
+    // Signed in and looking at the invite: the stored copy has done its job of
+    // getting them here. Clearing it now rather than on a successful join
+    // means an invite they decline, or one that turns out to be invalid, can't
+    // keep redirecting them back here on every future sign-in.
+    clearPendingInvite();
   }, [loading, user, code, router]);
 
   const handleJoin = async () => {
@@ -44,11 +50,7 @@ export default function JoinPage() {
       setJoining(false);
       return;
     }
-    try {
-      sessionStorage.removeItem("pendingInviteCode");
-    } catch {
-      /* no-op */
-    }
+    clearPendingInvite();
     router.push("/search");
   };
 

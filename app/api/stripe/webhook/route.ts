@@ -77,8 +77,33 @@ export async function POST(req: Request) {
         }
 
         const familyDoc = await findFamilyByCustomerId(db, customerId);
-        if (familyDoc && sub.status === "active") {
-          await familyDoc.ref.update({ status: "active" });
+        if (familyDoc) {
+          if (sub.status === "active" && planId === "book_club") {
+            await familyDoc.ref.update({ status: "active" });
+          } else if (planId && planId !== "book_club") {
+            /**
+             * The owner's subscription is active but no longer on Book Club,
+             * so the shared plan is gone and the club goes with it.
+             *
+             * This branch used to be the "reactivate" one: it only checked
+             * `sub.status === "active"` and ignored WHICH plan the
+             * subscription was for. Downgrading from Book Club therefore
+             * un-cancelled the family that /api/stripe/upgrade had just
+             * cancelled, moments earlier, from the very event the downgrade
+             * itself triggered. Caught by an end-to-end test reading the
+             * family twice and getting "cancelled" then "active".
+             */
+            const memberIds: string[] = familyDoc.data().memberIds ?? [];
+            await familyDoc.ref.update({ status: "cancelled" });
+            const batch = db.batch();
+            for (const memberId of memberIds) {
+              batch.update(db.collection("users").doc(memberId), {
+                familyId: null,
+                isFamilyOwner: false,
+              });
+            }
+            await batch.commit();
+          }
         }
         break;
       }

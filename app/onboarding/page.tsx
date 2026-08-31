@@ -8,6 +8,7 @@ import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
 import { updateUserProfile } from "@/lib/firebase/profile";
 import { READING_LEVELS, DEFAULT_READING_LEVEL } from "@/lib/reading-levels";
+import { destinationAfterOnboarding } from "@/lib/pending-invite";
 
 /**
  * First-run onboarding, shown once right after a new account is created (email
@@ -57,7 +58,10 @@ export default function OnboardingPage() {
         lastBookRead: lastBook.trim(),
         readingLevel: level,
       });
-      router.push("/search");
+      // Normally straight to picking a first book, but someone who arrived
+      // here from a Book Club invite goes back to finish joining it first -
+      // now that they have the reading level a course actually needs.
+      router.push(destinationAfterOnboarding());
     } catch (err) {
       console.error("Failed to save onboarding preferences:", err);
       setError("Something went wrong saving your preferences. Please try again.");

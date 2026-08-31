@@ -22,6 +22,15 @@ interface AuthContextType {
    * that would otherwise be invisible.
    */
   redirectChecked: boolean;
+  /**
+   * True only when a signInWithRedirect round trip actually came back with a
+   * user. `redirectChecked` merely means the check finished, which it does on
+   * every page load - routing off that alone made the auth pages redirect
+   * after ANY sign-in, hijacking the deliberate push that sends a brand-new
+   * account to onboarding. New signups were landing straight on the dashboard
+   * with no reading level and no genres ever chosen.
+   */
+  redirectCompleted: boolean;
   redirectIsNew: boolean;
   redirectError: string | null;
   signInWithGoogle: () => Promise<{ user: User | null; isNew: boolean }>;
@@ -37,6 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [redirectChecked, setRedirectChecked] = useState(false);
+  const [redirectCompleted, setRedirectCompleted] = useState(false);
   const [redirectIsNew, setRedirectIsNew] = useState(false);
   const [redirectError, setRedirectError] = useState<string | null>(null);
 
@@ -50,7 +60,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .then(async (cred) => {
         if (cancelled || !cred?.user) return;
         const isNew = await ensureUserDocument(cred.user);
-        if (!cancelled) setRedirectIsNew(isNew);
+        if (!cancelled) {
+          setRedirectIsNew(isNew);
+          setRedirectCompleted(true);
+        }
       })
       .catch((err) => {
         console.error("Google redirect sign-in failed:", err);
@@ -90,6 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user,
         loading,
         redirectChecked,
+        redirectCompleted,
         redirectIsNew,
         redirectError,
         signInWithGoogle,

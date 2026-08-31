@@ -7,6 +7,7 @@ import { signInWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/fire
 import { useAuth } from "@/context/AuthContext"
 import { AnimatedForm } from "@/components/auth/modern-animated-sign-in"
 import { BackButton } from "@/components/back-button"
+import { destinationAfterAuth } from "@/lib/pending-invite"
 
 type FormData = {
   email: string
@@ -15,18 +16,20 @@ type FormData = {
 
 export default function LoginPage() {
   const router = useRouter()
-  const { user, redirectChecked, redirectIsNew, redirectError } = useAuth()
+  const { user, redirectCompleted, redirectIsNew, redirectError } = useAuth()
   const [formData, setFormData] = useState<FormData>({ email: "", password: "" })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Mobile Google sign-in returns here after a full page reload, so the
   // outcome arrives via AuthContext rather than from handleGoogle. Wait for
-  // redirectChecked so a brand-new account still lands on onboarding.
+  // redirectCompleted so a brand-new account still lands on onboarding.
+  // Only for the redirect flow that actually left the page and came back, not
+  // for every sign-in - otherwise this overrides the deliberate push below.
   useEffect(() => {
-    if (!redirectChecked || !user) return
-    router.push(redirectIsNew ? "/onboarding" : "/dashboard")
-  }, [redirectChecked, user, redirectIsNew, router])
+    if (!redirectCompleted || !user) return
+    router.push(destinationAfterAuth(redirectIsNew))
+  }, [redirectCompleted, user, redirectIsNew, router])
 
   useEffect(() => {
     if (redirectError) setError(redirectError)
@@ -47,7 +50,8 @@ export default function LoginPage() {
     setError(null)
     try {
       await signInWithEmail(formData.email, formData.password)
-      router.push("/dashboard")
+      // An existing account signing in from an invite link goes back to it.
+      router.push(destinationAfterAuth(false))
     } catch (err) {
       console.error("Login error:", err)
       setError("That email or password didn't work. Please try again.")
@@ -61,8 +65,8 @@ export default function LoginPage() {
       const { user, isNew } = await signInWithGoogle()
       // The popup path returns a user here. The redirect fallback returns
       // none — it resumes through AuthContext after the reload instead (see
-      // the redirectChecked effect above).
-      if (user) router.push(isNew ? "/onboarding" : "/dashboard")
+      // the redirectCompleted effect above).
+      if (user) router.push(destinationAfterAuth(isNew))
     } catch (err) {
       console.error("Google login error:", err)
       setError(friendlyAuthError(err))

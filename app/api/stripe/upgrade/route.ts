@@ -95,11 +95,31 @@ export async function POST(req: Request) {
       // before plan, so without this the account would be reported as
       // "on Book Club" forever no matter what plan is chosen next — the
       // switch would succeed on Stripe but look like it silently failed here.
-      // Members lose Book Club access too: the plan they were sharing is gone.
-      await db.collection("families").doc(user.familyId).update({
+      const familyRef = db.collection("families").doc(user.familyId);
+      const famSnap = await familyRef.get();
+      const memberIds: string[] = famSnap.data()?.memberIds ?? [];
+
+      await familyRef.update({
         status: "cancelled",
         cancelledAt: FieldValue.serverTimestamp(),
       });
+
+      // Every member's familyId has to be cleared, not just the owner's.
+      // Access is granted on the mere PRESENCE of familyId (see
+      // getEffectivePlanId in lib/billing.ts) - it never reads the family's
+      // status - so marking the family cancelled on its own revokes nothing.
+      // The members carried on with full Book Club access while the owner had
+      // dropped to a $9.99 plan, indefinitely and silently.
+      const memberBatch = db.batch();
+      for (const memberId of memberIds) {
+        if (memberId === uid) continue; // the owner is covered by `updates`
+        memberBatch.update(db.collection("users").doc(memberId), {
+          familyId: null,
+          isFamilyOwner: false,
+        });
+      }
+      await memberBatch.commit();
+
       updates.familyId = null;
       updates.isFamilyOwner = false;
     }
