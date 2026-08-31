@@ -45,13 +45,21 @@ function formatMoney(amountInCents: number, currency: string): string {
 }
 
 function planPerks(plan: Plan): string[] {
+  // Book Club's generation cap is per member, not shared - each of up to 4
+  // people gets their own monthlyGenerations allowance against their own
+  // account (see canGenerate in lib/billing.ts). Leading with that per-person
+  // number made Book Club's headline figure look SMALLER than Well-Read's
+  // (10 next to 25) when the group's real capacity is actually the biggest of
+  // the three. The lead number is the group's total; the split is spelled out
+  // separately so "10 books each" isn't lost.
+  const total = plan.maxMembers ? plan.monthlyGenerations * plan.maxMembers : plan.monthlyGenerations;
   const perks = [
-    `${plan.monthlyGenerations} books a month`,
+    `${total} books a month${plan.maxMembers ? " across your group" : ""}`,
     `Up to ${plan.maxOpenBooks} open at a time`,
     "AI chat + smart flashcards on every book",
   ];
   if (plan.maxMembers) {
-    perks.push(`Share with ${plan.maxMembers - 1} others — each with their own books`);
+    perks.push(`Split with ${plan.maxMembers - 1} others, ${plan.monthlyGenerations} books each`);
   }
   return perks;
 }
@@ -185,7 +193,13 @@ export default function PricingPage() {
                     : "border-white/10 bg-[#1a1a1a]/50 hover:border-[#FF006E]/50"
                 }`}
               >
-                <h2 className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-bold text-transparent">
+                {/* The plan name is the first thing a scanning eye needs to
+                    resolve - "which card am I looking at" - so it has to win
+                    against the price's own text-3xl font-black, not sit
+                    beneath it. Previously text-lg font-bold read as a caption
+                    above the real heading (the price) rather than as the
+                    card's actual title. */}
+                <h2 className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-2xl font-black tracking-tight text-transparent">
                   {plan.name}
                 </h2>
                 <p className="mb-3 text-[13px] leading-snug text-white/60">{plan.tagline}</p>
@@ -320,7 +334,7 @@ export default function PricingPage() {
           <div className="mt-8 w-full rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-5">
             <h3 className="mb-1 text-base font-bold">Your Book Club</h3>
             <p className="mb-4 text-[13px] text-white/60">
-              Invite up to 3 others. Each gets their own books — your card covers everyone.
+              Invite up to 3 others. Each gets their own books, and your card covers everyone.
             </p>
 
             {inviteLink ? (
