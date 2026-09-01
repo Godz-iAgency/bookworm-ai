@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { GeistMono } from "geist/font/mono"
 import { Caveat, Nunito, Lora } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
@@ -17,6 +17,7 @@ const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap"
 import { Suspense } from "react"
 import { BookwormProvider } from "@/lib/BookwormContext"
 import { AuthProvider } from "@/context/AuthContext"
+import { ServiceWorkerRegister } from "@/components/service-worker-register"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -24,6 +25,22 @@ export const metadata: Metadata = {
   description:
     "Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.",
   generator: "v0.app",
+  // Standalone-app behaviour on iOS, which ignores the web app manifest and
+  // reads these instead. Android takes its equivalents from manifest.ts.
+  appleWebApp: {
+    capable: true,
+    title: "Bookworm",
+    statusBarStyle: "black-translucent",
+  },
+}
+
+/**
+ * themeColor paints the Android status bar and the PWA splash screen. It
+ * matches the body background so the app opens as one continuous surface
+ * rather than flashing a white bar above the first frame.
+ */
+export const viewport: Viewport = {
+  themeColor: "#080808",
 }
 
 export default function RootLayout({
@@ -43,6 +60,7 @@ export default function RootLayout({
             {children}
             <Analytics />
           </Suspense>
+          <ServiceWorkerRegister />
           </BookwormProvider>
         </AuthProvider>
       </body>
