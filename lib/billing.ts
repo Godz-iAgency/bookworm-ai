@@ -22,6 +22,10 @@ export interface BillingProfile {
   familyId: string | null;
   isFamilyOwner: boolean;
   showTrialEndWarning: boolean;
+  /** Set when the reader has cancelled: access runs until this date, then stops. */
+  subscriptionCancelAt: string | null;
+  /** Set by the invoice.payment_failed webhook, cleared when a payment succeeds. */
+  paymentFailedAt: string | null;
 }
 
 /** The number of books a trial user may generate for the whole 7-day trial — flat, not tier-based. */
@@ -44,6 +48,8 @@ export async function getBillingProfile(uid: string): Promise<BillingProfile | n
     familyId: d.familyId ?? null,
     isFamilyOwner: d.isFamilyOwner ?? false,
     showTrialEndWarning: d.showTrialEndWarning ?? false,
+    subscriptionCancelAt: d.subscriptionCancelAt ?? null,
+    paymentFailedAt: d.paymentFailedAt ?? null,
   };
 }
 

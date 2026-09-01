@@ -128,7 +128,14 @@ export async function POST(req: Request) {
 
         const userDoc = await findUserByCustomerId(db, customerId);
         if (userDoc) {
-          await userDoc.ref.update({ generationsThisMonth: 0, monthResetAt: nextReset });
+          // A successful payment clears any earlier failure flag, so a card
+          // that was declined once and then went through stops warning.
+          await userDoc.ref.update({
+            generationsThisMonth: 0,
+            monthResetAt: nextReset,
+            paymentFailedAt: null,
+            paymentFailureCount: 0,
+          });
         }
 
         // Book Club: every member's allowance is individual, so all of them
@@ -144,6 +151,30 @@ export async function POST(req: Request) {
             });
           }
           await batch.commit();
+        }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        /**
+         * A renewal was declined. Stripe retries on its own schedule and only
+         * deletes the subscription once it gives up, so access deliberately
+         * continues for now - cutting someone off over a card that is about to
+         * succeed on retry is worse than the alternative. What was missing was
+         * any signal at all: nothing told the reader their card had failed, so
+         * the first they knew of it was the app going quiet days later.
+         */
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId =
+          typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+        if (!customerId) break;
+
+        const userDoc = await findUserByCustomerId(db, customerId);
+        if (userDoc) {
+          await userDoc.ref.update({
+            paymentFailedAt: new Date().toISOString(),
+            paymentFailureCount: (userDoc.data().paymentFailureCount ?? 0) + 1,
+          });
         }
         break;
       }

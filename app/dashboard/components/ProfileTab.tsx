@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown, ScrollText, BookOpen } from "lucide-react";
+import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { postAuthed } from "@/lib/api-client";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
@@ -48,6 +49,15 @@ export default function ProfileTab() {
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [plan, setPlan] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingProfile | null>(null);
+
+  // Ending a subscription and deleting an account are both irreversible in
+  // ways a stray tap must not be able to trigger, so each holds its own
+  // confirmation state rather than firing straight from the button.
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { courses } = useBookwormContext();
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
 
@@ -169,6 +179,36 @@ export default function ProfileTab() {
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  /** Stop the renewal, or undo that. Access continues either way until it lapses. */
+  const handleCancelSubscription = async (resume: boolean) => {
+    setCancelBusy(true);
+    setError(null);
+    const res = await postAuthed("/api/stripe/cancel", { resume });
+    setCancelBusy(false);
+    setConfirmCancel(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    if (user) setBilling(await getBillingProfile(user.uid));
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteBusy(true);
+    setError(null);
+    const res = await postAuthed("/api/account/delete");
+    if (res.error) {
+      setDeleteBusy(false);
+      setError(res.error);
+      return;
+    }
+    // The account is gone, so the local session is meaningless now. Sign out
+    // before routing, or the app would keep trying to load a user that no
+    // longer exists and land on a broken dashboard instead of the door.
+    await logout().catch(() => {});
+    router.push("/");
   };
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
@@ -471,7 +511,137 @@ export default function ProfileTab() {
           >
             {currentPlan.id === "book_club" ? "Manage Book Club" : "Change plan"}
           </button>
+
+          {/* A declined renewal used to be completely silent: the first sign
+              was the app going quiet days later, once Stripe gave up retrying. */}
+          {billing?.paymentFailedAt && (
+            <div className="mt-3 flex gap-2.5 rounded-lg border border-[#FFB020]/40 bg-[#FFB020]/10 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB020]" strokeWidth={2} />
+              <p className="text-[12px] leading-relaxed text-[#FFB020]">
+                Your last payment didn&apos;t go through. We&apos;ll try again, but your books stop
+                when the retries run out, so it&apos;s worth checking your card.
+              </p>
+            </div>
+          )}
+
+          {/* Cancelling is only offered to whoever actually pays: a Book Club
+              member has no subscription of their own to end. */}
+          {billing?.stripeSubscriptionId && !(billing.familyId && !billing.isFamilyOwner) && (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              {billing.subscriptionCancelAt ? (
+                <>
+                  <p className="text-[12px] leading-relaxed text-white/70">
+                    Your plan ends on{" "}
+                    <span className="font-bold text-white">
+                      {new Date(billing.subscriptionCancelAt).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    . You keep everything until then.
+                  </p>
+                  <button
+                    onClick={() => handleCancelSubscription(true)}
+                    disabled={cancelBusy}
+                    className="mt-2 w-full rounded-lg bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+                  >
+                    {cancelBusy ? "Working..." : "Keep my plan"}
+                  </button>
+                </>
+              ) : confirmCancel ? (
+                <>
+                  <p className="text-[12px] leading-relaxed text-white/70">
+                    Your books stay until the end of the period you&apos;ve already paid for. After
+                    that, generating new ones stops.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => setConfirmCancel(false)}
+                      disabled={cancelBusy}
+                      className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 disabled:opacity-60"
+                    >
+                      Never mind
+                    </button>
+                    <button
+                      onClick={() => handleCancelSubscription(false)}
+                      disabled={cancelBusy}
+                      className="flex-1 rounded-lg border border-[#FF006E]/50 bg-[#FF006E]/10 px-4 py-2 text-xs font-bold text-[#FF006E] disabled:opacity-60"
+                    >
+                      {cancelBusy ? "Cancelling..." : "Yes, cancel"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmCancel(true)}
+                  className="w-full rounded-lg px-4 py-2 text-xs font-semibold text-white/45 transition-colors hover:text-white/70"
+                >
+                  Cancel subscription
+                </button>
+              )}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Deleting the account. Required to exist by Google Play, and kept at
+          the very bottom behind a typed confirmation because it takes the
+          books, the plan and the sign-in with it. */}
+      <div className="mt-6 rounded-2xl border border-[#FF006E]/25 bg-[#FF006E]/[0.04] p-4">
+        <h3 className="text-sm font-bold text-white/90">Delete your account</h3>
+        {confirmDelete ? (
+          <>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-white/70">
+              This removes your books, your preferences and your sign-in, cancels any subscription,
+              and cannot be undone.
+              {billing?.isFamilyOwner
+                ? " Everyone in your Book Club loses access too."
+                : ""}
+            </p>
+            <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-white/40">
+              Type DELETE to confirm
+            </label>
+            <input
+              value={deleteText}
+              onChange={(e) => setDeleteText(e.target.value)}
+              placeholder="DELETE"
+              className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-[#FF006E]/60"
+            />
+            <div className="mt-2.5 flex gap-2">
+              <button
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setDeleteText("");
+                }}
+                disabled={deleteBusy}
+                className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteBusy || deleteText.trim().toUpperCase() !== "DELETE"}
+                className="flex-1 rounded-lg bg-[#FF006E] px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+              >
+                {deleteBusy ? "Deleting..." : "Delete forever"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-white/55">
+              Permanently removes your account and everything in it.
+            </p>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="mt-2.5 flex items-center gap-2 rounded-lg border border-[#FF006E]/40 px-3 py-2 text-xs font-bold text-[#FF006E] transition-colors hover:bg-[#FF006E]/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Delete account
+            </button>
+          </>
+        )}
       </div>
 
       {/* Log out — pinned to the bottom of the screen */}

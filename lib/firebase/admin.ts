@@ -136,6 +136,16 @@ export function getAdminDb(): Firestore {
 }
 
 /**
+ * Admin Auth, for the few server operations that act on the account itself
+ * rather than on its data — deleting a user, most of all. Goes through the
+ * same initialisation as everything else here, so a misconfigured deployment
+ * fails with the same specific error rather than a generic one.
+ */
+export function getAdminAuth() {
+  return getAuth(getAdminApp());
+}
+
+/**
  * Resolves the caller's uid from their Firebase ID token, sent as
  * `Authorization: Bearer <token>`.
  *
