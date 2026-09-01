@@ -139,6 +139,16 @@ export default function LandingPage() {
             back="Three quick-flip cards each day test what you learned, so the book's key ideas stick long after day seven."
           />
         </div>
+
+        {/* Google Play requires the account-deletion route to be reachable
+            without the app installed, so it is linked from the public
+            landing page rather than only from inside the dashboard. */}
+        <footer className="mt-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-14 text-xs text-white/40">
+          <span>&copy; {new Date().getFullYear()} Bookworm.AI</span>
+          <Link href="/delete-account" className="transition-colors hover:text-white/70">
+            Delete your account
+          </Link>
+        </footer>
       </div>
 
       {/* Back-to-top button — appears after scrolling down */}
