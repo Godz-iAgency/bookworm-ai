@@ -79,6 +79,35 @@ interface BookwormContextType {
 
 const BookwormContext = createContext<BookwormContextType | undefined>(undefined);
 
+/**
+ * Is this Firestore document actually a course the app can use?
+ *
+ * A half-written or corrupted document used to be loaded like any other, and
+ * the persistence effect below then called doc(..., course.id) with an
+ * undefined id. Firestore throws a TypeError synchronously for that, from
+ * inside an effect, which React treats as unrecoverable - so a SINGLE bad
+ * document took down the entire app for that account, dashboard included,
+ * with no way for the reader to get out of it.
+ *
+ * Only the fields the app would crash or render nonsense without are checked.
+ * Deliberately NOT checked: status, thesis, frameworks and activeDayNumber,
+ * which are legitimately absent on courses generated before those fields
+ * existed. Requiring them would throw away perfectly good shelves.
+ */
+function isUsableCourse(value: unknown): value is Course {
+  if (!value || typeof value !== 'object') return false;
+  const c = value as Partial<Course>;
+  return (
+    typeof c.id === 'string' &&
+    c.id.length > 0 &&
+    typeof c.book === 'object' &&
+    c.book !== null &&
+    Array.isArray(c.days) &&
+    typeof c.expiresAt === 'string' &&
+    !Number.isNaN(new Date(c.expiresAt).getTime())
+  );
+}
+
 export function BookwormProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
 
@@ -120,10 +149,17 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         // deleted from Firestore on load (no backend scheduler on this Firebase
         // app), so expired courses stop occupying library slots. Only the
         // still-active courses populate the shelf.
-        const all = snap.docs.map((d) => d.data() as Course);
         const now = Date.now();
         const active: Course[] = [];
-        for (const c of all) {
+        for (const raw of snap.docs.map((d) => d.data())) {
+          if (!isUsableCourse(raw)) {
+            // Left in Firestore rather than deleted: skipping costs nothing,
+            // and destroying a reader's book on a shape guess cannot be undone
+            // if this check ever turns out to be too strict.
+            console.error('Skipping unreadable course document:', raw);
+            continue;
+          }
+          const c = raw;
           if (new Date(c.expiresAt).getTime() < now) {
             deleteDoc(doc(db, 'users', user.uid, 'courses', c.id)).catch((err) =>
               console.error('Failed to delete expired course:', c.id, err)
@@ -155,6 +191,13 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || hydratedUid !== user.uid) return;
     for (const course of courses) {
+      // setCourses is exposed on this context, so anything can end up here.
+      // Firestore throws synchronously on a missing id, and a throw inside an
+      // effect unmounts the whole app - so this never reaches doc() unchecked.
+      if (!isUsableCourse(course)) {
+        console.error('Refusing to save a malformed course:', course);
+        continue;
+      }
       setDoc(doc(db, 'users', user.uid, 'courses', course.id), course).catch((err) =>
         console.error('Failed to save course:', course.id, err)
       );
@@ -166,6 +209,8 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   // Remove a course everywhere: Firestore first, then local state. Clears the
   // active selection if it was the one removed (the dashboard re-selects).
   const deleteCourse = async (courseId: string) => {
+    // An empty path segment is the same synchronous Firestore throw as above.
+    if (!courseId) return;
     if (user) {
       await deleteDoc(doc(db, 'users', user.uid, 'courses', courseId)).catch((err) =>
         console.error('Failed to delete course:', courseId, err)
