@@ -404,6 +404,11 @@ function CourseCompleteBanner({ course }: { course: Course }) {
           Start Your Next Course
         </a>
       </div>
+      {/* Amazon's Associates Program requires this disclosure wherever an
+          affiliate link is offered, not just buried in the privacy policy. */}
+      <p className="mt-4 text-[11px] text-white/35">
+        As an Amazon Associate, Bookworm.AI earns from qualifying purchases.
+      </p>
     </div>
   );
 }
