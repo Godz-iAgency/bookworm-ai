@@ -208,7 +208,7 @@ export default function PrivacyPage() {
               href="/delete-account"
               className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline"
             >
-              bookworm.ai/delete-account
+              bookwormai-app.vercel.app/delete-account
             </Link>
             .
           </p>
