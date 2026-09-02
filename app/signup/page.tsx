@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import type React from "react"
-import Image from "next/image"
+import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation"
 import { signUpWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/firebase/auth"
 import { useAuth } from "@/context/AuthContext"
@@ -114,14 +114,11 @@ export default function SignUpPage() {
         <BackButton to="/" label="Back to home" />
       </div>
       <div className="flex w-full max-w-md flex-col items-center">
-        <Image
-          src="/bookworm-logo.png"
-          alt="Bookworm.AI"
-          width={400}
-          height={400}
-          // See app/login/page.tsx — 110px was unreadable on a phone.
-          className="mb-5 h-auto w-56 drop-shadow-2xl sm:w-64"
+        <Logo
+          variant="stacked"
+          tagline
           priority
+          className="mb-5 w-56 drop-shadow-2xl sm:w-64"
         />
 
         {error && (

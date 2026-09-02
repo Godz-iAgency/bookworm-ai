@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
 
 /**
@@ -13,7 +13,7 @@ export function GeneratingOverlay({ step }: { step: number }) {
     <div className="fixed inset-0 z-50 flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] p-6 text-white">
       <style>{`@keyframes slide-gradient { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }`}</style>
       <div className="flex w-full max-w-md flex-col items-center text-center">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={220} height={56} priority className="mb-14 drop-shadow-2xl" />
+        <Logo variant="stacked" priority className="mb-14 w-52 drop-shadow-2xl" />
         <div className="mb-8 h-3 w-full overflow-hidden rounded-full border border-white/5 bg-[#1a1a1a] shadow-inner">
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#00D4FF] via-[#FF006E] to-[#00D4FF]"

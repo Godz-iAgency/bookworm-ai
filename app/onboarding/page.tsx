@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { useAuth } from "@/context/AuthContext";
 import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
@@ -81,7 +81,7 @@ export default function OnboardingPage() {
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       <div className="z-10 mb-3 flex w-full max-w-2xl items-center justify-between px-5">
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
+        <Logo variant="lockup" size={26} priority className="opacity-90" />
         <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">
           Step {step} of 2
         </span>

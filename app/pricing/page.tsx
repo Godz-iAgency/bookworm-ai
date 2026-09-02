@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { Check, Loader2, Copy } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ export default function PricingPage() {
 
       <div className="z-10 mb-4 flex w-full max-w-3xl items-center gap-2 px-5">
         <BackButton to="/dashboard" label="Back to your shelf" />
-        <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
+        <Logo variant="lockup" size={26} priority className="opacity-90" />
       </div>
 
       <div className="z-10 flex w-full max-w-3xl flex-col items-center px-4 pb-16">

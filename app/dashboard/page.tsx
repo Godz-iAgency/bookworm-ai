@@ -19,6 +19,7 @@ import {
   getPlanLimits,
   type BillingProfile,
 } from "@/lib/billing";
+import { Logo } from "@/components/logo";
 import { planFromId } from "@/lib/plans";
 import { useDayContent } from "@/lib/useDayContent";
 import { useChatQuota } from "@/lib/useChatQuota";
@@ -391,7 +392,15 @@ export default function DashboardPage() {
                 The logo returns to the shelf (Home view). */}
             <div className="flex w-20 shrink-0 justify-start">
               <button onClick={() => setView("home")} aria-label="Back to your shelf">
-                <Image src="/bookworm-logo.png" alt="Logo" width={76} height={20} className="opacity-80 transition-opacity hover:opacity-100" />
+                {/* The mark alone: this slot is 80px wide, and the wordmark is
+                    10:1, so anything more than the symbol either overflows or
+                    gets squashed the way the old lockup was. */}
+                <Logo
+                  variant="mark"
+                  size={30}
+                  alt=""
+                  className="opacity-80 transition-opacity hover:opacity-100"
+                />
               </button>
             </div>
             {view === "home" && (

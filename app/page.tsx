@@ -1,10 +1,10 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import Image from "next/image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Entropy } from "@/components/ui/entropy"
+import { Logo } from "@/components/logo"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
 import { CalendarDays, MessageCircle, Layers } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -81,16 +81,16 @@ export default function LandingPage() {
           >
             <Entropy size={entropySize} />
           </div>
-          <Image
-            src="/bookworm-logo.png"
-            alt="Bookworm.AI Logo"
-            width={400}
-            height={400}
-            // max-h in dvh keeps the mark proportional to the screen the
-            // reader actually has, so a short phone can't let it push
-            // "Start Learning" below the fold. Lifted on larger screens.
-            className="relative z-10 h-auto w-56 max-h-[26dvh] object-contain drop-shadow-2xl light-glow sm:max-h-none sm:w-80 md:w-96"
+          {/* Width-driven, so the mark, wordmark and tagline keep their
+              proportions on any screen instead of being squashed into a fixed
+              box. The stack is shorter than the old square lockup was at the
+              same width, so "Start Learning" stays above the fold on a short
+              phone without needing a dvh cap. */}
+          <Logo
+            variant="stacked"
+            tagline
             priority
+            className="relative z-10 w-56 drop-shadow-2xl light-glow sm:w-72 md:w-80"
           />
         </div>
 

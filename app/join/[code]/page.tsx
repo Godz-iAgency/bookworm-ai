@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
@@ -64,7 +64,7 @@ export default function JoinPage() {
 
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
-      <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={160} height={42} priority className="mb-8 opacity-90" />
+      <Logo variant="stacked" priority className="mb-8 w-40 opacity-90" />
 
       <Users className="mb-4 h-10 w-10 text-[#00D4FF]" strokeWidth={1.75} />
       <h1 className="mb-2 text-2xl font-bold">You&apos;ve been invited to a Book Club</h1>

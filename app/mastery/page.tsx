@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import {
   TrendingUp,
   Handshake,
@@ -72,14 +72,7 @@ export default function MasteryPage() {
         <div className="mb-6 flex items-center gap-2">
           <BackButton to="/dashboard" label="Back to your shelf" />
           <Link href="/dashboard" aria-label="Back to your shelf">
-            <Image
-              src="/bookworm-logo.png"
-              alt="Bookworm.AI"
-              width={92}
-              height={24}
-              priority
-              className="opacity-90"
-            />
+            <Logo variant="lockup" size={26} alt="" priority className="opacity-90" />
           </Link>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { Lock } from "lucide-react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
@@ -183,7 +183,7 @@ export default function PreviewPage() {
       <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-5">
         <div className="flex items-center gap-2">
           <BackButton to="/reading-level" label="Back to reading level" />
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
+          <Logo variant="lockup" size={26} priority className="opacity-90" />
         </div>
       </div>
 

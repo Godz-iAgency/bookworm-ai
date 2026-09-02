@@ -3,7 +3,7 @@
 import { useEffect, use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { Check, ChevronRight } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { BookCover } from "@/components/book-cover";
@@ -65,14 +65,7 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
         <div className="mb-5 flex items-center gap-2">
           <BackButton to="/mastery" label="Back to categories" />
           <Link href="/dashboard" aria-label="Back to your shelf">
-            <Image
-              src="/bookworm-logo.png"
-              alt="Bookworm.AI"
-              width={92}
-              height={24}
-              priority
-              className="opacity-90"
-            />
+            <Logo variant="lockup" size={26} alt="" priority className="opacity-90" />
           </Link>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import Link from "next/link";
 import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -80,14 +80,7 @@ export default function DeleteAccountPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center bg-[hsl(222,94%,5%)] px-4 py-10">
       <Link href="/" className="shrink-0">
-        <Image
-          src="/bookworm-logo.png"
-          alt="Bookworm.AI"
-          width={400}
-          height={400}
-          className="h-auto w-44 drop-shadow-2xl sm:w-52"
-          priority
-        />
+        <Logo variant="stacked" priority className="w-44 drop-shadow-2xl sm:w-52" />
       </Link>
 
       <div className="mt-6 w-full max-w-lg">

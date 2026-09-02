@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import type React from "react"
-import Image from "next/image"
+import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation"
 import { signInWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/firebase/auth"
 import { useAuth } from "@/context/AuthContext"
@@ -102,16 +102,14 @@ export default function LoginPage() {
         <BackButton to="/" label="Back to home" />
       </div>
       <div className="flex w-full max-w-md flex-col items-center">
-        <Image
-          src="/bookworm-logo.png"
-          alt="Bookworm.AI"
-          width={400}
-          height={400}
-          // Rendered at 110px the wordmark was unreadable on a phone. Sized in
-          // CSS (not the intrinsic width) so it stays sharp and still leaves
-          // room for the form on a short screen.
-          className="mb-5 h-auto w-56 drop-shadow-2xl sm:w-64"
+        {/* Width-driven: the wordmark is a separate asset now, so it scales
+            with the container instead of being squeezed out of a square
+            lockup. Still sized to leave room for the form on a short screen. */}
+        <Logo
+          variant="stacked"
+          tagline
           priority
+          className="mb-5 w-56 drop-shadow-2xl sm:w-64"
         />
 
         {error && (

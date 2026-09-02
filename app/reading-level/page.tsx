@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
 import { GeneratingOverlay } from "@/components/generating-overlay";
@@ -72,7 +72,7 @@ export default function ReadingLevelPage() {
       <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-5">
         <div className="flex items-center gap-2">
           <BackButton to="/search" label="Back to book search" />
-          <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={100} height={26} priority className="opacity-90" />
+          <Logo variant="lockup" size={26} priority className="opacity-90" />
         </div>
       </div>
 

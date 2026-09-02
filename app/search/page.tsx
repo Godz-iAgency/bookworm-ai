@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Logo } from "@/components/logo";
 import Link from "next/link";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,13 @@ export default function SearchPage() {
               brand-new user with no courses is bounced right back here). */}
           <BackButton to="/dashboard" label="Back to your shelf" />
           <Link href="/dashboard" aria-label="Back to your shelf">
-            <Image src="/bookworm-logo.png" alt="Bookworm.AI" width={92} height={24} priority className="opacity-90 transition-opacity hover:opacity-100" />
+            <Logo
+              variant="lockup"
+              size={26}
+              alt=""
+              priority
+              className="opacity-90 transition-opacity hover:opacity-100"
+            />
           </Link>
         </div>
         <div className="text-[11px] font-medium tracking-widest text-[#00D4FF] uppercase">
