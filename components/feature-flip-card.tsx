@@ -8,6 +8,12 @@ interface FeatureFlipCardProps {
   title: string
   /** ~20-word description shown on the back of the card. */
   back: string
+  /**
+   * Optional artwork for the front face. Front only: the back is a paragraph
+   * of text, and putting a picture behind it costs more legibility than the
+   * decoration is worth.
+   */
+  background?: string
 }
 
 /**
@@ -17,7 +23,7 @@ interface FeatureFlipCardProps {
  * preserve-3d, backface-visibility) and the transition are set via inline
  * styles so the flip does not depend on Tailwind utility generation.
  */
-export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
+export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCardProps) {
   const [flipped, setFlipped] = useState(false)
   const reduceMotion = useReducedMotion()
 
@@ -64,9 +70,44 @@ export function FeatureFlipCard({ icon, title, back }: FeatureFlipCardProps) {
               "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
           }}
         >
-          <div className="mb-4 text-4xl">{icon}</div>
-          <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>
-          <span className="mt-auto text-xs text-white/40">Tap to flip →</span>
+          {background && (
+            <>
+              {/* Anchored right because every one of these illustrations puts
+                  its subject on the right and leaves the left in shadow —
+                  which is exactly where the icon and title sit. A plain <img>
+                  rather than next/image: the file is already a hand-sized
+                  WebP, and the card's width barely varies, so a srcset would
+                  buy nothing. inset-0 resolves to the padding box, so it
+                  cannot paint over the gradient border. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={background}
+                alt=""
+                aria-hidden="true"
+                // Deliberately not loading="lazy". The card is a 3D context
+                // (preserve-3d, backface-visibility: hidden) and the browser's
+                // lazy-load intersection check never fires inside it — the
+                // images simply never requested. All three together are 34KB,
+                // so eager costs nothing to be correct.
+                decoding="async"
+                className="pointer-events-none absolute inset-0 h-full w-full rounded-2xl object-cover object-right opacity-70"
+              />
+              {/* Scrim: fades the art out towards the left so the white title
+                  keeps its contrast no matter what the artwork does. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-[#111] via-[#111]/75 to-transparent"
+              />
+            </>
+          )}
+
+          {/* Positioned, so it paints above the absolutely-positioned artwork
+              — a static child would be painted under it regardless of order. */}
+          <div className="relative flex flex-1 flex-col">
+            <div className="mb-4 text-4xl">{icon}</div>
+            <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>
+            <span className="mt-auto text-xs text-white/40">Tap to flip →</span>
+          </div>
         </div>
 
         {/* Back — same gradient border, with a subtly tinted dark fill. */}
