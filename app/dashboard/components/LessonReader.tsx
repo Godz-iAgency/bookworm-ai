@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X, Check, BookOpen, ScrollText } from "lucide-react";
 import { motion } from "motion/react";
 import { parseLesson } from "@/lib/lesson";
@@ -12,8 +13,6 @@ interface LessonReaderProps {
   dayNumber: number;
   dayTitle: string;
   lesson: string;
-  /** Rendered above the lesson (the Day 1 expiry note). */
-  intro?: ReactNode;
   /**
    * Rendered as the last thing in the lesson, on its own page in paged mode.
    * Carries the handoff to tomorrow's day, so finishing a lesson ends on what
@@ -24,6 +23,38 @@ interface LessonReaderProps {
   canComplete: boolean;
   onComplete: () => void;
   onClose: () => void;
+}
+
+const PHONE_QUERY = "(max-width: 767px)";
+
+/**
+ * True on phone-width screens.
+ *
+ * The initial value is read from the viewport rather than defaulting to false.
+ * That is safe here specifically because this component never exists in the
+ * server-rendered HTML — it mounts only once a reader opens a day — so there is
+ * no markup for it to disagree with. Defaulting to false instead would render
+ * the in-flow layout for a frame and then swap to the overlay, restarting the
+ * fade-in and flashing the dashboard's bars.
+ *
+ * 767px is one below Tailwind's `md`, so this and the `md:` classes elsewhere
+ * in the app always describe the same two worlds.
+ */
+function useIsPhone() {
+  const [isPhone, setIsPhone] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(PHONE_QUERY).matches
+  );
+
+  // Keeps up with a rotation or a resized desktop window.
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_QUERY);
+    const sync = () => setIsPhone(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return isPhone;
 }
 
 /**
@@ -38,12 +69,12 @@ export default function LessonReader({
   dayNumber,
   dayTitle,
   lesson,
-  intro,
   outro,
   canComplete,
   onComplete,
   onClose,
 }: LessonReaderProps) {
+  const isPhone = useIsPhone();
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
   const scale = FONT_SCALE[fontSize];
   const paged = readingMode === "page";
@@ -80,7 +111,6 @@ export default function LessonReader({
   // how the text is advanced, never how it looks.
   const body = (
     <>
-      {intro && <div style={{ breakInside: "avoid" }}>{intro}</div>}
       {blocks.map((b, i) => {
         if (b.type === "heading") {
           return (
@@ -121,8 +151,14 @@ export default function LessonReader({
     </>
   );
 
-  return (
-    <div className="flex h-full w-full flex-col animate-in fade-in duration-300">
+  const shell = (
+    <div
+      className={
+        isPhone
+          ? "fixed inset-0 z-50 flex flex-col bg-[#0a0a0a] text-white animate-in fade-in duration-300"
+          : "flex h-full w-full flex-col animate-in fade-in duration-300"
+      }
+    >
       {/* Reader chrome — deliberately thin so the text gets the screen. */}
       <div className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#0e0e0e] px-4 py-2.5">
         <button
@@ -215,7 +251,9 @@ export default function LessonReader({
           roughly 70 characters a line the eye loses its place on the return
           sweep, which is why physical books are the width they are. */}
       <div
-        className={`h-full px-5 md:px-8 ${paged ? "overflow-hidden" : "overflow-y-auto"}`}
+        // overscroll-contain: reaching the end of the lesson must not chain the
+        // scroll into the dashboard sitting behind the overlay.
+        className={`h-full px-5 md:px-8 ${paged ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
         // touch-action pan-y: the browser keeps vertical scrolling, we take
         // horizontal. Without it Chrome claims the gesture and the page never
         // follows the finger.
@@ -321,6 +359,30 @@ export default function LessonReader({
       )}
     </div>
   );
+
+  /**
+   * On a phone the reader is rendered straight into <body>.
+   *
+   * It used to sit in the tab content area, boxed between the dashboard's top
+   * bar (back arrow, cover, title) and its Course/Chat/Learn nav. Together with
+   * the reader's own header and page controls that is four bars around the
+   * text, and on an 812px phone the lesson itself was left with a couple of
+   * lines.
+   *
+   * `position: fixed` alone does not escape them: the tab wrapper carries
+   * `animate-in`, which leaves an identity transform behind, and any transform
+   * makes that element the containing block for fixed descendants — the reader
+   * stayed pinned between the two bars. A portal leaves the DOM subtree
+   * entirely, so no ancestor's transform, filter or backdrop-blur can trap it,
+   * including ones added later. React context and events still flow normally,
+   * because both follow the React tree rather than the DOM.
+   *
+   * Tablets keep the old in-flow layout: there the surrounding chrome costs a
+   * small fraction of the screen, and hiding it would only add a tap to reach
+   * Chat or Learn.
+   */
+  if (isPhone) return createPortal(shell, document.body);
+  return shell;
 }
 
 function ModeButton({

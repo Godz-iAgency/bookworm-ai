@@ -148,7 +148,6 @@ export default function CourseTab({
         dayNumber={readingDay.dayNumber}
         dayTitle={readingDay.title}
         lesson={readingDay.lesson}
-        intro={readingDay.dayNumber === 1 ? <Day1DeletionNote expiresAt={course.expiresAt} /> : undefined}
         outro={
           nextDay ? (
             <NextDayCard day={nextDay} />
@@ -167,15 +166,22 @@ export default function CourseTab({
     <div ref={topRef} className="w-full max-w-3xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8">
 
       {/* Course Header */}
-      <div className="mb-10 text-center animate-in slide-in-from-top-4">
+      <div className="mb-5 text-center animate-in slide-in-from-top-4">
         <div className="inline-block bg-[#1a1a1a] border border-white/10 rounded-full px-4 py-1.5 mb-4 text-[#00D4FF] text-xs font-bold tracking-widest uppercase">
           {course.readingLevel} Level
         </div>
         <h2 className="text-3xl md:text-5xl font-bold mb-3 tracking-tight">
           7 Days of <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00D4FF] to-[#FF006E] italic">{course.book.title}</span>
         </h2>
-        <p className="text-white/60">Unlock the core principles day by day.</p>
       </div>
+
+      {/* The expiry note lives here rather than at the top of Day 1's lesson.
+          Inside the lesson it reappeared on every single re-read and pushed the
+          text it was introducing off the first screen; it is a fact about the
+          course, so it belongs on the course's own screen, where it also
+          replaces a subtitle ("Unlock the core principles day by day") that
+          said nothing the list below doesn't already show. */}
+      <CourseExpiryNote expiresAt={course.expiresAt} />
 
       {course.days.every((d) => d.isCompleted) && <CourseCompleteBanner course={course} />}
 
@@ -301,7 +307,14 @@ export default function CourseTab({
 // Shown at the top of Day 1's lesson: names the exact date the course
 // disappears, framed to encourage finishing all 7 days consistently. The 8-day
 // window is the whole point of Bookworm — surfacing it early drives daily habit.
-function Day1DeletionNote({ expiresAt }: { expiresAt: string }) {
+/**
+ * When this course clears, shown on the course screen above the seven days.
+ *
+ * Named for where it belongs rather than for Day 1: it used to be injected into
+ * the top of the first lesson, which meant re-reading Day 1 meant re-reading
+ * this notice before reaching the text.
+ */
+function CourseExpiryNote({ expiresAt }: { expiresAt: string }) {
   const date = new Date(expiresAt);
   if (isNaN(date.getTime())) return null;
 
