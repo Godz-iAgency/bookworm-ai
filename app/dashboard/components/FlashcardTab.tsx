@@ -120,9 +120,13 @@ export default function FlashcardTab({
           </span>
         </div>
 
-        {/* The Card - Uses Tailwind arbitrary values for 3D transforms */}
+        {/* The Card - Uses Tailwind arbitrary values for 3D transforms.
+            Locked to the artwork's 4:3 instead of a fixed height: the faces are
+            designed images with the label, logo and caption drawn at fixed
+            positions, so any other ratio would either crop them or letterbox
+            them. At md this is the same size the old h-96 gave. */}
         <div
-          className="relative w-full max-w-lg h-80 md:h-96 cursor-pointer group perspective-[1000px]"
+          className="relative w-full max-w-lg aspect-[4/3] cursor-pointer group perspective-[1000px]"
           onClick={() => setIsFlipped(!isFlipped)}
         >
           <div
@@ -134,26 +138,67 @@ export default function FlashcardTab({
             }}
           >
 
-            {/* Front of card */}
+            {/* Front of card.
+                The face is artwork: it already draws the border, the QUESTION
+                label, the logo and the "Click to flip" caption. The DOM copies
+                of those are kept as sr-only rather than deleted — they carried
+                the only machine-readable "this is the question side", and a
+                background image is invisible to a screen reader. */}
             <div
-              className="absolute inset-0 w-full h-full bg-[#111] border-2 border-white/10 rounded-3xl overflow-hidden flex flex-col text-center shadow-2xl group-hover:border-[#00D4FF]/50 transition-colors"
+              className="absolute inset-0 w-full h-full rounded-3xl overflow-hidden flex flex-col text-center shadow-2xl"
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             >
-              <span className="absolute top-5 left-5 z-10 text-xs font-bold text-[#00D4FF] uppercase tracking-widest bg-[#00D4FF]/10 px-3 py-1 rounded-full">Question</span>
-              <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pt-16 pb-12">
-                <h3 className="text-xl md:text-2xl font-bold leading-snug">{activeCard.front}</h3>
+              <img
+                src="/brand/flashcard-question.webp"
+                alt=""
+                aria-hidden="true"
+                // Not lazy: inside a preserve-3d/backface-hidden subtree the
+                // browser's lazy-load intersection check never fires and the
+                // image simply never requests. See components/feature-flip-card.
+                decoding="async"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+              />
+              <span className="sr-only">Question</span>
+              {/* Positioned against the artwork rather than the box: the design
+                  leaves the band under the logo clear, and percentages of
+                  height track it at every card size. */}
+              {/* The mask only bites when the text is taller than the band —
+                  normal cards are centred and never reach the edges. The
+                  generator asks for 5–10 word fronts and 10–15 word backs, so
+                  overflow means a model overshot its brief; this makes that
+                  fade out and invite a scroll instead of looking like a
+                  rendering fault with lines sliced in half. */}
+              <div className="absolute inset-x-0 top-[26%] bottom-[14%] z-10 flex items-center justify-center overflow-y-auto px-[9%] [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)]">
+                <h3 className="text-lg md:text-2xl font-bold leading-snug [text-shadow:0_2px_14px_rgba(0,0,0,0.95)]">
+                  {activeCard.front}
+                </h3>
               </div>
-              <p className="absolute bottom-5 left-0 right-0 text-sm text-white/30 italic">Click to flip</p>
+              <span className="sr-only">Click to flip</span>
             </div>
 
             {/* Back of card */}
             <div
-              className="absolute inset-0 w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-2 border-[#FF006E]/50 rounded-3xl overflow-hidden flex flex-col text-center shadow-[0_0_30px_rgba(255,0,110,0.15)]"
+              className="absolute inset-0 w-full h-full rounded-3xl overflow-hidden flex flex-col text-center shadow-[0_0_30px_rgba(255,0,110,0.15)]"
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
             >
-              <span className="absolute top-5 left-5 z-10 text-xs font-bold text-[#FF006E] uppercase tracking-widest bg-[#FF006E]/10 px-3 py-1 rounded-full">Answer</span>
-              <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pt-16 pb-8">
-                <div className="text-base md:text-lg text-white/90 leading-relaxed">{activeCard.back}</div>
+              <img
+                src="/brand/flashcard-answer.webp"
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+              />
+              <span className="sr-only">Answer</span>
+              {/* The mask only bites when the text is taller than the band —
+                  normal cards are centred and never reach the edges. The
+                  generator asks for 5–10 word fronts and 10–15 word backs, so
+                  overflow means a model overshot its brief; this makes that
+                  fade out and invite a scroll instead of looking like a
+                  rendering fault with lines sliced in half. */}
+              <div className="absolute inset-x-0 top-[26%] bottom-[14%] z-10 flex items-center justify-center overflow-y-auto px-[9%] [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)]">
+                <div className="text-sm md:text-lg text-white/95 leading-relaxed [text-shadow:0_2px_14px_rgba(0,0,0,0.95)]">
+                  {activeCard.back}
+                </div>
               </div>
             </div>
 
