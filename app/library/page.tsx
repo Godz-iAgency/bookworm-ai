@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import { StoredBookCover } from "@/components/book-cover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -107,15 +107,13 @@ export default function LibraryPage() {
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                 </button>
-                <div className="w-32 h-48 relative mb-5 rounded-md overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/5 group-hover:scale-[1.03] transition-transform duration-300">
-                  <Image 
-                    src={book.coverUrl} 
-                    alt={book.title} 
-                    fill 
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
+                <StoredBookCover
+                  title={book.title}
+                  author={book.author}
+                  coverUrl={book.coverUrl}
+                  className="w-32 h-48 mb-5 shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/5 group-hover:scale-[1.03] transition-transform duration-300"
+                  rounded="rounded-md"
+                />
                 <h3 className="font-bold text-lg leading-tight mb-2 line-clamp-2 w-full px-2" title={book.title}>
                   {book.title}
                 </h3>

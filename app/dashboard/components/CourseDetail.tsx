@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import { StoredBookCover } from "@/components/book-cover";
 import { BookOpen, Trash2, AlertTriangle } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
 import { getCountdown } from "@/lib/countdown";
@@ -33,9 +33,14 @@ export default function CourseDetail({ course, currentTime, onRead, onRemove }: 
     <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8">
       {/* Cover + identity */}
       <div className="flex flex-col items-center text-center">
-        <div className="relative h-56 w-40 overflow-hidden rounded-xl bg-black shadow-2xl">
-          <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
-        </div>
+        <StoredBookCover
+          title={course.book.title}
+          author={course.book.author}
+          coverUrl={course.book.coverUrl}
+          className="h-56 w-40 shadow-2xl"
+          rounded="rounded-xl"
+          loading="eager"
+        />
         <h2 className="mt-5 text-2xl font-bold tracking-tight">{course.book.title}</h2>
         {course.book.author && <p className="mt-1 text-white/60">by {course.book.author}</p>}
         <div className="mt-3 flex items-center gap-2">

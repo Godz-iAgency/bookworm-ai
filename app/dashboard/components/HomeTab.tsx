@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
+import { StoredBookCover } from "@/components/book-cover";
 import Link from "next/link";
 import { Plus, Flame, Lock, MoreVertical, Sparkles, ChevronRight } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
@@ -316,9 +316,13 @@ export default function HomeTab({
                   ${expired ? "opacity-60 grayscale-[0.5]" : ""}
                 `}
               >
-                <div className="w-16 h-24 relative shrink-0 rounded-lg overflow-hidden bg-black shadow-md">
-                  <Image src={course.book.coverUrl} alt="Cover" fill className="object-cover" loading="lazy" unoptimized />
-                </div>
+                <StoredBookCover
+                  title={course.book.title}
+                  author={course.book.author}
+                  coverUrl={course.book.coverUrl}
+                  className="w-16 h-24 shrink-0 shadow-md"
+                  rounded="rounded-lg"
+                />
 
                 <div className="flex-1 min-w-0 flex flex-col">
                   <p className="font-bold text-base truncate pr-7">{course.book.title}</p>

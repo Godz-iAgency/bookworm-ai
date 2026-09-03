@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
+import { StoredBookCover } from "@/components/book-cover";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext } from "@/lib/BookwormContext";
@@ -340,9 +340,14 @@ export default function DashboardPage() {
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
-            <div className="w-7 h-10 relative shrink-0 rounded overflow-hidden bg-black">
-              <Image src={activeCourse.book.coverUrl} alt="Cover" fill className="object-cover" unoptimized />
-            </div>
+            <StoredBookCover
+              title={activeCourse.book.title}
+              author={activeCourse.book.author}
+              coverUrl={activeCourse.book.coverUrl}
+              className="w-7 h-10 shrink-0"
+              rounded="rounded"
+              loading="eager"
+            />
             {/* On the Chat tab this bar IS BookPal's header — the cover already
                 says which book we're in, so repeating the title and cover inside
                 the chat only cost it a third of the screen. */}
