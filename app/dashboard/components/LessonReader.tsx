@@ -190,62 +190,6 @@ export default function LessonReader({
       {/* Everything below the header shares one positioning context, so the
           settings panel can float over the text instead of pushing it. */}
       <div className="relative min-h-0 flex-1">
-      {/* Quick settings — the same two controls that live in Profile, within
-          reach while reading so adjusting size doesn't mean leaving the page.
-
-          Overlaid rather than in the flow: as a sibling it shortened the reading
-          area, so opening it re-paginated the lesson and moved the reader off
-          the page they were on. */}
-      {settingsOpen && (
-        <>
-          <div
-            className="absolute inset-0 z-20"
-            onClick={() => setSettingsOpen(false)}
-            aria-hidden
-          />
-          <div className="absolute inset-x-0 top-0 z-30 max-h-full overflow-y-auto border-b border-white/10 bg-[#141414] px-4 py-3 shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="mx-auto flex max-w-md flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Size</span>
-              <div className="flex flex-1 gap-1.5">
-                {FONT_SIZE_ORDER.map((id) => (
-                  <button
-                    key={id}
-                    onClick={() => setFontSize(id)}
-                    className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
-                      fontSize === id
-                        ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white"
-                        : "border-white/10 text-white/50 hover:border-white/25"
-                    }`}
-                  >
-                    <span style={{ fontSize: 10 + FONT_SIZE_ORDER.indexOf(id) * 3 }} className="font-bold">
-                      A
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Layout</span>
-              <div className="flex flex-1 gap-1.5">
-                <ModeButton
-                  active={!paged}
-                  onClick={() => setReadingMode("scroll")}
-                  icon={<ScrollText className="h-3.5 w-3.5" strokeWidth={2} />}
-                  label="Scroll"
-                />
-                <ModeButton
-                  active={paged}
-                  onClick={() => setReadingMode("page")}
-                  icon={<BookOpen className="h-3.5 w-3.5" strokeWidth={2} />}
-                  label="Pages"
-                />
-              </div>
-            </div>
-          </div>
-          </div>
-        </>
-      )}
 
       {/* Reading surface. The max-width is generous but not unlimited: past
           roughly 70 characters a line the eye loses its place on the return
@@ -307,6 +251,91 @@ export default function LessonReader({
           </article>
         )}
       </div>
+
+      {/* Quick settings — the same two controls that live in Profile, within
+          reach while reading so adjusting size doesn't mean leaving the page.
+
+          Overlaid rather than in the flow: as a sibling it shortened the reading
+          area, so opening it re-paginated the lesson and moved the reader off
+          the page they were on. */}
+      {settingsOpen && (
+        <>
+          {/* Rendered after the reading surface, and promoted with
+              transform-gpu, both deliberately.
+              In page mode the column strip carries will-change: transform so a
+              page turn is a compositor-only move — which lifts it onto its own
+              GPU layer. Against a promoted layer, an opaque z-30 panel is not
+              enough on its own: the lesson text painted straight through these
+              controls, the Done button included. Coming later in the document
+              settles the order without depending on the compositor's
+              heuristics; the promotion keeps the two in the same world. */}
+          <div
+            className="absolute inset-0 z-20"
+            style={{ willChange: "transform" }}
+            onClick={() => setSettingsOpen(false)}
+            aria-hidden
+          />
+          <div
+            className="absolute inset-x-0 top-0 z-30 max-h-full overflow-y-auto border-b border-white/10 bg-[#141414] px-4 py-3 shadow-2xl animate-in fade-in slide-in-from-top-1 duration-200"
+            style={{ willChange: "transform" }}
+          >
+          <div className="mx-auto flex max-w-md flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Size</span>
+              <div className="flex flex-1 gap-1.5">
+                {FONT_SIZE_ORDER.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => setFontSize(id)}
+                    className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
+                      fontSize === id
+                        ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white"
+                        : "border-white/10 text-white/50 hover:border-white/25"
+                    }`}
+                  >
+                    <span style={{ fontSize: 10 + FONT_SIZE_ORDER.indexOf(id) * 3 }} className="font-bold">
+                      A
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Layout</span>
+              <div className="flex flex-1 gap-1.5">
+                <ModeButton
+                  active={!paged}
+                  onClick={() => setReadingMode("scroll")}
+                  icon={<ScrollText className="h-3.5 w-3.5" strokeWidth={2} />}
+                  label="Scroll"
+                />
+                <ModeButton
+                  active={paged}
+                  onClick={() => setReadingMode("page")}
+                  icon={<BookOpen className="h-3.5 w-3.5" strokeWidth={2} />}
+                  label="Pages"
+                />
+              </div>
+            </div>
+
+            {/* The way out, in the panel rather than only on the AA button that
+                opened it. Changing size is a two-handed moment — you tap a
+                size, read the preview underneath, maybe try the next one — and
+                the only exit used to be that small icon back in the top
+                corner, which reads as "text size" rather than "close". This
+                sits directly under the control you just touched. Tapping the
+                dimmed text still dismisses too; this makes it visible. */}
+            <button
+              onClick={() => setSettingsOpen(false)}
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#00D4FF] py-2 text-sm font-bold text-black transition-transform hover:scale-[1.01]"
+            >
+              <Check className="h-4 w-4" strokeWidth={3} />
+              Done
+            </button>
+          </div>
+          </div>
+        </>
+      )}
       </div>
 
       {/* Page controls. Scroll mode has its own inline Complete button at the
