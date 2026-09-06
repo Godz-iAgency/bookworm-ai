@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Course, Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
 import { Layers } from "lucide-react";
@@ -25,6 +26,7 @@ export default function FlashcardTab({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [mastered, setMastered] = useState<Set<number>>(new Set());
+  const reduceMotion = useReducedMotion();
 
   // Reset the deck whenever the active day (or course) changes.
   useEffect(() => {
@@ -129,13 +131,21 @@ export default function FlashcardTab({
           className="relative w-full max-w-lg aspect-[4/3] cursor-pointer group perspective-[1000px]"
           onClick={() => setIsFlipped(!isFlipped)}
         >
-          <div
+          {/* Rotation is driven by Framer Motion (JS-animated) rather than a
+              CSS transition: a device with "reduce motion" on collapses every
+              CSS transition site-wide (see globals.css), which turned this
+              flip into an instant swap instead of a visible rotation. Motion
+              sidesteps that and, via useReducedMotion, still animates - just
+              shorter - matching the landing page's flip cards. */}
+          <motion.div
             className="w-full h-full relative"
-            style={{
-              transition: "transform 0.6s",
-              transformStyle: "preserve-3d",
-              transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)"
-            }}
+            style={{ transformStyle: "preserve-3d" }}
+            animate={{ rotateY: isFlipped ? 180 : 0 }}
+            transition={
+              reduceMotion
+                ? { duration: 0.2 }
+                : { type: "spring", bounce: 0.2, duration: 0.45 }
+            }
           >
 
             {/* Front of card.
@@ -202,7 +212,7 @@ export default function FlashcardTab({
               </div>
             </div>
 
-          </div>
+          </motion.div>
         </div>
 
         {/* Controls — the arrows are shrink-0 and the middle pair flexes, so
