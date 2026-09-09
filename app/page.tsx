@@ -143,16 +143,15 @@ export default function LandingPage() {
           />
         </div>
 
-        {/* Google Play requires the account-deletion route to be reachable
-            without the app installed, so it is linked from the public
-            landing page rather than only from inside the dashboard. */}
+        {/* No account-deletion link here on purpose. Play requires the
+            deletion route to work for someone with no app installed and no
+            session — /delete-account does, and that URL is what gets declared
+            in Play Console's Data Safety form. It stays linked from the
+            privacy policy; it does not also need to sit in this footer. */}
         <footer className="mt-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-14 text-xs text-white/40">
           <span>&copy; {new Date().getFullYear()} Bookworm.AI</span>
           <Link href="/privacy" className="transition-colors hover:text-white/70">
             Privacy
-          </Link>
-          <Link href="/delete-account" className="transition-colors hover:text-white/70">
-            Delete your account
           </Link>
         </footer>
       </div>

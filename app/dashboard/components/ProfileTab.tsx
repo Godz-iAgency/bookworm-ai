@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, Trash2 } from "lucide-react";
+import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
@@ -58,6 +58,7 @@ export default function ProfileTab() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteText, setDeleteText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const { courses } = useBookwormContext();
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
 
@@ -193,6 +194,17 @@ export default function ProfileTab() {
       return;
     }
     if (user) setBilling(await getBillingProfile(user.uid));
+  };
+
+  /** Collapsing drops any half-typed deletion confirmation rather than leaving
+   *  it armed behind a closed panel. */
+  const toggleAccountSettings = () => {
+    const opening = !accountOpen;
+    setAccountOpen(opening);
+    if (!opening) {
+      setConfirmDelete(false);
+      setDeleteText("");
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -585,62 +597,83 @@ export default function ProfileTab() {
         </div>
       </div>
 
-      {/* Deleting the account. Required to exist by Google Play, and kept at
-          the very bottom behind a typed confirmation because it takes the
-          books, the plan and the sign-in with it. */}
-      <div className="mt-6 rounded-2xl border border-[#FF006E]/25 bg-[#FF006E]/[0.04] p-4">
-        <h3 className="text-sm font-bold text-white/90">Delete your account</h3>
-        {confirmDelete ? (
-          <>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-white/70">
-              This removes your books, your preferences and your sign-in, cancels any subscription,
-              and cannot be undone.
-              {billing?.isFamilyOwner
-                ? " Everyone in your Book Club loses access too."
-                : ""}
-            </p>
-            <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-white/40">
-              Type DELETE to confirm
-            </label>
-            <input
-              value={deleteText}
-              onChange={(e) => setDeleteText(e.target.value)}
-              placeholder="DELETE"
-              className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-[#FF006E]/60"
-            />
-            <div className="mt-2.5 flex gap-2">
-              <button
-                onClick={() => {
-                  setConfirmDelete(false);
-                  setDeleteText("");
-                }}
-                disabled={deleteBusy}
-                className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleteBusy || deleteText.trim().toUpperCase() !== "DELETE"}
-                className="flex-1 rounded-lg bg-[#FF006E] px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
-              >
-                {deleteBusy ? "Deleting..." : "Delete forever"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-white/55">
-              Permanently removes your account and everything in it.
-            </p>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="mt-2.5 flex items-center gap-2 rounded-lg border border-[#FF006E]/40 px-3 py-2 text-xs font-bold text-[#FF006E] transition-colors hover:bg-[#FF006E]/10"
-            >
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Delete account
-            </button>
-          </>
+      {/* Deletion lives behind a closed, neutrally-named panel rather than as a
+          red card on the main Profile screen: it is the one action here that
+          destroys the books, the plan and the sign-in at once, and a route that
+          obvious invites the accidental tap far more often than the intended
+          one. Reaching it is deliberately four steps — open, tap the link, type
+          DELETE, confirm. */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+        <button
+          onClick={toggleAccountSettings}
+          aria-expanded={accountOpen}
+          className="flex w-full items-center justify-between px-4 py-3.5 text-left text-sm font-bold text-white/75 transition-colors hover:text-white"
+        >
+          Account settings
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${
+              accountOpen ? "rotate-180" : ""
+            }`}
+            strokeWidth={2}
+          />
+        </button>
+
+        {accountOpen && (
+          <div className="border-t border-white/10 px-4 py-4">
+            {confirmDelete ? (
+              <>
+                <h3 className="text-sm font-bold text-white/90">Delete your account</h3>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-white/70">
+                  This removes your books, your preferences and your sign-in, cancels any
+                  subscription, and cannot be undone.
+                  {billing?.isFamilyOwner
+                    ? " Everyone in your Book Club loses access too."
+                    : ""}
+                </p>
+                <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                  Type DELETE to confirm
+                </label>
+                <input
+                  value={deleteText}
+                  onChange={(e) => setDeleteText(e.target.value)}
+                  placeholder="DELETE"
+                  className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-[#FF006E]/60"
+                />
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setDeleteText("");
+                    }}
+                    disabled={deleteBusy}
+                    className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteBusy || deleteText.trim().toUpperCase() !== "DELETE"}
+                    className="flex-1 rounded-lg bg-[#FF006E] px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  >
+                    {deleteBusy ? "Deleting..." : "Delete forever"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] leading-relaxed text-white/45">
+                  Deleting your account removes your books, your preferences and your sign-in, and
+                  cancels any subscription. It can&apos;t be undone.
+                </p>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mt-2.5 text-xs font-semibold text-white/45 underline underline-offset-2 transition-colors hover:text-white/75"
+                >
+                  Delete account
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
