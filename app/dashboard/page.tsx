@@ -336,7 +336,11 @@ export default function DashboardPage() {
             <button
               onClick={() => setView("home")}
               aria-label="Back to shelf"
-              className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+              // Tap target extended past the circle by the invisible ::before:
+              // this is the top-left corner of a tablet, where a reaching thumb
+              // lands wide, and the visible 40px was being missed. Reaches the
+              // screen edge on the left without moving anything in the bar.
+              className="relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all before:absolute before:-bottom-3 before:-left-3 before:-right-2 before:-top-3 before:content-[''] hover:bg-white/10 hover:text-white active:bg-white/15"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
@@ -384,7 +388,11 @@ export default function DashboardPage() {
             <button
               onClick={() => setView("home")}
               aria-label="Back to shelf"
-              className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all hover:bg-white/10 hover:text-white"
+              // Tap target extended past the circle by the invisible ::before:
+              // this is the top-left corner of a tablet, where a reaching thumb
+              // lands wide, and the visible 40px was being missed. Reaches the
+              // screen edge on the left without moving anything in the bar.
+              className="relative shrink-0 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition-all before:absolute before:-bottom-3 before:-left-3 before:-right-2 before:-top-3 before:content-[''] hover:bg-white/10 hover:text-white active:bg-white/15"
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>

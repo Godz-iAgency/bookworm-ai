@@ -39,9 +39,9 @@ function shuffled<T>(items: T[], rand: () => number): T[] {
  * pillar, gets picks from the whole library instead of an empty shelf — the
  * point of this row is that there is always somewhere to go next.
  *
- * Picks are spread across their chosen pillars round-robin rather than taken
- * pillar by pillar, so three recommendations look like three different ideas
- * rather than three books by the same author.
+ * Every pick comes from a different pillar, so the row reads as three different
+ * ideas rather than three variations on one. Pillars the reader actually asked
+ * for are used first, and the rest only backfill when those run short.
  */
 export function pickRecommendations({
   topics,
@@ -56,12 +56,20 @@ export function pickRecommendations({
 }): Recommendation[] {
   const rand = rng(seed);
 
-  const chosen = MASTERY_PILLARS.filter((p) => topics.includes(p.name));
-  const pool = chosen.length > 0 ? chosen : MASTERY_PILLARS;
+  // Chosen pillars first, then the rest as backfill. Taking one book per pillar
+  // below then means three different categories even when the reader's saved
+  // topics name fewer than three real pillars — which is every reader who
+  // onboarded on the old genre list, since only Business and Biography survive
+  // it as names. Those readers were getting three books off one shelf.
+  const isChosen = (p: (typeof MASTERY_PILLARS)[number]) => topics.includes(p.name);
+  const pool = [
+    ...shuffled(MASTERY_PILLARS.filter(isChosen), rand),
+    ...shuffled(MASTERY_PILLARS.filter((p) => !isChosen(p)), rand),
+  ];
 
   const taken = new Set(excludeTitles.map((t) => t.trim().toLowerCase()));
 
-  const queues = shuffled(pool, rand).map((pillar) =>
+  const queues = pool.map((pillar) =>
     shuffled(
       pillar.books.filter((b) => !taken.has(b.title.trim().toLowerCase())),
       rand
