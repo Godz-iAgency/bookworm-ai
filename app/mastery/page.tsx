@@ -36,9 +36,9 @@ const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
 };
 
 /**
- * Painted art, one per pillar. The four newest pillars don't have theirs yet,
- * so those cards render on the plain card background until the matching webp
- * is dropped in here.
+ * Painted art, one per pillar. A pillar with no entry here renders on the plain
+ * card background rather than a broken image, so a new pillar can ship before
+ * its artwork does.
  */
 const PILLAR_BACKGROUNDS: Record<string, string> = {
   sales: "/brand/pillar-sales.webp",
@@ -47,6 +47,10 @@ const PILLAR_BACKGROUNDS: Record<string, string> = {
   money: "/brand/pillar-money.webp",
   business: "/brand/pillar-business.webp",
   relentlessness: "/brand/pillar-relentlessness.webp",
+  leadership: "/brand/pillar-leadership.webp",
+  biography: "/brand/pillar-biography.webp",
+  psychology: "/brand/pillar-psychology.webp",
+  health: "/brand/pillar-health.webp",
 };
 
 /**
