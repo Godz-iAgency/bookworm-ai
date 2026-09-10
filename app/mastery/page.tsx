@@ -117,21 +117,23 @@ export default function MasteryPage() {
                   decoding="async"
                   className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right"
                 />
-                {/* Lighter and narrower than the flip-card scrim on purpose:
-                    this art is a dim, moody scene to begin with (unlike the
-                    bright flip-card illustrations), and its subject sits
-                    directly behind the icon/title rather than off to the
-                    side, so a heavy full-width fade was hiding almost all of
-                    it. Only needs to cover the text's own measure. */}
+                {/* The art lives in the left portion of the source (see the
+                    icon sitting right on top of it), so the scrim now
+                    protects the right edge instead, where the text moved to.
+                    Text used to sit left, right over the art, which is why
+                    this used to fade the other way. */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1a1a1a] from-15% via-[#1a1a1a]/40 via-40% to-transparent"
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-l from-[#1a1a1a] from-15% via-[#1a1a1a]/40 via-40% to-transparent"
                 />
 
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
                   <Icon className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />
                 </div>
-                <div className="relative min-w-0 flex-1">
+                {/* Right-aligned rather than the usual left: pushes the text
+                    off the art instead of the art needing to be scrimmed out
+                    from under it, which is what let the art actually show. */}
+                <div className="relative min-w-0 flex-1 text-right">
                   <p className="font-bold">{pillar.name}</p>
                   <p className="truncate text-xs text-white/55">{pillar.blurb}</p>
                   <p className="mt-1 text-[11px] font-semibold text-white/35">

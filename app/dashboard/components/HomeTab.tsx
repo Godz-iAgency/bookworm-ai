@@ -275,17 +275,25 @@ export default function HomeTab({
           alt=""
           aria-hidden="true"
           decoding="async"
-          className="pointer-events-none absolute inset-0 h-full w-full rounded-2xl object-cover object-right opacity-70"
+          className="pointer-events-none absolute inset-0 h-full w-full rounded-2xl object-cover object-right"
         />
+        {/* The art lives in the left portion of the source (the icon sits
+            right on top of it), so the scrim protects the right edge, where
+            the text is. Full opacity + a lighter, reversed fade, same reason
+            as the pillar cards below: at full opacity the old left-to-right
+            fade hid almost all of it. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-[#111] via-[#111]/75 to-transparent"
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-l from-[#111] from-15% via-[#111]/50 via-40% to-transparent"
         />
 
         <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/25 to-[#FF006E]/25">
           <Sparkles className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />
         </div>
-        <div className="relative min-w-0 flex-1">
+        {/* Right-aligned, same reasoning as the pillar cards: pushes the text
+            off the art instead of needing the art scrimmed out from under
+            it. */}
+        <div className="relative min-w-0 flex-1 text-right">
           <p className="font-bold">
             <span className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-transparent">
               Personal Development
