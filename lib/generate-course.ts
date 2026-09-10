@@ -43,6 +43,9 @@ export async function generateCourseDays(
       lesson: d.lesson ?? "",
       flashcards: Array.isArray(d.flashcards) ? d.flashcards.slice(0, 3) : [],
       chatSeed: Array.isArray(d.chatSeed) ? d.chatSeed.slice(0, 3) : [],
+      // "" rather than undefined: Firestore rejects undefined values, and days
+      // 2-7 legitimately have no axiom until they are opened and written.
+      closingAxiom: typeof d.closingAxiom === "string" ? d.closingAxiom : "",
       isUnlocked: i === 0,
       isCompleted: false,
     }));

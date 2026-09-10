@@ -46,6 +46,8 @@ export async function POST(req: Request) {
       chatSeed: Array.isArray(parsed?.chatSeed)
         ? parsed.chatSeed.filter((s: any) => typeof s === "string").slice(0, 3)
         : [],
+      closingAxiom:
+        typeof parsed?.closingAxiom === "string" ? stripEmDashes(parsed.closingAxiom).trim() : "",
     });
   } catch (error: any) {
     console.error("Flashcard repair failed:", error);

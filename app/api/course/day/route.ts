@@ -41,6 +41,8 @@ export async function POST(req: Request) {
       chatSeed: Array.isArray(parsed.chatSeed)
         ? parsed.chatSeed.slice(0, 3).map((s: any) => (typeof s === "string" ? stripEmDashes(s) : s))
         : [],
+      closingAxiom:
+        typeof parsed.closingAxiom === "string" ? stripEmDashes(parsed.closingAxiom).trim() : "",
     });
   } catch (error: any) {
     console.error("Day generation failed:", error);

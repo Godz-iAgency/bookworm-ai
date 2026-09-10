@@ -35,6 +35,18 @@ export interface Day {
   flashcards: Flashcard[];
   /** 3 conversational starter questions to prime BookPal chat. */
   chatSeed: string[];
+  /**
+   * One line drawn from this day's own material, shown once the reader commits
+   * to an action. Undefined on days generated before this existed; those get
+   * one backfilled from their lesson the next time the day is opened.
+   */
+  closingAxiom?: string;
+  /**
+   * Which of the lesson's closing actions the reader said they would do in the
+   * next 24 hours, as indices into that list. Stored so the commitment is still
+   * there when they come back to the day, rather than resetting to nothing.
+   */
+  committedActions?: number[];
   isUnlocked: boolean;
   isCompleted: boolean;
 }

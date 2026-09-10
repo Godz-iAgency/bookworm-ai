@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X, Check, BookOpen, ScrollText } from "lucide-react";
 import { motion } from "motion/react";
-import { parseLesson } from "@/lib/lesson";
+import { splitLesson } from "@/lib/lesson";
 import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
 import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 import { usePagedReader, COLUMN_GAP, PAGE_PAD_Y } from "@/lib/usePagedReader";
@@ -19,6 +19,15 @@ interface LessonReaderProps {
    * comes next rather than stopping dead.
    */
   outro?: ReactNode;
+  /**
+   * One line from this day's own material, revealed once the reader commits to
+   * an action. Absent on days generated before axioms existed, until the day is
+   * next opened and one is backfilled.
+   */
+  closingAxiom?: string;
+  /** Indices of the closing actions the reader has committed to. */
+  committedActions?: number[];
+  onToggleAction?: (index: number) => void;
   /** True while this is the reader's current day, so completing it is offered. */
   canComplete: boolean;
   onComplete: () => void;
@@ -70,6 +79,9 @@ export default function LessonReader({
   dayTitle,
   lesson,
   outro,
+  closingAxiom,
+  committedActions,
+  onToggleAction,
   canComplete,
   onComplete,
   onClose,
@@ -81,7 +93,10 @@ export default function LessonReader({
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const blocks = parseLesson(lesson);
+  // The closing actions are lifted out of the prose and rendered as a
+  // commitment the reader makes, so they must not also appear as text above it.
+  const { blocks, actions } = splitLesson(lesson);
+  const committed = committedActions ?? [];
 
   const reader = usePagedReader({
     enabled: paged,
@@ -89,8 +104,10 @@ export default function LessonReader({
     // The settings panel floats over the text rather than shortening it, so
     // opening it does not re-paginate and the reader keeps their exact page.
     // The outro is part of the key because it adds a page: without it the page
-    // counter could be a page behind what the reader can actually turn to.
-    contentKey: `${fontSize}|${lesson.length}|${outro ? 1 : 0}`,
+    // counter could be a page behind what the reader can actually turn to. The
+    // axiom is here for the same reason and one more: it can arrive late, when
+    // an older day backfills one, and that changes the last page's height.
+    contentKey: `${fontSize}|${lesson.length}|${outro ? 1 : 0}|${closingAxiom ? 1 : 0}`,
     // A different day is a different chapter: always start at page one.
     resetKey: lesson,
   });
@@ -145,6 +162,22 @@ export default function LessonReader({
           </p>
         );
       })}
+      {/* Its own page in paged mode, like the handoff below it: choosing what
+          you'll actually go and do is a beat of its own, not a postscript to
+          the last paragraph. Deliberately without breakInside: avoid — at the
+          largest text size the block can outgrow a page, and flowing onto the
+          next one is far better than being clipped by it. */}
+      {actions.length > 0 && (
+        <div style={{ breakBefore: "column" }}>
+          <CommitmentBlock
+            actions={actions}
+            committed={committed}
+            onToggle={onToggleAction}
+            axiom={closingAxiom}
+            scale={scale}
+          />
+        </div>
+      )}
       {/* Starts its own page in paged mode: the handoff is a beat of its own,
           not a footnote crowded under the last paragraph of the lesson. */}
       {outro && <div style={{ breakBefore: "column", breakInside: "avoid" }}>{outro}</div>}
@@ -412,6 +445,99 @@ export default function LessonReader({
    */
   if (isPhone) return createPortal(shell, document.body);
   return shell;
+}
+
+/**
+ * The day's three takeaways, turned into a commitment.
+ *
+ * Reading an action and intending to do it are different things, and the gap
+ * between them is where a book stops changing anything. Ticking one is a small
+ * public-to-yourself promise, which is the entire mechanism: the choice is what
+ * makes it stick, so the reader picks rather than being handed a to-do list.
+ *
+ * The axiom underneath is the reward for making that choice, and it is why the
+ * space for it is reserved rather than grown into: revealing it must not
+ * re-flow the page in paged mode, which would move the reader mid-turn.
+ */
+function CommitmentBlock({
+  actions,
+  committed,
+  onToggle,
+  axiom,
+  scale,
+}: {
+  actions: string[];
+  committed: number[];
+  onToggle?: (index: number) => void;
+  axiom?: string;
+  scale: { body: number; lineHeight: number };
+}) {
+  const revealed = committed.length > 0;
+  // Capped rather than free-running: at the largest reading size the untruncated
+  // body size turns three actions into two pages of checkboxes.
+  const size = Math.min(scale.body, 19);
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">Your move</p>
+      <p className="mt-1 font-bold text-white" style={{ fontSize: size, lineHeight: 1.35 }}>
+        Which will you do in the next 24 hours?
+      </p>
+
+      <ul className="mt-3 space-y-2">
+        {actions.map((action, i) => {
+          const checked = committed.includes(i);
+          return (
+            <li key={i}>
+              <button
+                type="button"
+                onClick={() => onToggle?.(i)}
+                aria-pressed={checked}
+                className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors ${
+                  checked
+                    ? "border-[#00D4FF]/50 bg-[#00D4FF]/10"
+                    : "border-white/10 hover:border-white/25 hover:bg-white/[0.03]"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                    checked ? "border-[#00D4FF] bg-[#00D4FF]" : "border-white/30"
+                  }`}
+                >
+                  {checked && <Check className="h-3.5 w-3.5 text-black" strokeWidth={3.5} />}
+                </span>
+                <span
+                  className={checked ? "text-white" : "text-white/80"}
+                  style={{ fontSize: size, lineHeight: scale.lineHeight }}
+                >
+                  {action}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {axiom && (
+        <div
+          // Present in the layout from the start, invisible until earned, so
+          // the reveal costs an opacity change and nothing else. aria-hidden
+          // keeps a screen reader from announcing a line that isn't showing.
+          aria-hidden={!revealed}
+          className="mt-4 border-t border-white/10 pt-4"
+          style={{ opacity: revealed ? 1 : 0, transition: "opacity 600ms ease-out" }}
+        >
+          <p
+            className="font-reading italic text-[#00D4FF]"
+            style={{ fontSize: size, lineHeight: 1.5 }}
+          >
+            {axiom}
+          </p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function ModeButton({

@@ -22,6 +22,10 @@ export default function CourseTab({
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<number | null>(null);
   const dayRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // Days already asked for a backfilled axiom, as "courseId:dayNumber". One
+  // attempt each: a day whose axiom keeps coming back empty must not re-request
+  // one every time the reader reopens it.
+  const axiomTried = useRef<Set<string>>(new Set());
   const topRef = useRef<HTMLDivElement>(null);
 
   // Pin Flashcards + Chat to whichever day the reader just opened. This is the
@@ -33,11 +37,66 @@ export default function CourseTab({
     );
   };
 
+  /**
+   * Give a day that already has a lesson the closing axiom it was written
+   * without.
+   *
+   * Days generated before axioms existed would otherwise end on nothing, and
+   * the dashboard's repair path (useDayContent) deliberately only runs on the
+   * Chat and Flashcards tabs — so a reader who only ever reads lessons would
+   * never trigger it. Deliberately not awaited: the lesson opens instantly, and
+   * a line that belongs at the very bottom has a thousand words of head start.
+   */
+  const backfillAxiom = (day: Day) => {
+    if (!day.lesson || day.closingAxiom) return;
+    const attemptKey = `${course.id}:${day.dayNumber}`;
+    if (axiomTried.current.has(attemptKey)) return;
+    axiomTried.current.add(attemptKey);
+
+    // The flashcard repair endpoint already derives an axiom from a stored
+    // lesson, so this reuses it rather than adding a second route that would
+    // have to be kept in step with it.
+    fetch("/api/course/flashcards", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: course.book.title,
+        author: course.book.author,
+        readingLevel: course.readingLevel,
+        dayNumber: day.dayNumber,
+        dayTitle: day.title,
+        lesson: day.lesson,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data?.closingAxiom) return;
+        setCourses((prev) =>
+          prev.map((c) =>
+            c.id !== course.id
+              ? c
+              : {
+                  ...c,
+                  days: c.days.map((d) =>
+                    // Still only filling a gap: if anything else got there
+                    // first, that one stands.
+                    d.dayNumber === day.dayNumber && !d.closingAxiom
+                      ? { ...d, closingAxiom: data.closingAxiom }
+                      : d
+                  ),
+                }
+          )
+        );
+      })
+      .catch((err) => console.error("Axiom backfill failed:", err));
+  };
+
   // Days 2–7 have their full lesson generated on demand (the outline call only
   // produces Day 1). Open a day — fetching its lesson first if we don't have it.
   const openLesson = async (dayNumber: number) => {
     const day = course.days.find((d) => d.dayNumber === dayNumber);
     if (day?.lesson) {
+      backfillAxiom(day);
       setActiveDay(dayNumber);
       setOpenDay(dayNumber);
       return;
@@ -76,7 +135,13 @@ export default function CourseTab({
                 activeDayNumber: dayNumber,
                 days: c.days.map((d) =>
                   d.dayNumber === dayNumber
-                    ? { ...d, lesson: data.lesson, flashcards: data.flashcards, chatSeed: data.chatSeed }
+                    ? {
+                        ...d,
+                        lesson: data.lesson,
+                        flashcards: data.flashcards,
+                        chatSeed: data.chatSeed,
+                        closingAxiom: data.closingAxiom ?? "",
+                      }
                     : d
                 ),
               }
@@ -136,6 +201,35 @@ export default function CourseTab({
     dayRefs.current[dayLevel + 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /**
+   * Commit to one of the day's closing actions, or take it back.
+   *
+   * Written into the course like any other reading state, which persists it to
+   * Firestore — a promise the reader made that vanished when they closed the
+   * lesson would be no promise at all.
+   */
+  const toggleCommitment = (dayNumber: number, index: number) => {
+    setCourses((prev) =>
+      prev.map((c) =>
+        c.id !== course.id
+          ? c
+          : {
+              ...c,
+              days: c.days.map((d) => {
+                if (d.dayNumber !== dayNumber) return d;
+                const current = d.committedActions ?? [];
+                return {
+                  ...d,
+                  committedActions: current.includes(index)
+                    ? current.filter((i) => i !== index)
+                    : [...current, index],
+                };
+              }),
+            }
+      )
+    );
+  };
+
   // An open lesson takes over the whole tab rather than expanding inside its
   // card. A 1000-word lesson boxed inside a centred card wasted most of the
   // screen on tablets and forced a cramped measure on phones; the reader owns
@@ -155,6 +249,9 @@ export default function CourseTab({
             <LastDayCard book={course.book} />
           )
         }
+        closingAxiom={readingDay.closingAxiom}
+        committedActions={readingDay.committedActions}
+        onToggleAction={(index) => toggleCommitment(readingDay.dayNumber, index)}
         canComplete={readingDay.isUnlocked && !readingDay.isCompleted}
         onComplete={() => handleMarkComplete(readingDay.dayNumber)}
         onClose={() => setOpenDay(null)}

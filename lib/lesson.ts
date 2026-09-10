@@ -63,3 +63,35 @@ export function parseLesson(lesson: string): LessonBlock[] {
   flush();
   return blocks;
 }
+
+/** A lesson's prose, with its closing actions lifted out of it. */
+export type LessonSplit = { blocks: LessonBlock[]; actions: string[] };
+
+/**
+ * Separate the day's closing actions from the lesson that argues for them.
+ *
+ * The lesson prompt asks for a final section of exactly three numbered lines,
+ * and parseLesson already classifies those as `item` blocks — so the actions
+ * are the trailing run of items. Only the trailing run: a numbered aside in the
+ * middle of a lesson is prose the reader is meant to read, not a commitment
+ * they are meant to make.
+ *
+ * A single trailing item is left as prose, because one item is a stray rather
+ * than a list to choose between. Lessons written before this format have no
+ * trailing items at all and come back untouched, which is what lets the
+ * checklist work on courses generated long before it existed.
+ */
+export function splitLesson(lesson: string): LessonSplit {
+  const blocks = parseLesson(lesson);
+
+  let start = blocks.length;
+  while (start > 0 && blocks[start - 1].type === "item") start--;
+  const count = blocks.length - start;
+  if (count < 2 || count > 6) return { blocks, actions: [] };
+
+  return {
+    blocks: blocks.slice(0, start),
+    // The "1." marker goes: it numbered a list that now has checkboxes.
+    actions: blocks.slice(start).map((b) => b.text.replace(/^\d+[.)]\s*/, "")),
+  };
+}

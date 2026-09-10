@@ -60,6 +60,20 @@ const LESSON_RULES = `LESSON FORMATTING RULES:
 
 const FLASHCARD_RULES = `FLASHCARD RULES: exactly 3. Front = an open-ended question (what / how / why), 5–10 words, never yes/no. Back = a concise answer, 10–15 words. Draw them from this book's specific ideas, using the author's own terms where they have them.`;
 
+/**
+ * The line the reader is left holding after they commit to an action.
+ *
+ * It is deliberately a principle rather than another instruction: the three
+ * takeaways already tell them what to do, and following a commitment with more
+ * homework undercuts the moment. The specificity requirement is the whole
+ * point — a generic "you've got this" would be indistinguishable from every
+ * other app, where a line in this author's own terms is the book still talking.
+ */
+const AXIOM_RULES = `CLOSING AXIOM RULES: exactly one sentence, 8–18 words, returned as "closingAxiom".
+- It must come out of THIS day's material: its idea, its framework, its example. Use the author's own terms where they fit. Generic motivation is a failure.
+- Write it as a principle the reader can hold in their head, not as another instruction. The takeaways already handle what to do.
+- Do not mention the book, the author, the course, the day, or the reader's progress. No "as we learned today", no "remember that". Just the truth itself, stated plainly.`;
+
 export function getPersona(readingLevel: string): string {
   return PERSONAS[readingLevel] ?? PERSONAS.scholar;
 }
@@ -86,7 +100,9 @@ ${STYLE_RULES}
 
 ${LESSON_RULES}
 
-${FLASHCARD_RULES}`;
+${FLASHCARD_RULES}
+
+${AXIOM_RULES}`;
 
   const user = `Book: "${title}" by ${author || "Unknown Author"}
 
@@ -106,7 +122,7 @@ For each of the 7 days give:
 - "previewText": one sentence, 15 to 20 words, on what this day covers.
 - "keyIdeas": 3 to 5 short strings naming the specific concepts, frameworks, studies, stories, or examples the author uses HERE. These are what the lesson gets written from later, so be concrete and specific to this book. Never generic.
 
-Then write the full "lesson", "flashcards", and "chatSeed" for DAY 1 ONLY. Do NOT write lessons for days 2 to 7.
+Then write the full "lesson", "flashcards", "chatSeed" and "closingAxiom" for DAY 1 ONLY. Do NOT write lessons for days 2 to 7.
 Day 1's lesson must begin its hook with a one-sentence roadmap naming what the 7 days cover.
 
 Return ONLY this JSON:
@@ -115,7 +131,7 @@ Return ONLY this JSON:
   "thesis": "...",
   "frameworks": ["...", "..."],
   "days": [
-    { "dayNumber": 1, "title": "...", "previewText": "...", "keyIdeas": ["...", "...", "..."], "lesson": "800–1200 words", "flashcards": [{ "front": "...", "back": "..." }], "chatSeed": ["...", "...", "..."] },
+    { "dayNumber": 1, "title": "...", "previewText": "...", "keyIdeas": ["...", "...", "..."], "lesson": "800–1200 words", "flashcards": [{ "front": "...", "back": "..." }], "chatSeed": ["...", "...", "..."], "closingAxiom": "one sentence, 8–18 words" },
     { "dayNumber": 2, "title": "...", "previewText": "...", "keyIdeas": ["...", "...", "..."] }
   ]
 }
@@ -126,12 +142,16 @@ The "days" array must contain exactly 7 items (dayNumber 1–7). Day 1's "flashc
 }
 
 /**
- * Repair path: rebuild only the flashcards + chat starters for a day whose
- * lesson we already have. The outline call occasionally returns Day 1 with a
- * good lesson but an empty `flashcards` array, and Day 1 never re-fetches
- * (its lesson already exists), so the deck would otherwise stay empty
- * forever. Deriving from the stored lesson keeps the cards true to what the
- * reader actually read — and never rewrites that lesson.
+ * Repair path: rebuild only the study aids for a day whose lesson we already
+ * have. The outline call occasionally returns Day 1 with a good lesson but an
+ * empty `flashcards` array, and Day 1 never re-fetches (its lesson already
+ * exists), so the deck would otherwise stay empty forever. Deriving from the
+ * stored lesson keeps the cards true to what the reader actually read — and
+ * never rewrites that lesson.
+ *
+ * It also carries the closing axiom, which is what gives courses generated
+ * before axioms existed one the next time a day is opened, rather than leaving
+ * every day of them ending on nothing.
  */
 export function buildFlashcardsMessages(
   title: string,
@@ -147,7 +167,9 @@ ${getPersona(readingLevel)}
 
 ${STYLE_RULES}
 
-${FLASHCARD_RULES}`;
+${FLASHCARD_RULES}
+
+${AXIOM_RULES}`;
 
   const user = `Book: "${title}" by ${author || "Unknown Author"}
 Day ${dayNumber}: "${dayTitle}"
@@ -157,12 +179,13 @@ This is the lesson the reader has already been given for this day:
 ${lesson}
 """
 
-Write exactly 3 flashcards drawn from the ideas in THAT lesson — do not introduce concepts it does not cover. Then write exactly 3 conversational starter questions a reader might ask about it.
+Write exactly 3 flashcards drawn from the ideas in THAT lesson — do not introduce concepts it does not cover. Then write exactly 3 conversational starter questions a reader might ask about it, and one closing axiom drawn from that same lesson.
 
 Return ONLY this JSON:
 {
   "flashcards": [{ "front": "...", "back": "..." }],
-  "chatSeed": ["...", "...", "..."]
+  "chatSeed": ["...", "...", "..."],
+  "closingAxiom": "one sentence, 8–18 words"
 }
 
 "flashcards" and "chatSeed" must each contain exactly 3 items.`;
@@ -200,7 +223,9 @@ ${STYLE_RULES}
 
 ${LESSON_RULES}
 
-${FLASHCARD_RULES}`;
+${FLASHCARD_RULES}
+
+${AXIOM_RULES}`;
 
   const arc = allTitles.map((t, i) => `Day ${i + 1}: ${t}`).join("\n");
 
@@ -229,7 +254,8 @@ Return ONLY this JSON:
 {
   "lesson": "800–1200 words following the formatting rules",
   "flashcards": [{ "front": "...", "back": "..." }],
-  "chatSeed": ["...", "...", "..."]
+  "chatSeed": ["...", "...", "..."],
+  "closingAxiom": "one sentence, 8–18 words"
 }
 
 "flashcards" and "chatSeed" must each contain exactly 3 items.`;

@@ -38,16 +38,20 @@ export function useDayContent(
   const key = course && day ? `${course.id}:${day.dayNumber}` : "";
   const hasLesson = !!day?.lesson;
   const hasCards = (day?.flashcards?.length ?? 0) > 0;
+  // Days written before axioms existed have a lesson and a deck but nothing to
+  // close on, so a missing axiom is a repairable gap like an empty deck is.
+  const hasAxiom = !!day?.closingAxiom;
   // Locked days are never generated — the reader hasn't earned them yet.
-  const needsContent = enabled && !!day?.isUnlocked && (!hasLesson || !hasCards);
+  const needsContent = enabled && !!day?.isUnlocked && (!hasLesson || !hasCards || !hasAxiom);
 
   const run = useCallback(
     async (force: boolean) => {
       if (!enabled || !course || !day || !day.isUnlocked) return;
 
       const needsFull = !day.lesson;
-      const needsCards = !needsFull && (day.flashcards?.length ?? 0) === 0;
-      if (!needsFull && !needsCards) return;
+      const needsRepair =
+        !needsFull && ((day.flashcards?.length ?? 0) === 0 || !day.closingAxiom);
+      if (!needsFull && !needsRepair) return;
 
       const attemptKey = `${course.id}:${day.dayNumber}`;
       if (!force && attemptedRef.current.has(attemptKey)) return;
@@ -96,16 +100,21 @@ export function useDayContent(
               ? c
               : {
                   ...c,
+                  // Fill gaps, never overwrite. On the full path every one of
+                  // these is empty anyway, so it takes what was just written;
+                  // on a repair path it keeps what the reader already has —
+                  // the lesson they read, and cards they may be part-way
+                  // through — and only fills what was actually missing. That
+                  // matters now that a missing axiom alone can trigger this.
                   days: c.days.map((d) =>
                     d.dayNumber !== day.dayNumber
                       ? d
                       : {
                           ...d,
-                          // Only fill the lesson on the full path — the repair
-                          // path must leave an already-read lesson alone.
-                          lesson: needsFull ? data.lesson ?? d.lesson : d.lesson,
-                          flashcards: data.flashcards,
-                          chatSeed: data.chatSeed?.length ? data.chatSeed : d.chatSeed,
+                          lesson: d.lesson || data.lesson || "",
+                          flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
+                          chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
+                          closingAxiom: d.closingAxiom || data.closingAxiom || "",
                         }
                   ),
                 }
