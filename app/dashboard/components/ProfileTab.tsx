@@ -10,7 +10,7 @@ import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { GenreGrid } from "@/components/genre-grid";
-import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
+import { toggleGenre, knownGenres, GENRE_PICK_COUNT } from "@/lib/genres";
 import { planFromId } from "@/lib/plans";
 import {
   getBillingProfile,
@@ -73,7 +73,7 @@ export default function ProfileTab() {
         // Fall back to the Firebase Auth photo (e.g. Google) if the doc has none.
         setPhotoURL(profile?.photoURL ?? user.photoURL ?? null);
         setReadingLevel(profile?.readingLevel ?? null);
-        setGenres(profile?.genrePreferences ?? []);
+        setGenres(knownGenres(profile?.genrePreferences ?? []));
         setLastBook(profile?.lastBookRead ?? "");
         setPlan(profile?.plan ?? null);
         const billingProfile = await getBillingProfile(user.uid);
