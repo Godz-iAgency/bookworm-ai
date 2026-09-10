@@ -137,7 +137,7 @@ export default function PreviewPage() {
         outline.thesis,
         outline.frameworks
       );
-      setCourses([...courses, newCourse]);
+      setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
       // For a new trial, activate-trial already reset this to 0 server-side and
       // this is the first of the 3 trial books. For an existing subscriber it

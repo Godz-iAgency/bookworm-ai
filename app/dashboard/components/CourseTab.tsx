@@ -138,10 +138,12 @@ export default function CourseTab({
                   d.dayNumber === dayNumber
                     ? {
                         ...d,
-                        lesson: data.lesson,
-                        flashcards: data.flashcards,
-                        chatSeed: data.chatSeed,
-                        closingAxiom: data.closingAxiom ?? "",
+                        // Another tab may have finished first while this
+                        // request was in flight. Preserve its content.
+                        lesson: d.lesson || data.lesson,
+                        flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
+                        chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
+                        closingAxiom: d.closingAxiom || data.closingAxiom || "",
                       }
                     : d
                 ),
@@ -566,4 +568,3 @@ function DayLoader({ dayNumber }: { dayNumber: number }) {
     </div>
   );
 }
-

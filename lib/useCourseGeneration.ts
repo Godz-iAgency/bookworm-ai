@@ -61,7 +61,14 @@ export function useCourseGeneration() {
       // Billing checks only apply once Stripe is actually configured. Before
       // that the soft gate can't collect a card, so gating here would dead-end
       // every user — instead the app behaves exactly as it did pre-billing.
-      const profile = isBillingEnabled() ? await getBillingProfile(user.uid) : null;
+      let profile;
+      try {
+        profile = isBillingEnabled() ? await getBillingProfile(user.uid) : null;
+      } catch (err) {
+        console.error("Could not check billing status:", err);
+        setError("We couldn't build your course right now. Please try again in a moment.");
+        return;
+      }
 
       if (isBillingEnabled()) {
         // Brand-new readers (no trial started, no plan yet) go through the soft
@@ -117,7 +124,7 @@ export function useCourseGeneration() {
         result.thesis,
         result.frameworks
       );
-      setCourses([...courses, newCourse]);
+      setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
 
       updateDoc(doc(db, "users", user.uid), {

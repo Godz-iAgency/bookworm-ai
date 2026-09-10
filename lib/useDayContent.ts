@@ -93,6 +93,15 @@ export function useDayContent(
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");
         if (!(data.flashcards?.length > 0)) throw new Error("No flashcards returned");
+        // A successful HTTP response can still omit a required field. Without
+        // failing this attempt, the one-attempt guard leaves status stuck at
+        // "generating" forever instead of enabling the existing retry path.
+        if (needsFull && !(typeof data.lesson === "string" && data.lesson.trim())) {
+          throw new Error("No lesson returned");
+        }
+        if (!day.closingAxiom && !(typeof data.closingAxiom === "string" && data.closingAxiom.trim())) {
+          throw new Error("No closing axiom returned");
+        }
 
         setCourses((prev) =>
           prev.map((c) =>

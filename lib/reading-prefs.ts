@@ -30,7 +30,9 @@ export const FONT_SIZE_ORDER: ReadingFontSize[] = ["sm", "md", "lg", "xl"];
 
 /** Narrow an unknown Firestore value to a valid size, falling back to default. */
 export function coerceFontSize(v: unknown): ReadingFontSize {
-  return typeof v === "string" && v in FONT_SCALE ? (v as ReadingFontSize) : DEFAULT_FONT_SIZE;
+  return typeof v === "string" && Object.prototype.hasOwnProperty.call(FONT_SCALE, v)
+    ? (v as ReadingFontSize)
+    : DEFAULT_FONT_SIZE;
 }
 
 /** Narrow an unknown Firestore value to a valid mode, falling back to default. */
