@@ -119,10 +119,17 @@ export function BookCover({
         if (cancelled) return;
         const url: string | null = data?.coverUrl ?? null;
         setSrc(url);
-        try {
-          localStorage.setItem(key, url ?? "");
-        } catch {
-          // Cache is an optimisation, never a requirement.
+        // `retry` means the lookup itself failed (rate limit, network, a
+        // Google hiccup) rather than the book genuinely having no art.
+        // Caching that would be caching a question, not an answer: the book
+        // would stay coverless on this device forever, since a cached entry
+        // is never looked up again.
+        if (!data?.retry) {
+          try {
+            localStorage.setItem(key, url ?? "");
+          } catch {
+            // Cache is an optimisation, never a requirement.
+          }
         }
       } catch {
         if (!cancelled) setSrc(null);

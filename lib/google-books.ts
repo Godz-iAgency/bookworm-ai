@@ -60,3 +60,65 @@ export function volumesUrl(query: string, maxResults = 1): string {
 export function normalizeCover(url: string | undefined): string | null {
   return url ? url.replace("http:", "https:") : null;
 }
+
+/** Lowercase, unaccented, punctuation-free, for comparing two titles. */
+function normalizeTitle(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      // NFKD first so an accented letter splits into a plain letter plus its
+      // mark; the replace below then drops the mark and keeps the letter.
+      // Without it the whole character would go, turning "Poincaré" into
+      // "poincar" against Google's "poincare".
+      .normalize("NFKD")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+/** Words too common to prove two titles are about the same book. */
+const STOP_WORDS = new Set([
+  "the", "a", "an", "of", "and", "or", "to", "in", "on", "for",
+  "is", "how", "why", "your", "you", "it", "at", "be", "with",
+]);
+
+/**
+ * Is the volume Google returned actually the book that was asked for?
+ *
+ * Google's ranking will happily answer a miss with something unrelated rather
+ * than nothing: asking for "The Mind of Napoleon" came back with a nursing
+ * exam prep guide, whose cover then went on the reader's shelf as though it
+ * were their book. A wrong cover is worse than no cover, because no cover has
+ * a designed fallback and a wrong one just looks broken.
+ *
+ * Deliberately tolerant of subtitles in either direction, since the shelf
+ * stores "Influence" where Google holds "Influence: The Psychology of
+ * Persuasion". Beyond that it asks that most of the asked-for title's
+ * distinctive words actually appear.
+ */
+export function titlesMatch(requested: string, returned: string | undefined): boolean {
+  const want = normalizeTitle(requested);
+  const got = normalizeTitle(returned ?? "");
+  if (!want || !got) return false;
+
+  // Anchored at a word boundary, at one end or the other. A title is either
+  // the head of what came back ("Influence" -> "Influence: The Psychology of
+  // Persuasion") or its tail ("Money" -> "The Psychology of Money"). Loose
+  // containment would also accept "Grit" for "The Grit Factor", which is a
+  // different book that merely uses the word.
+  const heads = (hay: string, needle: string) => hay === needle || hay.startsWith(`${needle} `);
+  const tails = (hay: string, needle: string) => hay === needle || hay.endsWith(` ${needle}`);
+  if (heads(got, want) || heads(want, got)) return true;
+  if (tails(got, want) || tails(want, got)) return true;
+
+  // Otherwise, most of the distinctive words should be present, for reorderings
+  // and edition noise the anchors miss. Needs at least two such words to mean
+  // anything: for a one-word title this would match every book containing that
+  // word, which is exactly what the anchors above just ruled out.
+  const distinctive = want.split(" ").filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  if (distinctive.length < 2) return false;
+  const gotWords = new Set(got.split(" "));
+  const hits = distinctive.filter((w) => gotWords.has(w)).length;
+  return hits / distinctive.length >= 0.7;
+}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry, volumesUrl, normalizeCover } from "@/lib/google-books";
+import { fetchWithRetry, volumesUrl, normalizeCover, titlesMatch } from "@/lib/google-books";
 
 /**
  * Just the cover art for one known title, for the Personal Development
@@ -34,19 +34,35 @@ export async function GET(req: NextRequest) {
   const query = author ? `intitle:${title}+inauthor:${author}` : `intitle:${title}`;
 
   try {
-    const res = await fetchWithRetry(volumesUrl(query));
+    // Several results rather than one, and then the first that is actually
+    // this book. Google answers a miss with its next best guess rather than
+    // with nothing, so taking item[0] on faith put a nursing exam prep cover
+    // on "The Mind of Napoleon". Same single call either way.
+    const res = await fetchWithRetry(volumesUrl(query, 5));
     if (!res.ok) {
+      // fetchWithRetry only returns a non-ok response for a 404, which means
+      // no matches: a real answer, and a cacheable one.
+      cache.set(key, null);
       return NextResponse.json({ coverUrl: null });
     }
     const data = await res.json();
-    const cover = normalizeCover(data.items?.[0]?.volumeInfo?.imageLinks?.thumbnail);
+    const items: any[] = Array.isArray(data.items) ? data.items : [];
+    const match = items.find(
+      (item) =>
+        titlesMatch(title, item?.volumeInfo?.title) &&
+        item?.volumeInfo?.imageLinks?.thumbnail
+    );
+    const cover = normalizeCover(match?.volumeInfo?.imageLinks?.thumbnail);
     // Cached either way: a book with no artwork shouldn't be looked up again
     // on every visit just to get the same empty answer.
     cache.set(key, cover);
     return NextResponse.json({ coverUrl: cover });
   } catch (err: any) {
     console.error("Cover lookup failed:", title, err?.message);
-    // Not cached: a transient failure should be retried on the next visit.
-    return NextResponse.json({ coverUrl: null });
+    // Not cached, and flagged: this is "ask again later", not "this book has
+    // no cover". Without the flag the client writes the empty answer into
+    // localStorage and never asks again, so one rate-limited afternoon leaves
+    // a book coverless on that device permanently.
+    return NextResponse.json({ coverUrl: null, retry: true });
   }
 }
