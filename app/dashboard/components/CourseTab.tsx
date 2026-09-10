@@ -21,6 +21,9 @@ export default function CourseTab({
   const [openDay, setOpenDay] = useState<number | null>(null);
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<number | null>(null);
+  // The day currently having a missing axiom written, so the reader is told
+  // one is coming rather than looking at a gap.
+  const [axiomPendingDay, setAxiomPendingDay] = useState<number | null>(null);
   const dayRefs = useRef<Record<number, HTMLDivElement | null>>({});
   // Days already asked for a backfilled axiom, as "courseId:dayNumber". One
   // attempt each: a day whose axiom keeps coming back empty must not re-request
@@ -52,18 +55,15 @@ export default function CourseTab({
     const attemptKey = `${course.id}:${day.dayNumber}`;
     if (axiomTried.current.has(attemptKey)) return;
     axiomTried.current.add(attemptKey);
+    setAxiomPendingDay(day.dayNumber);
 
-    // The flashcard repair endpoint already derives an axiom from a stored
-    // lesson, so this reuses it rather than adding a second route that would
-    // have to be kept in step with it.
-    fetch("/api/course/flashcards", {
+    fetch("/api/course/axiom", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: course.book.title,
         author: course.book.author,
         readingLevel: course.readingLevel,
-        dayNumber: day.dayNumber,
         dayTitle: day.title,
         lesson: day.lesson,
       }),
@@ -88,7 +88,8 @@ export default function CourseTab({
           )
         );
       })
-      .catch((err) => console.error("Axiom backfill failed:", err));
+      .catch((err) => console.error("Axiom backfill failed:", err))
+      .finally(() => setAxiomPendingDay((p) => (p === day.dayNumber ? null : p)));
   };
 
   // Days 2–7 have their full lesson generated on demand (the outline call only
@@ -252,6 +253,7 @@ export default function CourseTab({
         closingAxiom={readingDay.closingAxiom}
         committedActions={readingDay.committedActions}
         onToggleAction={(index) => toggleCommitment(readingDay.dayNumber, index)}
+        axiomPending={axiomPendingDay === readingDay.dayNumber}
         canComplete={readingDay.isUnlocked && !readingDay.isCompleted}
         onComplete={() => handleMarkComplete(readingDay.dayNumber)}
         onClose={() => setOpenDay(null)}

@@ -28,6 +28,8 @@ interface LessonReaderProps {
   /** Indices of the closing actions the reader has committed to. */
   committedActions?: number[];
   onToggleAction?: (index: number) => void;
+  /** True while an older day is having its missing axiom written. */
+  axiomPending?: boolean;
   /** True while this is the reader's current day, so completing it is offered. */
   canComplete: boolean;
   onComplete: () => void;
@@ -82,6 +84,7 @@ export default function LessonReader({
   closingAxiom,
   committedActions,
   onToggleAction,
+  axiomPending,
   canComplete,
   onComplete,
   onClose,
@@ -174,6 +177,7 @@ export default function LessonReader({
             committed={committed}
             onToggle={onToggleAction}
             axiom={closingAxiom}
+            axiomPending={axiomPending}
             scale={scale}
           />
         </div>
@@ -464,12 +468,15 @@ function CommitmentBlock({
   committed,
   onToggle,
   axiom,
+  axiomPending,
   scale,
 }: {
   actions: string[];
   committed: number[];
   onToggle?: (index: number) => void;
   axiom?: string;
+  /** True while a day written before axioms existed is having one backfilled. */
+  axiomPending?: boolean;
   scale: { body: number; lineHeight: number };
 }) {
   const revealed = committed.length > 0;
@@ -481,7 +488,7 @@ function CommitmentBlock({
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">Your move</p>
       <p className="mt-1 font-bold text-white" style={{ fontSize: size, lineHeight: 1.35 }}>
-        Which will you do in the next 24 hours?
+        What will you take away for the next 24 hours?
       </p>
 
       <ul className="mt-3 space-y-2">
@@ -519,7 +526,7 @@ function CommitmentBlock({
         })}
       </ul>
 
-      {axiom && (
+      {axiom ? (
         <div
           // Present in the layout from the start, invisible until earned, so
           // the reveal costs an opacity change and nothing else. aria-hidden
@@ -535,6 +542,18 @@ function CommitmentBlock({
             {axiom}
           </p>
         </div>
+      ) : (
+        // Days written before axioms existed have one fetched when the lesson
+        // opens. Saying so beats an empty space that reads as a missing
+        // feature, and it only ever shows once per day, on old courses.
+        revealed &&
+        axiomPending && (
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="italic text-white/35" style={{ fontSize: size, lineHeight: 1.5 }}>
+              Finding your line for today&hellip;
+            </p>
+          </div>
+        )
       )}
     </section>
   );

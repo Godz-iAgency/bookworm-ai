@@ -194,6 +194,45 @@ Return ONLY this JSON:
 }
 
 /**
+ * Backfill path: the closing axiom alone, for a day whose lesson exists but was
+ * written before axioms did.
+ *
+ * Separate from buildFlashcardsMessages, which can also produce one, because
+ * that call regenerates a whole deck to get at a single sentence and takes
+ * about a minute. This asks for one line and returns in seconds, which is the
+ * difference between the axiom being there when the reader reaches the bottom
+ * of the lesson and them deciding the feature is broken.
+ */
+export function buildAxiomMessages(
+  title: string,
+  author: string,
+  readingLevel: string,
+  dayTitle: string,
+  lesson: string
+) {
+  const system = `You write one closing line for one day of a 7-day course on a book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+
+${getPersona(readingLevel)}
+
+${STYLE_RULES}
+
+${AXIOM_RULES}`;
+
+  const user = `Book: "${title}" by ${author || "Unknown Author"}
+Day: "${dayTitle}"
+
+This is the lesson the reader has just finished:
+"""
+${lesson}
+"""
+
+Return ONLY this JSON:
+{ "closingAxiom": "one sentence, 8–18 words" }`;
+
+  return { system, user };
+}
+
+/**
  * On-demand: one later day's full lesson + flashcards + chatSeed.
  *
  * Everything the outline learned about the book is passed back in — the thesis,

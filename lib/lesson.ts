@@ -91,7 +91,8 @@ export function splitLesson(lesson: string): LessonSplit {
 
   return {
     blocks: blocks.slice(0, start),
-    // The "1." marker goes: it numbered a list that now has checkboxes.
-    actions: blocks.slice(start).map((b) => b.text.replace(/^\d+[.)]\s*/, "")),
+    // The "1./2./3." stays: each action is numbered AND has a checkbox, not
+    // one or the other.
+    actions: blocks.slice(start).map((b) => b.text),
   };
 }
