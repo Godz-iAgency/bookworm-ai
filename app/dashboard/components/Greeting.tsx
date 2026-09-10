@@ -27,9 +27,15 @@ export default function Greeting() {
           warm, not like a cold UI header. Paired with the crisp gradient phrase.
           Sized to stay on ONE line in the header's narrow centre column — at its
           old 34px a name like "Christopher" wrapped and pushed the shelf itself
-          most of the way off a phone screen. */}
+          most of the way off a phone screen.
+          The 25px step measured as an exact, zero-margin fit for "Hi Christopher"
+          in this column on a 360px-wide preview — no slack for a real phone's
+          font rasterizer to render even slightly wider, which is what clipped it
+          on a physical Samsung A16. Phones under sm (640px, i.e. actual phones
+          rather than the tablet/desktop widths this already fit) get a real
+          margin below that measured edge; sm and md keep their existing sizes. */}
       <p
-        className="truncate text-[25px] md:text-[30px] font-semibold leading-tight text-white"
+        className="truncate text-[19px] sm:text-[25px] md:text-[30px] font-semibold leading-tight text-white"
         style={{ fontFamily: "var(--font-caveat)" }}
       >
         Hi {name}

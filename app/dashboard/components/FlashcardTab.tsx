@@ -227,17 +227,25 @@ export default function FlashcardTab({
             ←
           </Button>
 
+          {/* overflow-hidden is load-bearing, not decorative: "Review Again" at
+              text-sm measured a 2px-wider box than its own text on a 360px
+              preview — a margin real device font rendering can and did erase,
+              which let the bold text bleed past the pill's rounded border
+              instead of wrapping or shrinking (whitespace-nowrap, no clip).
+              text-xs buys real margin back on phones; overflow-hidden means
+              any future device that's still tight clips inside the pill
+              instead of bleeding outside it. */}
           <div className="flex min-w-0 flex-1 gap-2 sm:gap-3">
             <Button
               onClick={handleNext}
-              className="h-12 min-w-0 flex-1 rounded-xl border border-white/20 bg-[#1a1a1a] px-2 text-sm font-bold text-white hover:bg-white/10 sm:h-14 sm:px-6 sm:text-base"
+              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl border border-white/20 bg-[#1a1a1a] px-1 text-[11px] font-bold text-white hover:bg-white/10 sm:h-14 sm:px-6 sm:text-base"
             >
               Review Again
             </Button>
             <Button
               onClick={markMastered}
               disabled={isActiveMastered}
-              className="h-12 min-w-0 flex-1 rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0096ff] px-2 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 sm:h-14 sm:px-6 sm:text-base"
+              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0096ff] px-1 text-[11px] font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 sm:h-14 sm:px-6 sm:text-base"
             >
               {isActiveMastered ? "Mastered ✓" : "Got It ✓"}
             </Button>
