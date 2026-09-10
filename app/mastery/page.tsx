@@ -115,11 +115,17 @@ export default function MasteryPage() {
                   alt=""
                   aria-hidden="true"
                   decoding="async"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right opacity-70"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right"
                 />
+                {/* Lighter and narrower than the flip-card scrim on purpose:
+                    this art is a dim, moody scene to begin with (unlike the
+                    bright flip-card illustrations), and its subject sits
+                    directly behind the icon/title rather than off to the
+                    side, so a heavy full-width fade was hiding almost all of
+                    it. Only needs to cover the text's own measure. */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1a1a1a] via-[#1a1a1a]/70 to-transparent"
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1a1a1a] from-15% via-[#1a1a1a]/40 via-40% to-transparent"
                 />
 
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
