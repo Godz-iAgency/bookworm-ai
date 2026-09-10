@@ -1,27 +1,23 @@
-/**
- * The genre options the reader picks during onboarding and can edit later in
- * Profile. Saved to the user's Firestore doc as `genrePreferences` (an array of
- * these strings) and used to personalize book recommendations on /search.
- */
-export const GENRES = [
-  "Fiction",
-  "Non-Fiction",
-  "Mystery",
-  "Science Fiction",
-  "Fantasy",
-  "Romance",
-  "Thriller",
-  "Biography",
-  "History",
-  "Self-Help",
-  "Business",
-  "Philosophy",
-] as const;
+import { MASTERY_PILLARS } from "@/lib/mastery-library";
 
-/** How many genres the reader picks. */
+/**
+ * The topics a reader picks from at onboarding and can edit later in Profile.
+ * Saved to the user's Firestore doc as `genrePreferences` (an array of these
+ * strings) and used to pick the recommendations on their shelf.
+ *
+ * Derived from the Personal Development pillars rather than listed separately,
+ * because a pick is only useful if it resolves to a shelf of real books. The
+ * old list was generic bookshop genres (Fiction, Mystery, Fantasy...), none of
+ * which this library carries — so a reader could complete onboarding having
+ * told us nothing we could act on. Readers can still start any book at all
+ * through search; this is only what we recommend from.
+ */
+export const GENRES: string[] = MASTERY_PILLARS.map((p) => p.name);
+
+/** How many topics the reader picks. */
 export const GENRE_PICK_COUNT = 3;
 
-/** Toggle a genre in a selection, capping at `max`. */
+/** Toggle a topic in a selection, capping at `max`. */
 export function toggleGenre(prev: string[], genre: string, max = GENRE_PICK_COUNT): string[] {
   if (prev.includes(genre)) return prev.filter((g) => g !== genre);
   if (prev.length < max) return [...prev, genre];

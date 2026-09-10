@@ -9,7 +9,7 @@ interface GenreGridProps {
 }
 
 /**
- * The pick-your-genres grid, shared by onboarding and Profile so the two never
+ * The pick-your-topics grid, shared by onboarding and Profile so the two never
  * drift. Presentational: the parent owns the `selected` state and toggle logic
  * (see toggleGenre in lib/genres). Non-selected tiles disable once `max` is hit.
  */

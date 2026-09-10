@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { StoredBookCover } from "@/components/book-cover";
+import { RecommendedShelf } from "@/components/recommended-shelf";
 import Link from "next/link";
 import { Plus, Flame, Lock, MoreVertical, Sparkles, ChevronRight } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
@@ -57,6 +58,9 @@ export default function HomeTab({
   const today = localDateStr(currentTime);
   const readToday = progress.lastActivityDate === today;
   const earned = new Set(progress.badges);
+
+  // Nothing already on the shelf should come back as a recommendation.
+  const shelfTitles = useMemo(() => courses.map((c) => c.book.title), [courses]);
 
   const [toast, setToast] = useState<BadgeToast | null>(null);
   const timers = useRef<number[]>([]);
@@ -300,7 +304,7 @@ export default function HomeTab({
             </span>
           </p>
           <p className="text-xs text-white/55">
-            Six pillars, 150+ books. Full summaries.
+            Ten pillars, 260+ books. Full summaries.
           </p>
         </div>
         <ChevronRight
@@ -404,6 +408,8 @@ export default function HomeTab({
           </Link>
         )}
       </div>
+
+      <RecommendedShelf shelfTitles={shelfTitles} />
     </div>
   );
 }

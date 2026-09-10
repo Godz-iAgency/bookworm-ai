@@ -8,9 +8,13 @@ import {
   TrendingUp,
   Handshake,
   Brain,
+  BrainCircuit,
   Coins,
   Building2,
   Flame,
+  Users,
+  UserRound,
+  HeartPulse,
   ChevronRight,
 } from "lucide-react";
 import { BackButton } from "@/components/back-button";
@@ -25,8 +29,17 @@ const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
   money: Coins,
   business: Building2,
   relentlessness: Flame,
+  leadership: Users,
+  biography: UserRound,
+  psychology: BrainCircuit,
+  health: HeartPulse,
 };
 
+/**
+ * Painted art, one per pillar. The four newest pillars don't have theirs yet,
+ * so those cards render on the plain card background until the matching webp
+ * is dropped in here.
+ */
 const PILLAR_BACKGROUNDS: Record<string, string> = {
   sales: "/brand/pillar-sales.webp",
   negotiation: "/brand/pillar-negotiation.webp",
@@ -37,9 +50,9 @@ const PILLAR_BACKGROUNDS: Record<string, string> = {
 };
 
 /**
- * Personal Development: the six pillars, as a recommendation shelf.
+ * Personal Development: the ten pillars, as a recommendation shelf.
  *
- * These 150 books are the ones people actually reach for in this space, grouped
+ * These 264 books are the ones people actually reach for in this space, grouped
  * so a reader who knows they want to get better at negotiating does not have to
  * already know which book to ask for. Tapping one starts the ordinary 7-day
  * course, so this is a way in to the course rather than a separate product.
@@ -91,13 +104,14 @@ export default function MasteryPage() {
           </span>
         </h1>
         <p className="mx-auto mt-2 mb-8 max-w-md text-center text-sm text-white/60">
-          Six pillars, 150+ books. The ones people actually reach for, picked so you don&apos;t have
+          Ten pillars, 260+ books. The ones people actually reach for, picked so you don&apos;t have
           to know the title already. Tap one to start its 7-day course.
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {MASTERY_PILLARS.map((pillar) => {
             const Icon = PILLAR_ICONS[pillar.slug] ?? Brain;
+            const background = PILLAR_BACKGROUNDS[pillar.slug];
             const tally = counts[pillar.slug];
             return (
               <Link
@@ -109,23 +123,27 @@ export default function MasteryPage() {
                     3D/transform context, but staying consistent with the
                     other background-art cards keeps this file predictable if
                     it ever moves into one. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={PILLAR_BACKGROUNDS[pillar.slug]}
-                  alt=""
-                  aria-hidden="true"
-                  decoding="async"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right"
-                />
-                {/* The art lives in the left portion of the source (see the
-                    icon sitting right on top of it), so the scrim now
-                    protects the right edge instead, where the text moved to.
-                    Text used to sit left, right over the art, which is why
-                    this used to fade the other way. */}
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 bg-gradient-to-l from-[#1a1a1a] from-15% via-[#1a1a1a]/40 via-40% to-transparent"
-                />
+                {background && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={background}
+                      alt=""
+                      aria-hidden="true"
+                      decoding="async"
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right"
+                    />
+                    {/* The art lives in the left portion of the source (see the
+                        icon sitting right on top of it), so the scrim now
+                        protects the right edge instead, where the text moved to.
+                        Text used to sit left, right over the art, which is why
+                        this used to fade the other way. */}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-gradient-to-l from-[#1a1a1a] from-15% via-[#1a1a1a]/40 via-40% to-transparent"
+                    />
+                  </>
+                )}
 
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
                   <Icon className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />

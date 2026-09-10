@@ -1,12 +1,16 @@
 /**
- * The Personal Development library: six curated pillars. Most hold 25 books;
- * Business holds 28, with the three added Hormozi titles kept as individual
- * books rather than one bundle entry.
+ * The Personal Development library: ten curated pillars. Most hold 25 books;
+ * Business holds 29 (the three Hormozi titles are kept as individual books
+ * rather than one bundle entry), and Money and Biography hold 30.
  *
  * A recommendation shelf, not a different kind of content: tapping a book here
  * starts the same 7-day course search does. It exists so a reader who knows
  * they want to get better at negotiating, say, doesn't have to already know
  * which book to search for.
+ *
+ * These pillar names are also the topics a reader picks from at onboarding —
+ * lib/genres.ts derives that list from this one, so the two can never drift
+ * and a saved preference always resolves to a real shelf.
  */
 
 export interface MasteryBook {
@@ -137,7 +141,7 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
   {
     slug: "money",
     name: "Money",
-    blurb: "Earning, keeping, and compounding it.",
+    blurb: "Earning, investing, and compounding it.",
     books: shelf([
       ["The Psychology of Money", "Morgan Housel"],
       ["Rich Dad Poor Dad", "Robert Kiyosaki"],
@@ -156,7 +160,7 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
       ["The Little Book of Common Sense Investing", "John C. Bogle"],
       ["The Creature from Jekyll Island", "G. Edward Griffin"],
       ["Die with Zero", "Bill Perkins"],
-      ["The Alchemist of Finance", "George Soros"],
+      ["The Alchemy of Finance", "George Soros"],
       ["Financial Feminist", "Tori Dunlap"],
       ["How to Make Money in Stocks", "William O'Neil"],
       ["The Coffeehouse Investor", "Bill Schultheis"],
@@ -164,6 +168,13 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
       ["The Art of Spending Money", "Morgan Housel"],
       ["Wealth Warrior", "Linda Garcia"],
       ["Finance for the People", "Paco de Leon"],
+      // Financial education proper, rather than money mindset: this pillar is
+      // where a reader looking for "Finance" lands, so it has to answer that.
+      ["The Millionaire Fastlane", "MJ DeMarco"],
+      ["Common Stocks and Uncommon Profits", "Philip A. Fisher"],
+      ["The Bogleheads' Guide to Investing", "Taylor Larimore"],
+      ["Financial Statements", "Thomas Ittelson"],
+      ["The Barefoot Investor", "Scott Pape"],
     ]),
   },
   {
@@ -234,6 +245,139 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
       ["Total Recall", "Arnold Schwarzenegger"],
       ["The Spartan Way", "Joe De Sena"],
       ["The Way of the SEAL", "Mark Divine"],
+    ]),
+  },
+  {
+    slug: "leadership",
+    name: "Leadership",
+    blurb: "Leading teams people don't want to leave.",
+    books: shelf([
+      ["The 21 Irrefutable Laws of Leadership", "John C. Maxwell"],
+      ["The 7 Habits of Highly Effective People", "Stephen R. Covey"],
+      ["Dare to Lead", "Brené Brown"],
+      ["The Five Dysfunctions of a Team", "Patrick Lencioni"],
+      ["Turn the Ship Around!", "L. David Marquet"],
+      ["Radical Candor", "Kim Scott"],
+      ["Multipliers", "Liz Wiseman"],
+      ["Primal Leadership", "Daniel Goleman"],
+      ["The Leadership Challenge", "James M. Kouzes"],
+      ["Team of Rivals", "Doris Kearns Goodwin"],
+      ["Leadership in Turbulent Times", "Doris Kearns Goodwin"],
+      ["The Culture Code", "Daniel Coyle"],
+      ["The Infinite Game", "Simon Sinek"],
+      ["Trillion Dollar Coach", "Eric Schmidt"],
+      ["No Rules Rules", "Reed Hastings"],
+      ["The First 90 Days", "Michael D. Watkins"],
+      ["Leadership Strategy and Tactics", "Jocko Willink"],
+      ["The Coaching Habit", "Michael Bungay Stanier"],
+      ["Developing the Leader Within You", "John C. Maxwell"],
+      ["The Making of a Manager", "Julie Zhuo"],
+      ["Wooden on Leadership", "John Wooden"],
+      ["It's Your Ship", "D. Michael Abrashoff"],
+      ["Leadership and Self-Deception", "The Arbinger Institute"],
+      ["Tribes", "Seth Godin"],
+      ["Good Leaders Ask Great Questions", "John C. Maxwell"],
+    ]),
+  },
+  {
+    slug: "biography",
+    name: "Biography",
+    blurb: "How the people who did it actually did it.",
+    books: shelf([
+      ["Elon Musk", "Walter Isaacson"],
+      ["Steve Jobs", "Walter Isaacson"],
+      ["Titan: The Life of John D. Rockefeller, Sr.", "Ron Chernow"],
+      ["The Autobiography of Andrew Carnegie", "Andrew Carnegie"],
+      ["The Everything Store", "Brad Stone"],
+      ["Invent and Wander", "Jeff Bezos"],
+      ["Benjamin Franklin: An American Life", "Walter Isaacson"],
+      ["Made in America", "Sam Walton"],
+      ["Losing My Virginity", "Richard Branson"],
+      ["Long Walk to Freedom", "Nelson Mandela"],
+      ["Becoming", "Michelle Obama"],
+      ["My Life and Work", "Henry Ford"],
+      ["Alexander Hamilton", "Ron Chernow"],
+      ["Einstein: His Life and Universe", "Walter Isaacson"],
+      ["Leonardo da Vinci", "Walter Isaacson"],
+      ["The Snowball", "Alice Schroeder"],
+      ["Open", "Andre Agassi"],
+      ["Greenlights", "Matthew McConaughey"],
+      ["Will", "Will Smith"],
+      ["Educated", "Tara Westover"],
+      ["The Ride of a Lifetime", "Robert Iger"],
+      ["Onward", "Howard Schultz"],
+      ["Hard Drive", "James Wallace"],
+      ["Source Code", "Bill Gates"],
+      ["Grinding It Out", "Ray Kroc"],
+      ["That Will Never Work", "Marc Randolph"],
+      ["Born a Crime", "Trevor Noah"],
+      ["I Am Malala", "Malala Yousafzai"],
+      ["Churchill: Walking with Destiny", "Andrew Roberts"],
+      ["The Wright Brothers", "David McCullough"],
+    ]),
+  },
+  {
+    slug: "psychology",
+    name: "Psychology",
+    blurb: "The mind, the shadow, and what drives you.",
+    books: shelf([
+      ["Man and His Symbols", "Carl Jung"],
+      ["Modern Man in Search of a Soul", "Carl Jung"],
+      ["Memories, Dreams, Reflections", "Carl Jung"],
+      ["The Undiscovered Self", "Carl Jung"],
+      ["The Archetypes and the Collective Unconscious", "Carl Jung"],
+      ["The Body Keeps the Score", "Bessel van der Kolk"],
+      ["Emotional Intelligence", "Daniel Goleman"],
+      ["The Interpretation of Dreams", "Sigmund Freud"],
+      ["Civilization and Its Discontents", "Sigmund Freud"],
+      ["Attached", "Amir Levine"],
+      ["Maybe You Should Talk to Someone", "Lori Gottlieb"],
+      ["The Four Agreements", "Don Miguel Ruiz"],
+      ["Learned Optimism", "Martin Seligman"],
+      ["Feeling Good", "David D. Burns"],
+      ["The Happiness Hypothesis", "Jonathan Haidt"],
+      ["Stumbling on Happiness", "Daniel Gilbert"],
+      ["Nudge", "Richard H. Thaler"],
+      ["Misbehaving", "Richard H. Thaler"],
+      ["The Paradox of Choice", "Barry Schwartz"],
+      ["Self-Compassion", "Kristin Neff"],
+      ["No Bad Parts", "Richard Schwartz"],
+      ["Adult Children of Emotionally Immature Parents", "Lindsay C. Gibson"],
+      ["The Drama of the Gifted Child", "Alice Miller"],
+      ["Owning Your Own Shadow", "Robert A. Johnson"],
+      ["The Denial of Death", "Ernest Becker"],
+    ]),
+  },
+  {
+    slug: "health",
+    name: "Health & Energy",
+    blurb: "Sleep, training, food, and lasting energy.",
+    books: shelf([
+      ["Why We Sleep", "Matthew Walker"],
+      ["Outlive", "Peter Attia"],
+      ["Breath", "James Nestor"],
+      ["Lifespan", "David A. Sinclair"],
+      ["How Not to Die", "Michael Greger"],
+      ["The Obesity Code", "Jason Fung"],
+      ["Why We Get Fat", "Gary Taubes"],
+      ["Spark", "John J. Ratey"],
+      ["Bigger Leaner Stronger", "Michael Matthews"],
+      ["Starting Strength", "Mark Rippetoe"],
+      ["The 4-Hour Body", "Timothy Ferriss"],
+      ["Born to Run", "Christopher McDougall"],
+      ["Endure", "Alex Hutchinson"],
+      ["Peak Performance", "Brad Stulberg"],
+      ["The Sleep Solution", "W. Chris Winter"],
+      ["Eat to Beat Disease", "William W. Li"],
+      ["The Blue Zones", "Dan Buettner"],
+      ["In Defense of Food", "Michael Pollan"],
+      ["Genius Foods", "Max Lugavere"],
+      ["The Circadian Code", "Satchin Panda"],
+      ["Deep Nutrition", "Catherine Shanahan"],
+      ["The Oxygen Advantage", "Patrick McKeown"],
+      ["Younger Next Year", "Chris Crowley"],
+      ["Good Energy", "Casey Means"],
+      ["The Wim Hof Method", "Wim Hof"],
     ]),
   },
 ];

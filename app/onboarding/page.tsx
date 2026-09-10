@@ -12,7 +12,7 @@ import { destinationAfterOnboarding } from "@/lib/pending-invite";
 
 /**
  * First-run onboarding, shown once right after a new account is created (email
- * OR Google). Two steps: favourite genres, then reading level. Both are
+ * OR Google). Two steps: topics to grow in, then reading level. Both are
  * preferences about the reader rather than about any one book, so they are
  * settled here — that way choosing a first book on /search leads straight into
  * a generated course instead of another form. Existing users never see this;
@@ -41,7 +41,7 @@ export default function OnboardingPage() {
   const handleGenresContinue = () => {
     setError(null);
     if (!genresComplete) {
-      setError(`Please pick ${GENRE_PICK_COUNT} genres.`);
+      setError(`Please pick ${GENRE_PICK_COUNT} topics.`);
       return;
     }
     setStep(2);
@@ -91,10 +91,10 @@ export default function OnboardingPage() {
         {step === 1 ? (
           <>
             <h1 className="mb-1 text-center text-xl font-bold tracking-tight md:text-3xl">
-              What do you love to read?
+              What do you want to get better at?
             </h1>
             <p className="mb-3 text-center text-sm text-white/60">
-              Pick {GENRE_PICK_COUNT} genres so we can recommend books made for you. You can change these anytime.
+              Pick {GENRE_PICK_COUNT} topics so we can recommend books made for you. You can change these anytime.
             </p>
 
             <GenreGrid selected={selected} onToggle={(g) => setSelected((prev) => toggleGenre(prev, g))} />
@@ -212,7 +212,7 @@ export default function OnboardingPage() {
               disabled={saving}
               className="mt-3 text-center text-sm font-semibold text-white/50 transition-colors hover:text-white/80 disabled:opacity-50"
             >
-              ← Back to genres
+              ← Back to topics
             </button>
           </>
         )}

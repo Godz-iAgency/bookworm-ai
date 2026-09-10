@@ -156,7 +156,7 @@ export default function ProfileTab() {
   const handleSavePrefs = async () => {
     if (!user) return;
     if (draftGenres.length !== GENRE_PICK_COUNT) {
-      setError(`Please pick ${GENRE_PICK_COUNT} genres.`);
+      setError(`Please pick ${GENRE_PICK_COUNT} topics.`);
       return;
     }
     setSavingPrefs(true);
@@ -426,7 +426,7 @@ export default function ProfileTab() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-white/40">No favorite genres yet — tap Edit to add them.</p>
+              <p className="text-sm text-white/40">No topics picked yet — tap Edit to add them.</p>
             )}
             {lastBook && (
               <p className="mt-3 text-xs text-white/50">
@@ -436,7 +436,7 @@ export default function ProfileTab() {
           </div>
         ) : (
           <div className="rounded-2xl p-3.5 animate-in fade-in duration-200" style={gradientBorder}>
-            <p className="mb-2.5 text-xs text-white/50">Pick {GENRE_PICK_COUNT} genres you love.</p>
+            <p className="mb-2.5 text-xs text-white/50">Pick {GENRE_PICK_COUNT} topics you want to grow in.</p>
             <GenreGrid selected={draftGenres} onToggle={(g) => setDraftGenres((prev) => toggleGenre(prev, g))} />
             <p className="mt-2 text-xs text-white/40">
               {draftGenres.length}/{GENRE_PICK_COUNT} selected
