@@ -24,6 +24,11 @@ export default function CourseTab({
   // The day currently having a missing axiom written, so the reader is told
   // one is coming rather than looking at a gap.
   const [axiomPendingDay, setAxiomPendingDay] = useState<number | null>(null);
+  // Which day's next-day card is mid "Start Day N" (generating), and which
+  // one's last attempt failed — both keyed by the day being finished, since
+  // that is whichever card is actually on screen.
+  const [continuingFrom, setContinuingFrom] = useState<number | null>(null);
+  const [continueError, setContinueError] = useState<number | null>(null);
   const dayRefs = useRef<Record<number, HTMLDivElement | null>>({});
   // Days already asked for a backfilled axiom, as "courseId:dayNumber". One
   // attempt each: a day whose axiom keeps coming back empty must not re-request
@@ -93,14 +98,17 @@ export default function CourseTab({
   };
 
   // Days 2–7 have their full lesson generated on demand (the outline call only
-  // produces Day 1). Open a day — fetching its lesson first if we don't have it.
-  const openLesson = async (dayNumber: number) => {
+  // produces Day 1). Open a day — fetching its lesson first if we don't have
+  // it. Returns whether a lesson ended up open, so a caller chaining more
+  // state changes onto success (handleContinueToNextDay below) knows whether
+  // to proceed.
+  const openLesson = async (dayNumber: number): Promise<boolean> => {
     const day = course.days.find((d) => d.dayNumber === dayNumber);
     if (day?.lesson) {
       backfillAxiom(day);
       setActiveDay(dayNumber);
       setOpenDay(dayNumber);
-      return;
+      return true;
     }
 
     setLoadingDay(dayNumber);
@@ -152,19 +160,47 @@ export default function CourseTab({
         )
       );
       setOpenDay(dayNumber);
+      return true;
     } catch (err) {
       console.error("Lesson load failed:", err);
       setLoadError(dayNumber);
+      return false;
     } finally {
       setLoadingDay(null);
     }
   };
 
-  const handleMarkComplete = (dayLevel: number) => {
+  /**
+   * Marks a day complete in the shared course state and unlocks the next one.
+   * Pure state + the streak/badge callback — no scrolling, no touching
+   * `openDay`. Split out of handleMarkComplete so handleContinueToNextDay
+   * below can complete the day the reader just finished without closing the
+   * lesson first, since it is about to open the next one in its place.
+   */
+  const completeDay = (dayLevel: number) => {
     // This completion finishes the book if every other day is already done.
     // (Computed from the current course before we mutate state below.)
     const finishedBook = course.days.every((d) => d.dayNumber === dayLevel || d.isCompleted);
 
+    setCourses((prev) =>
+      prev.map((c) => {
+        if (c.id !== course.id) return c;
+        const newDays = c.days.map((d) => {
+          if (d.dayNumber === dayLevel) return { ...d, isCompleted: true };
+          if (d.dayNumber === dayLevel + 1) return { ...d, isUnlocked: true };
+          return d;
+        });
+        const allDone = newDays.every((d) => d.isCompleted);
+        return { ...c, days: newDays, status: allDone ? ("completed" as const) : c.status };
+      })
+    );
+
+    // Update the user's streak + badges (fire-and-forget; failures are logged
+    // inside the helper and never block the reading flow).
+    onDayCompleted?.(dayLevel, finishedBook);
+  };
+
+  const handleMarkComplete = (dayLevel: number) => {
     // Apply the completion AND collapse the open lesson synchronously via
     // flushSync. Marking complete closes the expanded lesson (which can be
     // ~2000px tall); if we let React batch that collapse asynchronously, the
@@ -172,24 +208,9 @@ export default function CourseTab({
     // the "jumps back to the top" bug. Flushing first means the layout is fully
     // settled before we run our own scrollIntoView, so ours is the last word.
     flushSync(() => {
-      setCourses((prev) =>
-        prev.map((c) => {
-          if (c.id !== course.id) return c;
-          const newDays = c.days.map((d) => {
-            if (d.dayNumber === dayLevel) return { ...d, isCompleted: true };
-            if (d.dayNumber === dayLevel + 1) return { ...d, isUnlocked: true };
-            return d;
-          });
-          const allDone = newDays.every((d) => d.isCompleted);
-          return { ...c, days: newDays, status: allDone ? ("completed" as const) : c.status };
-        })
-      );
+      completeDay(dayLevel);
       setOpenDay(null);
     });
-
-    // Update the user's streak + badges (fire-and-forget; failures are logged
-    // inside the helper and never block the reading flow).
-    onDayCompleted?.(dayLevel, finishedBook);
 
     // Day 7 has no "next day" to unlock — scroll up to reveal the completion
     // banner. scrollIntoView (not window.scrollTo) because the dashboard's
@@ -202,6 +223,26 @@ export default function CourseTab({
     // Land the newly-unlocked next day at the top of the viewport so the reader
     // can tap "Read Lesson" right away.
     dayRefs.current[dayLevel + 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  /**
+   * The "Start Day N" shortcut on the next-day preview card at the end of a
+   * lesson: finishes the current day and opens the next one in the same
+   * motion, without detouring back through the dashboard list first.
+   *
+   * Generation happens BEFORE completion is recorded on purpose. If it fails,
+   * the reader is still sitting on the day they actually finished, not on a
+   * day marked complete with nothing to show for the day after it — same
+   * failure mode as the list's own "Read Lesson" retry, just reachable from
+   * here too.
+   */
+  const handleContinueToNextDay = async (dayLevel: number) => {
+    setContinuingFrom(dayLevel);
+    setContinueError(null);
+    const opened = await openLesson(dayLevel + 1);
+    if (opened) completeDay(dayLevel);
+    else setContinueError(dayLevel);
+    setContinuingFrom(null);
   };
 
   /**
@@ -242,12 +283,23 @@ export default function CourseTab({
     const nextDay = course.days.find((d) => d.dayNumber === readingDay.dayNumber + 1);
     return (
       <LessonReader
+        // Keyed by day: "Start Day N" swaps openDay straight from one lesson
+        // to the next without ever unmounting the reader, and without a key
+        // React reuses the same instance — carrying over the old day's
+        // scroll position and settings-panel state onto the new one instead
+        // of starting the new lesson at the top.
+        key={readingDay.dayNumber}
         dayNumber={readingDay.dayNumber}
         dayTitle={readingDay.title}
         lesson={readingDay.lesson}
         outro={
           nextDay ? (
-            <NextDayCard day={nextDay} />
+            <NextDayCard
+              day={nextDay}
+              onContinue={() => handleContinueToNextDay(readingDay.dayNumber)}
+              loading={continuingFrom === readingDay.dayNumber}
+              error={continueError === readingDay.dayNumber}
+            />
           ) : (
             <LastDayCard book={course.book} />
           )
@@ -448,15 +500,91 @@ function CourseExpiryNote({ expiresAt }: { expiresAt: string }) {
  * it turns seven separate lessons into one argument that is going somewhere,
  * and gives the reader a reason to come back tomorrow.
  */
-function NextDayCard({ day }: { day: Day }) {
+/**
+ * The tomorrow-preview at the end of a lesson, and also the fast path into
+ * it: reaching this card already means the reader has been through today's
+ * whole lesson, so a tap here offers to finish today and start tomorrow in
+ * one motion instead of sending them back to the dashboard list first.
+ *
+ * A tap doesn't fire the request straight away — it reveals Start/Not yet in
+ * place, so an idle tap while scrolling can't spend a generation by
+ * accident. `confirming` is local and unowned by the parent on purpose:
+ * this card remounts fresh (LessonReader is keyed by day) every time the
+ * reader moves to a new day, which is what resets it without any extra code.
+ */
+function NextDayCard({
+  day,
+  onContinue,
+  loading,
+  error,
+}: {
+  day: Day;
+  onContinue: () => void;
+  /** True while this day's generation is in flight. */
+  loading: boolean;
+  /** True if the last attempt for this day failed. */
+  error: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const clickable = !confirming && !loading;
+
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={clickable ? () => setConfirming(true) : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setConfirming(true);
+              }
+            }
+          : undefined
+      }
+      className={`mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors ${
+        clickable ? "cursor-pointer hover:border-[#00D4FF]/40 hover:bg-white/[0.05]" : ""
+      }`}
+    >
       <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
         Tomorrow · Day {day.dayNumber}
       </p>
       <h4 className="mt-2 text-lg font-bold leading-tight text-white">{day.title}</h4>
       {day.previewText && (
         <p className="mt-2 text-sm leading-relaxed text-white/60">{day.previewText}</p>
+      )}
+
+      {loading ? (
+        <p className="mt-4 text-sm font-semibold text-white/50">
+          Getting Day {day.dayNumber} ready&hellip;
+        </p>
+      ) : confirming ? (
+        <>
+          {error && (
+            <p className="mt-3 text-sm text-[#FF006E]">
+              Couldn&apos;t load Day {day.dayNumber}. Try again?
+            </p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-white/80 transition-colors hover:bg-white/5"
+            >
+              Not yet
+            </button>
+            <button
+              type="button"
+              onClick={onContinue}
+              className="flex-1 rounded-lg bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2 text-sm font-bold text-white transition-transform hover:scale-[1.02]"
+            >
+              Start Day {day.dayNumber} &rarr;
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-xs font-semibold text-[#00D4FF]/80">Tap to continue &rarr;</p>
       )}
     </div>
   );
