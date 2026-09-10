@@ -5,6 +5,15 @@ import { useEffect, useRef, useState } from "react";
 const LS_PREFIX = "bw_cover_";
 
 /**
+ * A course started from a typed or scanned title used to get this baked into
+ * its coverUrl when Google Books had no thumbnail for the matched edition —
+ * a plain white JPG, saved once and shown forever. Treating it the same as
+ * an empty coverUrl below routes both old and new "no art" courses through
+ * BookCover's real fallback instead.
+ */
+const NO_COVER_SENTINEL = "/placeholder.jpg";
+
+/**
  * Cover art for a book whose artwork URL we already stored.
  *
  * Courses can legitimately carry an empty coverUrl: when a title is started
@@ -17,7 +26,8 @@ const LS_PREFIX = "bw_cover_";
  * icon where the cover belongs.
  *
  * A stored URL can also simply stop working, so a load failure falls back the
- * same way rather than leaving the broken icon on screen.
+ * same way rather than leaving the broken icon on screen. So does the old
+ * placeholder sentinel above.
  *
  * Either way it hands off to BookCover, which already knows how to stand in
  * for missing artwork: it shows the title's initials and quietly tries a
@@ -44,7 +54,7 @@ export function StoredBookCover({
   // keep the fallback showing for every book rendered by the same element.
   useEffect(() => setFailed(false), [coverUrl]);
 
-  if (!coverUrl || failed) {
+  if (!coverUrl || coverUrl === NO_COVER_SENTINEL || failed) {
     return <BookCover title={title} author={author} className={className} rounded={rounded} />;
   }
 

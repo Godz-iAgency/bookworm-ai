@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Logo } from "@/components/logo";
+import { StoredBookCover } from "@/components/book-cover";
 import Link from "next/link";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -130,7 +130,7 @@ export default function SearchPage() {
         found ?? {
           title: scanned.title,
           author: scanned.author,
-          coverUrl: "/placeholder.jpg",
+          coverUrl: "",
           description: "",
         }
       );
@@ -245,15 +245,14 @@ export default function SearchPage() {
              width. The cover shrank most: a 128x192 image was the single
              biggest thing pushing the buttons off-screen. */
           <div className="w-full bg-[#1a1a1a]/80 backdrop-blur-md border border-white/10 p-5 rounded-2xl shadow-2xl animate-in flip-in-y duration-500 flex flex-col items-center text-center">
-            <div className="w-20 h-28 relative mb-3 rounded-md overflow-hidden shadow-lg border border-white/10">
-              <Image
-                src={searchedBook.coverUrl}
-                alt={searchedBook.title}
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            </div>
+            <StoredBookCover
+              title={searchedBook.title}
+              author={searchedBook.author}
+              coverUrl={searchedBook.coverUrl}
+              className="w-20 h-28 mb-3 shadow-lg border border-white/10"
+              rounded="rounded-md"
+              loading="eager"
+            />
 
             <h2 className="text-xl font-bold mb-1 tracking-tight">{searchedBook.title}</h2>
             <p className="text-sm mb-2.5 font-medium text-white/80">

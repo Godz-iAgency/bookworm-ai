@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     book: {
       title: v.title || "Unknown Title",
       author: v.authors?.[0] || "Unknown Author",
-      coverUrl: normalizeCover(v.imageLinks?.thumbnail) || "/placeholder.jpg",
+      coverUrl: normalizeCover(v.imageLinks?.thumbnail) || "",
       description: v.description ? v.description.substring(0, 150) + "..." : "No description available.",
     },
   });
