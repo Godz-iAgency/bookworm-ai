@@ -44,7 +44,7 @@ export default function SettingsPage() {
         <div className="flex items-center gap-4 mb-2">
           <Image
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Oct%205%2C%202025%2C%2010_40_41%20PM-H6XfD24mrebcr7PyZI2hKrfdpYpiFW.png"
-            alt="Bookworm.AI"
+            alt="Bookworm AI"
             width={60}
             height={60}
             className="rounded-lg"

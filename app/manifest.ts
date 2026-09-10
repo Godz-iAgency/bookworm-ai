@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // `id` keeps the installed app identified as the same app across
     // deploys even if start_url ever changes; Play uses it as the stable key.
     id: "/",
-    name: "Bookworm.AI",
+    name: "Bookworm AI",
     short_name: "Bookworm",
     description:
       "Turn any book into a 7-day course with daily lessons, flashcards and a chat tutor that has already read it.",

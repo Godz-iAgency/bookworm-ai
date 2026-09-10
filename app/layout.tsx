@@ -21,7 +21,7 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Bookworm.AI - Making Every Book Smarter",
+  title: "Bookworm AI - Making Every Book Smarter",
   description:
     "Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.",
   generator: "v0.app",

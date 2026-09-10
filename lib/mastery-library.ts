@@ -201,6 +201,7 @@ export const MASTERY_PILLARS: MasteryPillar[] = [
       ["Principles: Life and Work", "Ray Dalio"],
       ["Creativity, Inc.", "Ed Catmull"],
       ["The Outsiders", "William N. Thorndike"],
+      ["The Law of Success in Sixteen Lessons", "Napoleon Hill"],
     ]),
   },
   {

@@ -101,14 +101,14 @@ export default function DeleteAccountPage() {
               href="/"
               className="mt-5 inline-block rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             >
-              Back to Bookworm.AI
+              Back to Bookworm AI
             </Link>
           </div>
         ) : (
           <>
             <h1 className="text-2xl font-black tracking-tight text-white">Delete your account</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/65">
-              This permanently deletes your Bookworm.AI account and everything in it. You can also
+              This permanently deletes your Bookworm AI account and everything in it. You can also
               do this inside the app, under Profile, but you don&apos;t need the app installed to
               use this page.
             </p>

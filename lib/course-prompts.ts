@@ -90,7 +90,7 @@ export function getPersona(readingLevel: string): string {
  * about the book's fifth movement rather than about the topic in general.
  */
 export function buildOutlineMessages(title: string, author: string, readingLevel: string) {
-  const system = `You are the course architect for Bookworm.AI. You turn specific books into structured 7-day learning courses that are faithful to what those books actually say. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the course architect for Bookworm AI. You turn specific books into structured 7-day learning courses that are faithful to what those books actually say. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${FIDELITY_RULES}
 
@@ -161,7 +161,7 @@ export function buildFlashcardsMessages(
   dayTitle: string,
   lesson: string
 ) {
-  const system = `You are the course architect for Bookworm.AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the course architect for Bookworm AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${getPersona(readingLevel)}
 
@@ -252,7 +252,7 @@ export function buildDayMessages(
   frameworks: string[] = [],
   keyIdeas: string[] = []
 ) {
-  const system = `You are the course architect for Bookworm.AI. You write one day's lesson for a 7-day course on a specific book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the course architect for Bookworm AI. You write one day's lesson for a 7-day course on a specific book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${FIDELITY_RULES}
 

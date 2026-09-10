@@ -2,7 +2,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * The Bookworm.AI logo, in the three forms the app actually needs.
+ * The Bookworm AI logo, in the three forms the app actually needs.
  *
  * This replaces fifteen hand-placed copies of a single square lockup file.
  * That file was 1024x1024 and contained the mark, the wordmark and the
@@ -42,7 +42,7 @@ interface LogoProps {
   className?: string;
   priority?: boolean;
   /**
-   * Decorative uses (next to a visible "Bookworm.AI" heading, or inside a
+   * Decorative uses (next to a visible "Bookworm AI" heading, or inside a
    * button that already has an aria-label) should pass an empty alt so the
    * name is not announced twice.
    */
@@ -58,7 +58,7 @@ export function Logo({
   tagline = false,
   className,
   priority = false,
-  alt = "Bookworm.AI",
+  alt = "Bookworm AI",
 }: LogoProps) {
   if (variant === "mark") {
     return (

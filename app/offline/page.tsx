@@ -14,7 +14,7 @@ import type { Metadata } from "next";
  * No client JavaScript either: it has to work from the cached HTML alone.
  */
 export const metadata: Metadata = {
-  title: "You're offline — Bookworm.AI",
+  title: "You're offline — Bookworm AI",
 };
 
 const SANS =
@@ -40,7 +40,7 @@ export default function OfflinePage() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/icons/icon-192.png"
-        alt="Bookworm.AI"
+        alt="Bookworm AI"
         width={80}
         height={80}
         style={{ width: 80, height: 80, borderRadius: 18 }}

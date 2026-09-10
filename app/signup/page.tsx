@@ -80,7 +80,7 @@ export default function SignUpPage() {
 
   const formFields = {
     header: "Start Your Free Trial",
-    subHeader: "Create your Bookworm.AI account and transform your reading experience",
+    subHeader: "Create your Bookworm AI account and transform your reading experience",
     fields: [
       {
         label: "Name",

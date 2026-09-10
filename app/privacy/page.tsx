@@ -27,9 +27,9 @@ const OPERATOR = "GODZ-i LLC";
 const CONTACT_EMAIL = "christopher@godz-iagency.com";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Bookworm.AI",
+  title: "Privacy Policy — Bookworm AI",
   description:
-    "What Bookworm.AI collects, why, who it is shared with, and how to get your data deleted.",
+    "What Bookworm AI collects, why, who it is shared with, and how to get your data deleted.",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
         <p className="mt-1.5 text-xs text-white/40">Last updated {LAST_UPDATED}</p>
 
         <p className="mt-5 text-sm leading-relaxed text-white/70">
-          Bookworm.AI is operated by {OPERATOR}. This page explains what the app collects, why it
+          Bookworm AI is operated by {OPERATOR}. This page explains what the app collects, why it
           collects it, who else sees it, and how to get rid of it. It is written to be read, not
           skimmed past, so it is in plain English.
         </p>
@@ -220,7 +220,7 @@ export default function PrivacyPage() {
 
         <Section title="Children">
           <p>
-            Bookworm.AI is a general-audience service and is not directed to children under 13. We
+            Bookworm AI is a general-audience service and is not directed to children under 13. We
             do not knowingly collect personal information from children under 13. If you believe a
             child has created an account, email us and we will delete it.
           </p>

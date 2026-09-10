@@ -58,7 +58,7 @@ export default function GenerateCoursePage() {
         <div className="text-center mb-8">
           <Image
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%20Oct%205%2C%202025%2C%2010_40_41%20PM-H6XfD24mrebcr7PyZI2hKrfdpYpiFW.png"
-            alt="Bookworm.AI Logo"
+            alt="Bookworm AI Logo"
             width={100}
             height={100}
             className="mx-auto mb-6"

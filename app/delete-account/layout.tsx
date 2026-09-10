@@ -8,9 +8,9 @@ import type { Metadata } from "next";
  * the marketing title from the root layout.
  */
 export const metadata: Metadata = {
-  title: "Delete your Bookworm.AI account",
+  title: "Delete your Bookworm AI account",
   description:
-    "Permanently delete your Bookworm.AI account, your courses and your reading data. No app install required.",
+    "Permanently delete your Bookworm AI account, your courses and your reading data. No app install required.",
 };
 
 export default function DeleteAccountLayout({ children }: { children: React.ReactNode }) {
