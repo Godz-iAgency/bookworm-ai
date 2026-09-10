@@ -150,17 +150,10 @@ export function BookCover({
     };
   }, [title, author]);
 
-  const initials = title
-    .split(/\s+/)
-    .filter((w) => /[a-z0-9]/i.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-
   return (
     <div
       ref={ref}
-      className={`relative overflow-hidden bg-gradient-to-br from-[#00D4FF]/15 to-[#FF006E]/15 ${rounded} ${className}`}
+      className={`relative overflow-hidden bg-[#111] ${rounded} ${className}`}
     >
       {src ? (
         // Plain <img>: these are arbitrary Google Books URLs and next/image is
@@ -174,15 +167,19 @@ export function BookCover({
           onError={() => setSrc(null)}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <span
-            className={`text-[10px] font-black tracking-wider text-white/40 transition-opacity ${
-              settled ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            {initials}
-          </span>
-        </div>
+        // A branded cover rather than initials-on-a-gradient: a book with no
+        // real artwork still looks like a book, not like a placeholder.
+        // Faded in on `settled` for the same reason the initials used to be -
+        // popping in the instant the lookup starts reads as a flash, not
+        // content.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/brand/book-cover-fallback.webp"
+          alt={`${title} cover`}
+          className={`h-full w-full object-cover transition-opacity ${
+            settled ? "opacity-100" : "opacity-0"
+          }`}
+        />
       )}
     </div>
   );

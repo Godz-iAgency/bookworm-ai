@@ -27,6 +27,15 @@ const PILLAR_ICONS: Record<string, typeof TrendingUp> = {
   relentlessness: Flame,
 };
 
+const PILLAR_BACKGROUNDS: Record<string, string> = {
+  sales: "/brand/pillar-sales.webp",
+  negotiation: "/brand/pillar-negotiation.webp",
+  "human-nature": "/brand/pillar-human-nature.webp",
+  money: "/brand/pillar-money.webp",
+  business: "/brand/pillar-business.webp",
+  relentlessness: "/brand/pillar-relentlessness.webp",
+};
+
 /**
  * Personal Development: the six pillars, as a recommendation shelf.
  *
@@ -94,12 +103,29 @@ export default function MasteryPage() {
               <Link
                 key={pillar.slug}
                 href={`/mastery/${pillar.slug}`}
-                className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-[#1a1a1a]/60 p-4 transition-all hover:border-[#00D4FF]/50 hover:bg-white/5 hover:shadow-[0_0_20px_rgba(0,212,255,0.15)]"
+                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-[#1a1a1a]/60 p-4 transition-all hover:border-[#00D4FF]/50 hover:bg-white/5 hover:shadow-[0_0_20px_rgba(0,212,255,0.15)]"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
+                {/* Not lazy: this card sits in a plain flow position, not a
+                    3D/transform context, but staying consistent with the
+                    other background-art cards keeps this file predictable if
+                    it ever moves into one. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={PILLAR_BACKGROUNDS[pillar.slug]}
+                  alt=""
+                  aria-hidden="true"
+                  decoding="async"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover object-right opacity-70"
+                />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1a1a1a] via-[#1a1a1a]/70 to-transparent"
+                />
+
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
                   <Icon className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="relative min-w-0 flex-1">
                   <p className="font-bold">{pillar.name}</p>
                   <p className="truncate text-xs text-white/55">{pillar.blurb}</p>
                   <p className="mt-1 text-[11px] font-semibold text-white/35">
@@ -109,7 +135,7 @@ export default function MasteryPage() {
                   </p>
                 </div>
                 <ChevronRight
-                  className="h-5 w-5 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5 group-hover:text-white/60"
+                  className="relative h-5 w-5 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5 group-hover:text-white/60"
                   strokeWidth={2}
                 />
               </Link>

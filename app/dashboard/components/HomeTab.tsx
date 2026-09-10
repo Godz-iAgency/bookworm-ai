@@ -259,17 +259,33 @@ export default function HomeTab({
           than another card in the reader's own collection. */}
       <Link
         href="/mastery"
-        className="group mb-8 flex items-center gap-4 rounded-2xl p-4 transition-all hover:shadow-[0_0_25px_rgba(255,0,110,0.2)]"
+        className="group relative mb-8 flex items-center gap-4 overflow-hidden rounded-2xl p-4 transition-all hover:shadow-[0_0_25px_rgba(255,0,110,0.2)]"
         style={{
           border: "1.5px solid transparent",
           background:
             "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
         }}
       >
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/25 to-[#FF006E]/25">
+        {/* Background art anchored right, same treatment as the landing
+            page's flip cards: not lazy, since a 3D/positioned context like
+            this one never fires the lazy-load intersection check. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/mastery-banner.webp"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          className="pointer-events-none absolute inset-0 h-full w-full rounded-2xl object-cover object-right opacity-70"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-[#111] via-[#111]/75 to-transparent"
+        />
+
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/25 to-[#FF006E]/25">
           <Sparkles className="h-6 w-6 text-[#00D4FF]" strokeWidth={2} />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1">
           <p className="font-bold">
             <span className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-transparent">
               Personal Development
@@ -280,7 +296,7 @@ export default function HomeTab({
           </p>
         </div>
         <ChevronRight
-          className="h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70"
+          className="relative h-5 w-5 shrink-0 text-white/30 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70"
           strokeWidth={2}
         />
       </Link>
