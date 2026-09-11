@@ -19,6 +19,7 @@ import {
   type BillingProfile,
 } from "@/lib/billing";
 import { useBookwormContext } from "@/lib/BookwormContext";
+import { personalCourses } from "@/lib/book-club";
 import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
 import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 
@@ -27,7 +28,7 @@ import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
 // huge photo on a low-end phone.
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024; // 12MB
 
-export default function ProfileTab() {
+export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => void }) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -229,7 +230,9 @@ export default function ProfileTab() {
   // plan (not the raw `plan` field) is what the card should describe.
   const currentPlan = planFromId(billing ? getEffectivePlanId(billing) : plan);
   const trialActive = billing?.trialStatus === "active";
-  const openBooks = courses.length;
+  // Books the reader generated. A book a club member shared takes no slot, so
+  // counting it here would show 4 of 3 to someone who has done nothing wrong.
+  const openBooks = personalCourses(courses).length;
 
   // The app's gradient-border + glow card treatment (same as the Your Plan card).
   const gradientBorder = {
@@ -517,12 +520,23 @@ export default function ProfileTab() {
             </div>
           )}
 
+          {/* A Book Club member's plan question is almost always about the club
+              — who's in it, who has a seat — so that goes straight there, and
+              changing tiers stays one tap further on, inside it. */}
           <button
-            onClick={() => router.push("/pricing")}
+            onClick={() => (currentPlan.id === "book_club" ? onOpenBookClub() : router.push("/pricing"))}
             className="mt-3 w-full rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 transition-all hover:bg-white/10"
           >
             {currentPlan.id === "book_club" ? "Manage Book Club" : "Change plan"}
           </button>
+          {currentPlan.id === "book_club" && (
+            <button
+              onClick={() => router.push("/pricing")}
+              className="mt-2 w-full rounded-lg px-4 py-1.5 text-[11px] font-semibold text-white/45 transition-colors hover:text-white/70"
+            >
+              Change plan
+            </button>
+          )}
 
           {/* A declined renewal used to be completely silent: the first sign
               was the app going quiet days later, once Stripe gave up retrying. */}

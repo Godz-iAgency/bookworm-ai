@@ -33,7 +33,12 @@ service cloud.firestore {
         'showTrialEndWarning',
         'reminderEmailSentAt',
         'familyId',
-        'isFamilyOwner'
+        'isFamilyOwner',
+        // The 7-day conversion window after a Book Club owner removes someone.
+        // Client-writable, these would let the reader being removed simply
+        // clear their own deletion deadline.
+        'bookClubRemovedAt',
+        'bookClubDeleteAt'
       ];
     }
 
@@ -91,6 +96,17 @@ service cloud.firestore {
     match /families/{familyId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
       allow write: if false;
+
+      // Books members have put on the club's shelf. Closed to clients in both
+      // directions, unlike the family document above: these carry whole
+      // generated courses, so the check that the reader is on the roster is
+      // made server-side by /api/family/* (lib/family-server.ts) rather than
+      // by a rule that would have to re-read the parent on every access.
+      // A member reads a shared book through their own copy of it, which is an
+      // ordinary document in their own courses collection.
+      match /sharedBooks/{shareId} {
+        allow read, write: if false;
+      }
     }
 
     // Invite codes are validated and redeemed server-side (/api/family/join).

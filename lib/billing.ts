@@ -26,6 +26,14 @@ export interface BillingProfile {
   subscriptionCancelAt: string | null;
   /** Set by the invoice.payment_failed webhook, cleared when a payment succeeds. */
   paymentFailedAt: string | null;
+  /** Set when a Book Club owner removed this reader from their club. */
+  bookClubRemovedAt: string | null;
+  /**
+   * When a removed Book Club member's account is deleted if they choose
+   * nothing. Null once they convert — or from the start, for someone who was
+   * already carrying their own trial or subscription.
+   */
+  bookClubDeleteAt: string | null;
 }
 
 /** The number of books a trial user may generate for the whole 7-day trial — flat, not tier-based. */
@@ -50,7 +58,25 @@ export async function getBillingProfile(uid: string): Promise<BillingProfile | n
     showTrialEndWarning: d.showTrialEndWarning ?? false,
     subscriptionCancelAt: d.subscriptionCancelAt ?? null,
     paymentFailedAt: d.paymentFailedAt ?? null,
+    bookClubRemovedAt: d.bookClubRemovedAt ?? null,
+    bookClubDeleteAt: d.bookClubDeleteAt ?? null,
   };
+}
+
+/**
+ * Is this reader stranded by a Book Club removal — no club, and nothing of
+ * their own to fall back on?
+ *
+ * They keep their account and their books while they decide; what they lose is
+ * the ability to carry on as if nothing happened. The dashboard sends them to
+ * the conversion screen on this, so it deliberately reads access rather than
+ * the countdown: someone who converts stops being stranded the moment they
+ * have a plan, whether or not the countdown field has been cleared yet.
+ */
+export function needsBookClubConversion(
+  profile: Pick<BillingProfile, "bookClubRemovedAt" | "trialStatus" | "plan" | "familyId">,
+): boolean {
+  return !!profile.bookClubRemovedAt && !hasActiveAccess(profile);
 }
 
 /** Book Club members inherit the tier from their family regardless of their own `plan` field. */

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStripe, priceIdForPlan, type PlanId } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { dissolveClub } from "@/lib/family-server";
 
 const VALID_PLANS: PlanId[] = ["page_turner", "well_read", "book_club"];
 
@@ -76,6 +77,10 @@ export async function POST(req: Request) {
       stripeSubscriptionId: subscriptionId,
       generationsThisMonth: 0,
       monthResetAt: oneMonthFromNow(),
+      // Choosing a plan calls off any pending Book Club deletion. Harmless for
+      // everyone else — they never had one set.
+      bookClubRemovedAt: null,
+      bookClubDeleteAt: null,
     };
 
     if (targetPlan === "book_club" && !user.familyId) {
@@ -95,30 +100,15 @@ export async function POST(req: Request) {
       // before plan, so without this the account would be reported as
       // "on Book Club" forever no matter what plan is chosen next — the
       // switch would succeed on Stripe but look like it silently failed here.
-      const familyRef = db.collection("families").doc(user.familyId);
-      const famSnap = await familyRef.get();
-      const memberIds: string[] = famSnap.data()?.memberIds ?? [];
-
-      await familyRef.update({
-        status: "cancelled",
-        cancelledAt: FieldValue.serverTimestamp(),
-      });
-
-      // Every member's familyId has to be cleared, not just the owner's.
-      // Access is granted on the mere PRESENCE of familyId (see
-      // getEffectivePlanId in lib/billing.ts) - it never reads the family's
-      // status - so marking the family cancelled on its own revokes nothing.
-      // The members carried on with full Book Club access while the owner had
+      //
+      // Every member's familyId has to be cleared, not just the owner's, and
+      // the shared shelf has to go with it. Access is granted on the mere
+      // PRESENCE of familyId (see getEffectivePlanId in lib/billing.ts) and a
+      // shared book is read through a copy in the member's own collection —
+      // so marking the family cancelled on its own revokes nothing. The
+      // members carried on with full Book Club access while the owner had
       // dropped to a $9.99 plan, indefinitely and silently.
-      const memberBatch = db.batch();
-      for (const memberId of memberIds) {
-        if (memberId === uid) continue; // the owner is covered by `updates`
-        memberBatch.update(db.collection("users").doc(memberId), {
-          familyId: null,
-          isFamilyOwner: false,
-        });
-      }
-      await memberBatch.commit();
+      await dissolveClub(db, user.familyId, uid);
 
       updates.familyId = null;
       updates.isFamilyOwner = false;

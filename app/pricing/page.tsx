@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/logo";
-import { Check, Loader2, Copy } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/back-button";
@@ -70,8 +70,6 @@ export default function PricingPage() {
   const [billing, setBilling] = useState<BillingProfile | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState<{ planId: Plan["id"]; quote: UpgradeQuote } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -127,29 +125,6 @@ export default function PricingPage() {
       return;
     }
     if (user) setBilling(await getBillingProfile(user.uid));
-  };
-
-  const handleInvite = async () => {
-    setError(null);
-    const res = await postAuthed("/api/family/invite");
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
-    setInviteCode(res.code);
-  };
-
-  const inviteLink = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null;
-
-  const copyInvite = async () => {
-    if (!inviteLink) return;
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked — the link is visible on screen to copy manually */
-    }
   };
 
   if (loading || !user) {
@@ -329,35 +304,22 @@ export default function PricingPage() {
           )}
         </AnimatePresence>
 
-        {/* Book Club owners manage their members here. */}
+        {/* Inviting, the roster and the seat count all live on the Book Club
+            screen now, next to the shelf they are actually about. Two places
+            to mint an invite meant two places to keep honest about how many
+            seats were left. */}
         {billing?.isFamilyOwner && (
           <div className="mt-8 w-full rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-5">
             <h3 className="mb-1 text-base font-bold">Your Book Club</h3>
             <p className="mb-4 text-[13px] text-white/60">
-              Invite up to 3 others. Each gets their own books, and your card covers everyone.
+              Invite up to 3 others, see who&apos;s in, and manage seats on your Book Club screen.
             </p>
-
-            {inviteLink ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80">
-                  {inviteLink}
-                </code>
-                <button
-                  onClick={copyInvite}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-2 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10"
-                >
-                  <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            ) : (
-              <Button
-                onClick={handleInvite}
-                className="h-11 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-6 text-sm font-bold text-white hover:scale-105"
-              >
-                Create an invite link
-              </Button>
-            )}
+            <Button
+              onClick={() => router.push("/dashboard")}
+              className="h-11 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-6 text-sm font-bold text-white hover:scale-105"
+            >
+              Open Book Club
+            </Button>
           </div>
         )}
       </div>

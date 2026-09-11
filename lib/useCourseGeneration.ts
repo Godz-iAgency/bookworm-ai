@@ -15,6 +15,7 @@ import {
   getPlanLimits,
   isBillingEnabled,
 } from "@/lib/billing";
+import { personalCourses } from "@/lib/book-club";
 
 export const GENERATION_STEPS = [
   "Reading the book's core ideas...",
@@ -89,8 +90,11 @@ export function useCourseGeneration() {
           return;
         }
 
+        // The reader's own books only. A book a Book Club member shared cost
+        // them neither a generation nor a slot, so it must not be what stops
+        // them starting one of their own.
         const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
-        if (courses.length >= maxOpenBooks) {
+        if (personalCourses(courses).length >= maxOpenBooks) {
           setError("Your library is full for your plan — delete a book to add a new one.");
           return;
         }

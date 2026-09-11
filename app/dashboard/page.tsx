@@ -17,8 +17,11 @@ import {
   getBillingProfile,
   getEffectivePlanId,
   getPlanLimits,
+  needsBookClubConversion,
   type BillingProfile,
 } from "@/lib/billing";
+import { personalCourses, shareIdFor, type ClubOverview } from "@/lib/book-club";
+import { postAuthed } from "@/lib/api-client";
 import { Logo } from "@/components/logo";
 import { planFromId } from "@/lib/plans";
 import { useDayContent } from "@/lib/useDayContent";
@@ -30,8 +33,9 @@ export type Tab = "course" | "chat" | "flashcards";
 
 // The top-level screen the dashboard is showing. "home" = the shelf (all
 // courses), "detail" = a single course's info/remove screen, "reading" = the
-// 3-tab experience for the active course, "profile" = account/settings.
-type View = "home" | "detail" | "reading" | "profile";
+// 3-tab experience for the active course, "profile" = account/settings,
+// "club" = the Book Club's shared shelf.
+type View = "home" | "detail" | "reading" | "profile" | "club";
 
 // Components
 import HomeTab from "./components/HomeTab";
@@ -43,6 +47,7 @@ import TrialBanner from "./components/TrialBanner";
 import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
+import BookClubTab from "./components/BookClubTab";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -54,6 +59,7 @@ export default function DashboardPage() {
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [billing, setBilling] = useState<BillingProfile | null>(null);
+  const [club, setClub] = useState<ClubOverview | null>(null);
   const backfilledRef = useRef(false);
 
   // Real-time recalculation of expirations (simulated checking logic)
@@ -68,10 +74,15 @@ export default function DashboardPage() {
   // The open-book cap comes from the reader's tier (Page Turner 3, Well-Read
   // 5, Book Club 3 per member). Until billing loads, fall back to the entry
   // tier's cap so the "+" button never briefly offers more than it should.
+  //
+  // Counted against the reader's OWN books only: a book a club member shared
+  // cost them no generation and takes no slot, so letting it fill one would
+  // mean four people in a club quietly locking each other's shelves.
   const maxOpenBooks = billing
     ? getPlanLimits(getEffectivePlanId(billing)).maxOpenBooks
     : 3;
-  const isLibraryFull = courses.length >= maxOpenBooks;
+  const myCourses = personalCourses(courses);
+  const isLibraryFull = myCourses.length >= maxOpenBooks;
 
   // Fall back to the first course until the auto-select effect syncs activeCourseId.
   const activeCourse = courses.find((c) => c.id === activeCourseId) ?? courses[0];
@@ -148,6 +159,37 @@ export default function DashboardPage() {
   useEffect(() => {
     refreshBilling();
   }, [refreshBilling]);
+
+  /**
+   * A reader whose Book Club access was taken away, with nothing of their own
+   * to fall back on, is sent to choose what happens next. Their books and
+   * their account are still here — this is a decision, not a lockout — but it
+   * has to be made before carrying on, because there is no plan behind them
+   * any more and a deletion date is now set.
+   */
+  useEffect(() => {
+    if (billing && needsBookClubConversion(billing)) router.push("/book-club/ended");
+  }, [billing, router]);
+
+  // The club roster + its shared shelf. Held here rather than inside the Book
+  // Club screen because the course detail screen needs it too, to know whether
+  // a book is already shared.
+  const refreshClub = useCallback(async () => {
+    if (!user) {
+      setClub(null);
+      return;
+    }
+    const res = await postAuthed<ClubOverview & { error?: string }>("/api/family/overview");
+    if ("error" in res && res.error) {
+      console.error("Failed to load Book Club:", res.error);
+      return;
+    }
+    setClub(res);
+  }, [user]);
+
+  useEffect(() => {
+    void refreshClub();
+  }, [refreshClub]);
 
   // Load the user's streak + badges once signed in.
   useEffect(() => {
@@ -233,6 +275,32 @@ export default function DashboardPage() {
     setView("home");
   };
 
+  // Share / withdraw the course being looked at. Both answer with an error
+  // message for the detail screen to show, or null on success.
+  const shareActiveCourse = async (): Promise<string | null> => {
+    if (!activeCourse) return null;
+    const res = await postAuthed("/api/family/share", { courseId: activeCourse.id });
+    if (res.error) return res.error;
+    await refreshClub();
+    return null;
+  };
+
+  const unshareActiveCourse = async (): Promise<string | null> => {
+    if (!activeCourse || !user) return null;
+    const res = await postAuthed("/api/family/unshare", {
+      shareId: shareIdFor(user.uid, activeCourse.id),
+    });
+    if (res.error) return res.error;
+    await refreshClub();
+    return null;
+  };
+
+  const activeCourseIsShared =
+    !!activeCourse &&
+    !!user &&
+    !!club?.inClub &&
+    club.sharedBooks.some((s) => s.shareId === shareIdFor(user.uid, activeCourse.id));
+
   const renderReadingContent = () => {
     if (!activeCourse) return null;
 
@@ -278,7 +346,7 @@ export default function DashboardPage() {
         <>
           {billing && <TrialBanner profile={billing} onConverted={refreshBilling} />}
           <HomeTab
-            courses={courses}
+            courses={myCourses}
             activeCourseId={activeCourseId}
             currentTime={currentTime}
             isCourseExpired={isCourseExpired}
@@ -286,6 +354,8 @@ export default function DashboardPage() {
             onOpenCourse={openCourse}
             onCourseDetails={openCourseDetails}
             progress={progress}
+            club={club}
+            onOpenBookClub={() => setView("club")}
           />
         </>
       );
@@ -298,11 +368,29 @@ export default function DashboardPage() {
           currentTime={currentTime}
           onRead={() => openCourse(activeCourse.id)}
           onRemove={handleRemoveCourse}
+          // From billing, not the club fetch: this is a single Firestore read
+          // that lands well before the club's shelf does, so the share control
+          // is present (disabled) from the start rather than appearing late.
+          inBookClub={!!billing?.familyId}
+          clubLoading={club === null}
+          sharedToClub={activeCourseIsShared}
+          onShare={shareActiveCourse}
+          onUnshare={unshareActiveCourse}
+        />
+      );
+    }
+    if (view === "club") {
+      return (
+        <BookClubTab
+          currentTime={currentTime}
+          onOpenCourse={openCourse}
+          overview={club}
+          reloadClub={refreshClub}
         />
       );
     }
     if (view === "profile") {
-      return <ProfileTab />;
+      return <ProfileTab onOpenBookClub={() => setView("club")} />;
     }
     return renderReadingContent();
   };
@@ -383,7 +471,7 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-        ) : view === "detail" ? (
+        ) : view === "detail" || view === "club" ? (
           <div className="w-full bg-[#111] border-b border-white/10 px-4 py-3 shrink-0 flex items-center gap-3 shadow-xl z-20">
             <button
               onClick={() => setView("home")}
@@ -396,7 +484,7 @@ export default function DashboardPage() {
             >
               <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
             </button>
-            <p className="font-bold text-sm">Course Details</p>
+            <p className="font-bold text-sm">{view === "club" ? "Book Club" : "Course Details"}</p>
           </div>
         ) : (
           <div className="w-full bg-[#111] border-b border-white/10 px-3 py-2 shrink-0 flex items-center gap-2 shadow-xl z-20 min-h-[56px]">

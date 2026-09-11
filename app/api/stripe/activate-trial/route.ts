@@ -67,6 +67,10 @@ export async function POST(req: Request) {
       stripePaymentMethodId: paymentMethodId,
       generationsThisMonth: 0,
       showTrialEndWarning: false,
+      // Choosing a plan calls off any pending Book Club deletion. Harmless for
+      // everyone else — they never had one set.
+      bookClubRemovedAt: null,
+      bookClubDeleteAt: null,
     });
 
     return NextResponse.json({ success: true, trialEndsAt });

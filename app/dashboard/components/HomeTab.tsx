@@ -4,13 +4,15 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { StoredBookCover } from "@/components/book-cover";
 import { RecommendedShelf } from "@/components/recommended-shelf";
 import Link from "next/link";
-import { Plus, Flame, Lock, MoreVertical, Sparkles, ChevronRight } from "lucide-react";
+import { Plus, Flame, Lock, MoreVertical, Sparkles, ChevronRight, Users } from "lucide-react";
 import { Course } from "@/lib/BookwormContext";
 import { BADGES } from "@/lib/badges";
 import { getCountdown } from "@/lib/countdown";
 import { currentStreak, localDateStr, type UserProgress } from "@/lib/firebase/progress";
+import type { ClubOverview } from "@/lib/book-club";
 
 interface HomeTabProps {
+  /** The reader's own books. Shared ones live on the Book Club screen. */
   courses: Course[];
   activeCourseId: string | null;
   currentTime: Date;
@@ -19,6 +21,8 @@ interface HomeTabProps {
   onOpenCourse: (courseId: string) => void;
   onCourseDetails: (courseId: string) => void;
   progress: UserProgress;
+  club: ClubOverview | null;
+  onOpenBookClub: () => void;
 }
 
 // Particle burst for the earned-badge celebration — a wide, slow firework that
@@ -53,14 +57,24 @@ export default function HomeTab({
   onOpenCourse,
   onCourseDetails,
   progress,
+  club,
+  onOpenBookClub,
 }: HomeTabProps) {
   const streak = currentStreak(progress, currentTime);
   const today = localDateStr(currentTime);
   const readToday = progress.lastActivityDate === today;
   const earned = new Set(progress.badges);
 
-  // Nothing already on the shelf should come back as a recommendation.
-  const shelfTitles = useMemo(() => courses.map((c) => c.book.title), [courses]);
+  // Nothing already on the shelf should come back as a recommendation —
+  // including what the reader's Book Club has already shared, which is just as
+  // much "already available to me" as their own books are.
+  const shelfTitles = useMemo(
+    () => [
+      ...courses.map((c) => c.book.title),
+      ...(club?.inClub ? club.sharedBooks.map((s) => s.title) : []),
+    ],
+    [courses, club],
+  );
 
   const [toast, setToast] = useState<BadgeToast | null>(null);
   const timers = useRef<number[]>([]);
@@ -408,6 +422,31 @@ export default function HomeTab({
           </Link>
         )}
       </div>
+
+      {/* The way into the club's shared shelf. Only for members, and it says
+          what is actually on it — an entry point that reads "Book Club" alone
+          gives no reason to tap it on the days nothing has been shared. */}
+      {club?.inClub && (
+        <button
+          onClick={onOpenBookClub}
+          className="mt-6 flex w-full items-center gap-3.5 rounded-2xl border border-white/10 bg-[#111] p-4 text-left transition-all hover:border-[#00D4FF]/40 hover:bg-white/5"
+        >
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D4FF]/20 to-[#FF006E]/20">
+            <Users className="h-5 w-5 text-[#00D4FF]" strokeWidth={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">Book Club</p>
+            <p className="mt-0.5 truncate text-xs text-white/50">
+              {club.sharedBooks.length === 0
+                ? `${club.members.length} members · nothing shared yet`
+                : `${club.sharedBooks.length} shared ${
+                    club.sharedBooks.length === 1 ? "book" : "books"
+                  } · ${club.members.length} members`}
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-white/30" strokeWidth={2} />
+        </button>
+      )}
 
       <RecommendedShelf shelfTitles={shelfTitles} />
     </div>

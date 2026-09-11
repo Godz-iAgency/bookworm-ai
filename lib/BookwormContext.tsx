@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase/config';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import type { SharedFrom } from './book-club';
 
 export interface Book {
   title: string;
@@ -72,6 +73,13 @@ export interface Course {
    * falls back to the first unlocked day).
    */
   activeDayNumber?: number;
+  /**
+   * Set only on the reader's own copy of a book another Book Club member
+   * shared. Its presence is what keeps a shared book off the personal shelf
+   * and out of the plan's open-book cap (see lib/book-club.ts); everything
+   * else about it — loading, saving, expiry — is an ordinary course.
+   */
+  sharedFrom?: SharedFrom;
 }
 
 interface BookwormContextType {
