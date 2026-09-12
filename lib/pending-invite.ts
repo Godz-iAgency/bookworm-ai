@@ -16,6 +16,8 @@
  * sitting in a URL that gets shared, screenshotted, or logged.
  */
 
+import { isAdminEmail } from "./admin";
+
 const KEY = "pendingInviteCode";
 
 /** Remember an invite the reader can't act on yet because they aren't signed in. */
@@ -51,8 +53,12 @@ export function clearPendingInvite(): void {
  * a club is pointless without a reading level, since every course generation
  * needs one. Onboarding then hands off to the invite itself (see
  * app/onboarding/page.tsx), so the detour is preserved rather than skipped.
+ *
+ * The admin account is the exception to all of it — it runs Bookworm rather
+ * than reads it, and goes straight to the control centre however it signed in.
  */
-export function destinationAfterAuth(isNewAccount: boolean): string {
+export function destinationAfterAuth(isNewAccount: boolean, email?: string | null): string {
+  if (isAdminEmail(email)) return "/admin";
   if (isNewAccount) return "/onboarding";
   const code = readPendingInvite();
   return code ? `/join/${code}` : "/dashboard";

@@ -160,6 +160,17 @@ export function getAdminAuth() {
  * the real cause stayed invisible. Callers surface it as a 500.
  */
 export async function getUidFromRequest(req: Request): Promise<string | null> {
+  return (await getAuthedUser(req))?.uid ?? null;
+}
+
+/**
+ * The caller's uid AND the email on their verified token.
+ *
+ * The admin routes gate on email, and it has to be the email Firebase signed —
+ * not one the client sent us, which would make the whole dashboard a matter of
+ * typing the right string into a request body.
+ */
+export async function getAuthedUser(req: Request): Promise<{ uid: string; email: string | null } | null> {
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return null;
@@ -170,7 +181,7 @@ export async function getUidFromRequest(req: Request): Promise<string | null> {
 
   try {
     const decoded = await getAuth(app).verifyIdToken(token);
-    return decoded.uid;
+    return { uid: decoded.uid, email: decoded.email ?? null };
   } catch (err) {
     console.error("ID token verification failed:", err);
     return null;

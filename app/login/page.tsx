@@ -28,7 +28,7 @@ export default function LoginPage() {
   // for every sign-in - otherwise this overrides the deliberate push below.
   useEffect(() => {
     if (!redirectCompleted || !user) return
-    router.push(destinationAfterAuth(redirectIsNew))
+    router.push(destinationAfterAuth(redirectIsNew, user.email))
   }, [redirectCompleted, user, redirectIsNew, router])
 
   useEffect(() => {
@@ -49,9 +49,9 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     try {
-      await signInWithEmail(formData.email, formData.password)
+      const signedIn = await signInWithEmail(formData.email, formData.password)
       // An existing account signing in from an invite link goes back to it.
-      router.push(destinationAfterAuth(false))
+      router.push(destinationAfterAuth(false, signedIn.email))
     } catch (err) {
       console.error("Login error:", err)
       setError("That email or password didn't work. Please try again.")
@@ -66,7 +66,7 @@ export default function LoginPage() {
       // The popup path returns a user here. The redirect fallback returns
       // none — it resumes through AuthContext after the reload instead (see
       // the redirectCompleted effect above).
-      if (user) router.push(destinationAfterAuth(isNew))
+      if (user) router.push(destinationAfterAuth(isNew, user.email))
     } catch (err) {
       console.error("Google login error:", err)
       setError(friendlyAuthError(err))

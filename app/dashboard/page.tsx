@@ -15,11 +15,12 @@ import {
 } from "@/lib/firebase/progress";
 import {
   getBillingProfile,
+  effectiveMaxOpenBooks,
   getEffectivePlanId,
-  getPlanLimits,
   needsBookClubConversion,
   type BillingProfile,
 } from "@/lib/billing";
+import { isAdminEmail } from "@/lib/admin";
 import { personalCourses, shareIdFor, type ClubOverview } from "@/lib/book-club";
 import { postAuthed } from "@/lib/api-client";
 import { Logo } from "@/components/logo";
@@ -78,9 +79,7 @@ export default function DashboardPage() {
   // Counted against the reader's OWN books only: a book a club member shared
   // cost them no generation and takes no slot, so letting it fill one would
   // mean four people in a club quietly locking each other's shelves.
-  const maxOpenBooks = billing
-    ? getPlanLimits(getEffectivePlanId(billing)).maxOpenBooks
-    : 3;
+  const maxOpenBooks = billing ? effectiveMaxOpenBooks(billing) : 3;
   const myCourses = personalCourses(courses);
   const isLibraryFull = myCourses.length >= maxOpenBooks;
 
@@ -135,7 +134,13 @@ export default function DashboardPage() {
   // were ever a member - just a bare search box.
   useEffect(() => {
     if (coursesLoading) return;
-    if (!user) router.push("/login");
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    // The admin account runs Bookworm rather than reads it — it has no shelf,
+    // and landing here (from a bookmark, or a stale tab) belongs at /admin.
+    if (isAdminEmail(user.email)) router.replace("/admin");
   }, [coursesLoading, user, router]);
 
   // Keep a valid course selected once loading is done.

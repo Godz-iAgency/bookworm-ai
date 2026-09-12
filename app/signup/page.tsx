@@ -26,7 +26,7 @@ export default function SignUpPage() {
   // matching effect in app/login/page.tsx.
   useEffect(() => {
     if (!redirectCompleted || !user) return
-    router.push(destinationAfterAuth(redirectIsNew))
+    router.push(destinationAfterAuth(redirectIsNew, user.email))
   }, [redirectCompleted, user, redirectIsNew, router])
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function SignUpPage() {
       // New Google accounts go through onboarding just like email signups;
       // an existing user who lands here goes straight to their dashboard.
       // The redirect fallback resumes through AuthContext after the reload.
-      if (user) router.push(destinationAfterAuth(isNew))
+      if (user) router.push(destinationAfterAuth(isNew, user.email))
     } catch (err) {
       console.error("Google signup error:", err)
       setError(friendlyAuthError(err))

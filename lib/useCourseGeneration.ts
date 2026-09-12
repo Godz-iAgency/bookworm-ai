@@ -11,8 +11,7 @@ import {
   getBillingProfile,
   hasActiveAccess,
   canGenerate,
-  getEffectivePlanId,
-  getPlanLimits,
+  effectiveMaxOpenBooks,
   isBillingEnabled,
 } from "@/lib/billing";
 import { personalCourses } from "@/lib/book-club";
@@ -85,7 +84,9 @@ export function useCourseGeneration() {
           setError(
             gen.reason === "monthly_cap"
               ? "You've used all your book generations for this month."
-              : "You've reached your plan's limit."
+              : gen.reason === "override_cap"
+                ? "This preview includes one book — and it's already on your shelf."
+                : "You've reached your plan's limit."
           );
           return;
         }
@@ -93,7 +94,7 @@ export function useCourseGeneration() {
         // The reader's own books only. A book a Book Club member shared cost
         // them neither a generation nor a slot, so it must not be what stops
         // them starting one of their own.
-        const { maxOpenBooks } = getPlanLimits(getEffectivePlanId(profile));
+        const maxOpenBooks = effectiveMaxOpenBooks(profile);
         if (personalCourses(courses).length >= maxOpenBooks) {
           setError("Your library is full for your plan — delete a book to add a new one.");
           return;

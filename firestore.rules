@@ -38,7 +38,10 @@ service cloud.firestore {
         // Client-writable, these would let the reader being removed simply
         // clear their own deletion deadline.
         'bookClubRemovedAt',
-        'bookClubDeleteAt'
+        'bookClubDeleteAt',
+        // Complimentary access — the demo links and the Hudson account. A
+        // client-writable "I don't pay" flag is not a flag, it is a free tier.
+        'accessOverride'
       ];
     }
 
@@ -112,6 +115,14 @@ service cloud.firestore {
     // Invite codes are validated and redeemed server-side (/api/family/join).
     // Never readable by clients — otherwise codes could be enumerated.
     match /invites/{code} {
+      allow read, write: if false;
+    }
+
+    // Password-free sign-in links (the Founders demo, the Hudson account).
+    // A readable token here would be a sign-in credential handed to anyone who
+    // asked, so these are server-only in both directions: redeemed by
+    // /api/access/redeem, listed and switched off by /api/admin/links.
+    match /accessLinks/{token} {
       allow read, write: if false;
     }
 

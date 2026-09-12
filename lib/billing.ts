@@ -3,6 +3,7 @@
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase/config";
 import { PLANS, planFromId, type Plan } from "./plans";
+import { activeOverride, type AccessOverride } from "./access";
 
 /**
  * Billing-relevant slice of the /users/{uid} doc. Dates are stored as ISO
@@ -26,6 +27,11 @@ export interface BillingProfile {
   subscriptionCancelAt: string | null;
   /** Set by the invoice.payment_failed webhook, cleared when a payment succeeds. */
   paymentFailedAt: string | null;
+  /**
+   * Complimentary access that skips billing entirely — the Founders demo, the
+   * Hudson reading account. Admin SDK only. See lib/access.ts.
+   */
+  accessOverride: AccessOverride | null;
   /** Set when a Book Club owner removed this reader from their club. */
   bookClubRemovedAt: string | null;
   /**
@@ -58,6 +64,7 @@ export async function getBillingProfile(uid: string): Promise<BillingProfile | n
     showTrialEndWarning: d.showTrialEndWarning ?? false,
     subscriptionCancelAt: d.subscriptionCancelAt ?? null,
     paymentFailedAt: d.paymentFailedAt ?? null,
+    accessOverride: d.accessOverride ?? null,
     bookClubRemovedAt: d.bookClubRemovedAt ?? null,
     bookClubDeleteAt: d.bookClubDeleteAt ?? null,
   };
@@ -86,9 +93,25 @@ export function getEffectivePlanId(profile: Pick<BillingProfile, "plan" | "famil
   return "free";
 }
 
-/** Does this user currently have generation/dashboard access — trial running, paid, or a family member? */
-export function hasActiveAccess(profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId">): boolean {
+/** Does this user currently have generation/dashboard access — trial running, paid, a family member, or comped? */
+export function hasActiveAccess(
+  profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId"> & { accessOverride?: AccessOverride | null },
+): boolean {
+  if (activeOverride(profile)) return true;
   return profile.trialStatus === "active" || (!!profile.plan && profile.plan !== "free") || !!profile.familyId;
+}
+
+/**
+ * The shelf cap actually in force. A comped account carries its own, since it
+ * belongs to no tier — the Hudson account is five books with no subscription
+ * behind it, which no PLANS entry describes.
+ */
+export function effectiveMaxOpenBooks(
+  profile: Pick<BillingProfile, "plan" | "familyId"> & { accessOverride?: AccessOverride | null },
+): number {
+  const override = activeOverride(profile);
+  if (override) return override.maxOpenBooks;
+  return getPlanLimits(getEffectivePlanId(profile)).maxOpenBooks;
 }
 
 /**
@@ -127,8 +150,21 @@ export function isBillingEnabled(): boolean {
  * monthly quota applies, resetting when `monthResetAt` has passed.
  */
 export function canGenerate(
-  profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId" | "generationsThisMonth" | "monthResetAt">,
+  profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId" | "generationsThisMonth" | "monthResetAt"> & {
+    accessOverride?: AccessOverride | null;
+  },
 ): { allowed: boolean; reason?: string } {
+  // Comped accounts are checked before anything else: they have no plan, no
+  // trial and no subscription, so every test below would turn them away.
+  const override = activeOverride(profile);
+  if (override) {
+    if (override.lifetimeGenerations === null) return { allowed: true };
+    if (profile.generationsThisMonth >= override.lifetimeGenerations) {
+      return { allowed: false, reason: "override_cap" };
+    }
+    return { allowed: true };
+  }
+
   if (!hasActiveAccess(profile)) {
     return { allowed: false, reason: "no_access" };
   }
