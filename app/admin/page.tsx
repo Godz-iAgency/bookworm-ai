@@ -4,12 +4,22 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, Users, TrendingUp, BookOpen, Flame, AlertTriangle, Link2, Copy, LogOut, RefreshCw,
+  CreditCard, ExternalLink, Undo2,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
 import { isAdminEmail } from "@/lib/admin";
 import type { AccessLink } from "@/lib/access";
+import type { AdminCharge } from "@/app/api/admin/payments/route";
+
+interface Payments {
+  charges: AdminCharge[];
+  summary: { grossCents: number; refundedCents: number; netCents: number; count: number; disputes: number };
+}
+
+const money = (cents: number, currency = "usd") =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
 interface Metrics {
   totals: {
@@ -57,10 +67,17 @@ export default function AdminPage() {
   const { user, loading, logout } = useAuth();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [links, setLinks] = useState<AccessLink[] | null>(null);
+  const [payments, setPayments] = useState<Payments | null>(null);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [busyToken, setBusyToken] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // A refund is real money leaving the business and Stripe will not take it
+  // back, so the button arms first and commits second.
+  const [confirmRefund, setConfirmRefund] = useState<string | null>(null);
+  const [refunding, setRefunding] = useState<string | null>(null);
+  const [refundNote, setRefundNote] = useState<string | null>(null);
 
   const isAdmin = isAdminEmail(user?.email);
 
@@ -76,15 +93,35 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     setRefreshing(true);
-    const [m, l] = await Promise.all([
+    const [m, l, p] = await Promise.all([
       postAuthed<Metrics & { error?: string }>("/api/admin/metrics"),
       postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", { action: "list" }),
+      postAuthed<Payments & { error?: string }>("/api/admin/payments", { action: "list" }),
     ]);
     setRefreshing(false);
     if ("error" in m && m.error) setError(m.error);
     else { setMetrics(m); setError(null); }
     if (!("error" in l && l.error)) setLinks(l.links);
+    // Stripe being unconfigured or unreachable is its own problem, shown in
+    // its own panel — it must not blank out the rest of the dashboard.
+    if ("error" in p && p.error) setPaymentsError(p.error);
+    else { setPayments(p); setPaymentsError(null); }
   }, []);
+
+  const refund = async (chargeId: string) => {
+    setRefunding(chargeId);
+    setRefundNote(null);
+    const res = await postAuthed<{ amount: number; currency: string; error?: string }>(
+      "/api/admin/payments",
+      { action: "refund", chargeId },
+    );
+    setRefunding(null);
+    setConfirmRefund(null);
+    if (res.error) { setPaymentsError(res.error); return; }
+    setRefundNote(`Refunded ${money(res.amount, res.currency)}.`);
+    const p = await postAuthed<Payments & { error?: string }>("/api/admin/payments", { action: "list" });
+    if (!("error" in p && p.error)) setPayments(p);
+  };
 
   useEffect(() => {
     if (!loading && user && isAdmin) void load();
@@ -273,6 +310,127 @@ export default function AdminPage() {
                   m.library.topTopics.map((t) => <Row key={t.name} label={t.name} value={t.count} />)
                 )}
               </Panel>
+            </div>
+
+            {/* Payments — what Stripe actually charged, and the way back. */}
+            <div className="mb-6 rounded-2xl border border-white/10 bg-[#111] p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-[#00D4FF]" strokeWidth={2} />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-white/60">Payments</h2>
+                {payments && (
+                  <span className="ml-auto text-xs text-white/45">
+                    {money(payments.summary.netCents)} net · {money(payments.summary.grossCents)} charged
+                    {payments.summary.refundedCents > 0 && ` · ${money(payments.summary.refundedCents)} refunded`}
+                  </span>
+                )}
+              </div>
+              <p className="mb-4 text-xs text-white/45">
+                The last 50 charges, straight from Stripe. Refunds return the full remaining amount and can&rsquo;t be undone.
+              </p>
+
+              {refundNote && (
+                <div className="mb-3 rounded-lg border border-[#00D4FF]/30 bg-[#00D4FF]/10 px-4 py-2.5 text-sm text-[#00D4FF]">
+                  {refundNote}
+                </div>
+              )}
+              {paymentsError && (
+                <div className="mb-3 rounded-lg border border-[#FFB020]/40 bg-[#FFB020]/10 px-4 py-2.5 text-sm text-[#FFB020]">
+                  {paymentsError}
+                </div>
+              )}
+
+              {!payments ? (
+                paymentsError ? null : <Loader2 className="h-5 w-5 animate-spin text-white/40" />
+              ) : payments.charges.length === 0 ? (
+                <p className="text-sm text-white/50">No charges yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {payments.charges.map((c) => {
+                    const remaining = c.amount - c.amountRefunded;
+                    const fullyRefunded = remaining <= 0;
+                    const arming = confirmRefund === c.id;
+                    return (
+                      <li key={c.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          <span className="text-sm font-bold tabular-nums">{money(c.amount, c.currency)}</span>
+                          <span className="min-w-0 flex-1 truncate text-[13px] text-white/65">
+                            {c.customerEmail ?? c.customerId ?? "Unknown customer"}
+                          </span>
+                          <span className="text-[11px] text-white/40">
+                            {new Date(c.created * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                          {c.disputed && (
+                            <span className="rounded-full border border-[#FF006E]/50 bg-[#FF006E]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#FF006E]">
+                              Disputed
+                            </span>
+                          )}
+                          {fullyRefunded ? (
+                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">
+                              Refunded
+                            </span>
+                          ) : c.amountRefunded > 0 ? (
+                            <span className="rounded-full border border-[#FFB020]/40 bg-[#FFB020]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#FFB020]">
+                              {money(c.amountRefunded, c.currency)} back
+                            </span>
+                          ) : c.status !== "succeeded" ? (
+                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">
+                              {c.status}
+                            </span>
+                          ) : null}
+
+                          {c.receiptUrl && (
+                            <a
+                              href={c.receiptUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-full border border-white/15 p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                              aria-label="Open the Stripe receipt"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} />
+                            </a>
+                          )}
+
+                          {!fullyRefunded && c.status === "succeeded" && !arming && (
+                            <button
+                              onClick={() => { setConfirmRefund(c.id); setRefundNote(null); }}
+                              className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-[#FF006E]/50 hover:bg-[#FF006E]/10 hover:text-[#FF006E]"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" strokeWidth={2} />
+                              Refund
+                            </button>
+                          )}
+                        </div>
+
+                        {arming && (
+                          <div className="mt-2.5 rounded-lg border border-[#FF006E]/40 bg-[#FF006E]/10 p-3">
+                            <p className="text-[13px] leading-relaxed text-white/85">
+                              Refund <span className="font-bold">{money(remaining, c.currency)}</span> to{" "}
+                              <span className="font-bold">{c.customerEmail ?? "this customer"}</span>? The money goes
+                              back to their card and this can&rsquo;t be reversed.
+                            </p>
+                            <div className="mt-2.5 flex gap-2">
+                              <button
+                                onClick={() => setConfirmRefund(null)}
+                                disabled={refunding === c.id}
+                                className="flex-1 rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-white/80 disabled:opacity-60"
+                              >
+                                Never mind
+                              </button>
+                              <button
+                                onClick={() => refund(c.id)}
+                                disabled={refunding === c.id}
+                                className="flex-1 rounded-lg bg-[#FF006E] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#FF006E]/85 disabled:opacity-60"
+                              >
+                                {refunding === c.id ? "Refunding…" : `Refund ${money(remaining, c.currency)}`}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
             {/* Demo links — share one, switch it off when it has done its job. */}
