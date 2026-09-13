@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const { token } = await req.json();
-    if (!token || typeof token !== "string") {
+    if (!token || typeof token !== "string" || !/^[a-zA-Z0-9_-]{16,200}$/.test(token)) {
       return NextResponse.json({ error: "Missing link." }, { status: 400 });
     }
 
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       .update({ lastUsedAt: new Date().toISOString(), useCount: FieldValue.increment(1) })
       .catch((e) => console.error("Could not record access link use:", e));
 
-    return NextResponse.json({ customToken });
+    return NextResponse.json({ customToken }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: any) {
     console.error("access redeem failed:", error);
     return NextResponse.json({ error: error.message || "Could not open that link." }, { status: 500 });

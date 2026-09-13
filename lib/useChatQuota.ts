@@ -1,52 +1,28 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
-
-/** Each reader can send this many messages to BookPal per day, per course. */
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase/config";
+import { useAuth } from "@/context/AuthContext";
+/** Each reader can send this many messages per UTC day, per course. */
 export const DAILY_CHAT_LIMIT = 10;
-
-// Scoped to this course AND today's date, so the count resets by itself when a
-// new day starts without needing any cleanup.
-function dailyKey(courseId: string) {
-  const d = new Date();
-  const day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  return `bookpal_chat_${courseId}_${day}`;
-}
-
-export interface ChatQuota {
-  remaining: number;
-  limitReached: boolean;
-  consume: () => void;
-}
-
-/**
- * Today's remaining BookPal messages for a course.
- *
- * This must have a single caller (the dashboard), which passes the result down
- * to ChatTab. The count is displayed in the top bar but spent inside the chat,
- * and two independent copies of this state would drift apart the moment a
- * message was sent.
- */
+export interface ChatQuota { remaining: number; limitReached: boolean; consume: () => void; }
+/** One dashboard owner, with Firestore reconciling other tabs/devices. */
 export function useChatQuota(courseId: string | undefined): ChatQuota {
+  const { user } = useAuth();
+  const [day, setDay] = useState(() => new Date().toISOString().slice(0,10));
   const [used, setUsed] = useState(0);
-
-  // Read in an effect, not a useState initializer: localStorage doesn't exist
-  // during SSR and reading it while rendering would break hydration.
   useEffect(() => {
-    if (!courseId) return;
-    const stored = localStorage.getItem(dailyKey(courseId));
-    setUsed(stored ? parseInt(stored, 10) || 0 : 0);
-  }, [courseId]);
-
-  const consume = useCallback(() => {
-    if (!courseId) return;
-    setUsed((prev) => {
-      const next = prev + 1;
-      localStorage.setItem(dailyKey(courseId), String(next));
-      return next;
-    });
-  }, [courseId]);
-
+    const timer = setInterval(() => setDay(new Date().toISOString().slice(0,10)), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    setUsed(0);
+    if (!user || !courseId) return;
+    return onSnapshot(doc(db, "users", user.uid, "aiUsage", day), snapshot => {
+      setUsed(Number(snapshot.data()?.["chat_" + courseId] ?? 0));
+    }, error => console.error("Could not load chat allowance:", error));
+  }, [user, courseId, day]);
+  const consume = useCallback(() => setUsed(n => n + 1), []);
   const remaining = Math.max(0, DAILY_CHAT_LIMIT - used);
-  return { remaining, limitReached: remaining <= 0, consume };
+  return { remaining, limitReached: remaining === 0, consume };
 }

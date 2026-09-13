@@ -97,6 +97,7 @@ export function getEffectivePlanId(profile: Pick<BillingProfile, "plan" | "famil
 export function hasActiveAccess(
   profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId"> & { accessOverride?: AccessOverride | null },
 ): boolean {
+  if (profile.accessOverride?.active === false) return false;
   if (activeOverride(profile)) return true;
   return profile.trialStatus === "active" || (!!profile.plan && profile.plan !== "free") || !!profile.familyId;
 }
@@ -137,6 +138,8 @@ export function getPlanLimits(planId: Plan["id"] | "free"): { maxOpenBooks: numb
  * that turned every course generation into a dead-end trial screen. Flip it
  * back off once /api/health/billing reports ready: true.
  */
+// This controls client billing UI only. Server AI admission always checks
+// authentication and entitlements; pausing does not grant free generation.
 export function isBillingEnabled(): boolean {
   if (process.env.NEXT_PUBLIC_BILLING_PAUSED === "true") return false;
   return !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;

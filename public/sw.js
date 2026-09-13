@@ -83,7 +83,7 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(request);
         if (response.ok) {
           const cache = await caches.open(CACHE_VERSION);
-          cache.put(request, response.clone());
+          await cache.put(request, response.clone()).catch(() => {});
         }
         return response;
       })()
@@ -100,7 +100,7 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(request);
         if (response.ok) {
           const cache = await caches.open(CACHE_VERSION);
-          cache.put(request, response.clone());
+          await cache.put(request, response.clone()).catch(() => {});
         }
         return response;
       })()

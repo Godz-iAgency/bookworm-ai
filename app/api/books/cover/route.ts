@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
     if (!res.ok) {
       // fetchWithRetry only returns a non-ok response for a 404, which means
       // no matches: a real answer, and a cacheable one.
+      if (cache.size >= 500) cache.delete(cache.keys().next().value!);
       cache.set(key, null);
       return NextResponse.json({ coverUrl: null });
     }
@@ -50,11 +51,13 @@ export async function GET(req: NextRequest) {
     const match = items.find(
       (item) =>
         titlesMatch(title, item?.volumeInfo?.title) &&
+        (!author || item?.volumeInfo?.authors?.some((name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "") === author.toLowerCase().replace(/[^a-z0-9]/g, ""))) &&
         item?.volumeInfo?.imageLinks?.thumbnail
     );
     const cover = normalizeCover(match?.volumeInfo?.imageLinks?.thumbnail);
     // Cached either way: a book with no artwork shouldn't be looked up again
     // on every visit just to get the same empty answer.
+    if (cache.size >= 500) cache.delete(cache.keys().next().value!);
     cache.set(key, cover);
     return NextResponse.json({ coverUrl: cover });
   } catch (err: any) {

@@ -1,3 +1,4 @@
+import { generationBudget } from "./generation-budget";
 import { generateGeminiContent, type GeminiImage } from "./gemini";
 import { safeParseJson } from "./json";
 
@@ -51,6 +52,7 @@ export async function generateJson(
    */
   validate?: (parsed: any) => string | null
 ): Promise<any> {
+  return generationBudget(maxOutputTokens <= 256 ? 24000 : 50000, async () => {
   let lastError: any;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -68,6 +70,7 @@ export async function generateJson(
     }
   }
   throw lastError ?? new Error("Generation failed.");
+  });
 }
 
 /**
@@ -84,6 +87,7 @@ export async function generateVisionJson(
   maxOutputTokens: number,
   attempts = 3
 ): Promise<any> {
+  return generationBudget(maxOutputTokens <= 256 ? 24000 : 50000, async () => {
   let lastError: any;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -98,4 +102,5 @@ export async function generateVisionJson(
     }
   }
   throw lastError ?? new Error("Generation failed.");
+  });
 }

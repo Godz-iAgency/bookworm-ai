@@ -1,5 +1,6 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
-import { getStripe, priceIdForPlan, type PlanId } from "@/lib/stripe/server";
+import { getStripe, priceIdForPlan, planForPriceId, type PlanId } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { dissolveClub } from "@/lib/family-server";
@@ -20,7 +21,7 @@ function oneMonthFromNow(): string {
  * For `book_club`, also creates the /families/{familyId} doc with this user
  * as owner and sole member so far.
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -39,11 +40,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
     const user = snap.data()!;
+    if (user.accessOverride) return NextResponse.json({ error: "This account has complimentary access." }, { status: 403 });
     const priceId = priceIdForPlan(targetPlan as PlanId);
 
     let subscriptionId: string = user.stripeSubscriptionId ?? "";
+    if (!subscriptionId && user.stripeCustomerId) {
+      const subscriptions = await stripe.subscriptions.list({ customer: user.stripeCustomerId, status: "all", limit: 100 });
+      const live = subscriptions.data.filter(s => !["canceled", "incomplete_expired", "unpaid"].includes(s.status) && planForPriceId(s.items.data[0]?.price.id ?? ""));
+      if (live.length > 1 || subscriptions.has_more) throw new Error("Subscription history needs review before another charge.");
+      subscriptionId = live[0]?.id ?? "";
+    }
     if (subscriptionId) {
       const existing = await stripe.subscriptions.retrieve(subscriptionId);
+      if (existing.status === "active" && existing.items.data[0]?.price.id === priceId && user.stripeSubscriptionId === existing.id && user.plan === targetPlan) return NextResponse.json({ success: true });
       const itemId = existing.items.data[0]?.id;
       if (!itemId) {
         return NextResponse.json({ error: "Existing subscription has no items." }, { status: 500 });
@@ -51,6 +60,7 @@ export async function POST(req: Request) {
       await stripe.subscriptions.update(subscriptionId, {
         items: [{ id: itemId, price: priceId }],
         proration_behavior: "create_prorations",
+        payment_behavior: "error_if_incomplete",
         // If they're mid-trial, upgrading tiers ends the trial immediately
         // (an upgrade is a deliberate paid commitment) — otherwise omit so
         // Stripe doesn't touch an already-converted subscription's billing.
@@ -67,7 +77,9 @@ export async function POST(req: Request) {
         customer: user.stripeCustomerId,
         items: [{ price: priceId }],
         default_payment_method: user.stripePaymentMethodId,
-      });
+        payment_behavior: "error_if_incomplete",
+        metadata: { firebaseUid: uid },
+      }, { idempotencyKey: `bookworm-subscription-${uid}-${user.previousSubscriptionId ?? "initial"}-${targetPlan}` });
       subscriptionId = created.id;
     }
 
@@ -75,8 +87,7 @@ export async function POST(req: Request) {
       plan: targetPlan,
       trialStatus: "converted",
       stripeSubscriptionId: subscriptionId,
-      generationsThisMonth: 0,
-      monthResetAt: oneMonthFromNow(),
+      // Mid-period switches preserve usage; only a paid renewal resets it.
       // Choosing a plan calls off any pending Book Club deletion. Harmless for
       // everyone else — they never had one set.
       bookClubRemovedAt: null,
@@ -84,7 +95,7 @@ export async function POST(req: Request) {
     };
 
     if (targetPlan === "book_club" && !user.familyId) {
-      const familyRef = db.collection("families").doc();
+      const familyRef = db.collection("families").doc(subscriptionId);
       await familyRef.set({
         ownerId: uid,
         stripeCustomerId: user.stripeCustomerId,
@@ -121,4 +132,12 @@ export async function POST(req: Request) {
     console.error("upgrade failed:", error);
     return NextResponse.json({ error: error.message || "Could not upgrade plan." }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

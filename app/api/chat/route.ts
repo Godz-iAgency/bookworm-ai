@@ -1,3 +1,4 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { generateGeminiContent } from "@/lib/gemini";
 import { stripEmDashes } from "@/lib/lesson";
@@ -5,6 +6,8 @@ import { STYLE_RULES } from "@/lib/course-prompts";
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "chat");
+    if (denied) return denied;
     const { title, author, message, lesson, dayTitle, dayNumber } = await req.json();
 
     const prompt = message;
@@ -19,6 +22,8 @@ export async function POST(req: Request) {
 
     const response = await generateGeminiContent(prompt, systemPrompt, false);
 
+    const revoked = await guardAI(req, "chat", false);
+    if (revoked) return revoked;
     return NextResponse.json({ reply: stripEmDashes(response) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

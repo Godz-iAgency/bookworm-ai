@@ -25,18 +25,22 @@ export async function POST(req: Request) {
     const club = await requireClub(db, uid);
 
     const shareRef = db.collection("families").doc(club.familyId).collection("sharedBooks").doc(shareId);
-    const shareSnap = await shareRef.get();
+    await db.runTransaction(async tx => {
+    const family = (await tx.get(db.collection("families").doc(club.familyId))).data();
+    if (family?.status !== "active" || !family.memberIds?.includes(uid)) throw clubError(403, "Membership changed.");
+    const shareSnap = await tx.get(shareRef);
     if (!shareSnap.exists) {
       // Already gone is the state the caller wanted. Saying so as an error
       // would only ever strand a screen that is already correct.
-      return NextResponse.json({ success: true });
+      return;
     }
     if (shareSnap.data()!.sharedByUid !== uid) {
       throw clubError(403, "Only the reader who shared this book can remove it.");
     }
 
-    await shareRef.delete();
-    await deleteSharedCopies(db, club.memberIds, [shareId]);
+    tx.delete(shareRef);
+    for (const memberId of family.memberIds) tx.delete(db.collection("users").doc(memberId).collection("courses").doc(shareId));
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase/config';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase/config';
+import { collection, getDocs, doc, setDoc, deleteDoc, runTransaction, onSnapshot } from 'firebase/firestore';
 import type { SharedFrom } from './book-club';
 
 export interface Book {
@@ -122,7 +122,11 @@ function isUsableCourse(value: unknown): value is Course {
     c.id.length > 0 &&
     typeof c.book === 'object' &&
     c.book !== null &&
-    Array.isArray(c.days) &&
+    typeof c.book.title === 'string' && typeof c.book.author === 'string' &&
+    Array.isArray(c.days) && c.days.length === 7 && c.days.every((d, i) =>
+      d && d.dayNumber === i + 1 && typeof d.title === 'string' && typeof d.lesson === 'string' &&
+      Array.isArray(d.flashcards) && d.flashcards.every(card => card && typeof card.front === 'string' && typeof card.back === 'string') &&
+      Array.isArray(d.chatSeed) && d.chatSeed.every(seed => typeof seed === 'string')) &&
     typeof c.expiresAt === 'string' &&
     !Number.isNaN(new Date(c.expiresAt).getTime())
   );
@@ -134,6 +138,8 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   const [currentBook, setCurrentBook] = useState<Book | null>(null);
   const [currentReadingLevel, setCurrentReadingLevel] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
+  const saved = useRef(new Map<string, Course>());
+  const saveQueue = useRef(Promise.resolve());
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
 
   // The uid whose courses currently live in `courses`. Persistence only writes
@@ -158,6 +164,9 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     // Immediately drop any previous account's courses and block persistence
     // until THIS user's courses have loaded.
     setHydratedUid(null);
+    saved.current.clear();
+    setCurrentBook(null);
+    setCurrentReadingLevel(null);
     setCourses([]);
     setActiveCourseId(null);
     (async () => {
@@ -171,7 +180,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         // still-active courses populate the shelf.
         const now = Date.now();
         const active: Course[] = [];
-        for (const raw of snap.docs.map((d) => d.data())) {
+        for (const raw of snap.docs.map((d) => ({ ...d.data(), id: d.id }))) {
           if (!isUsableCourse(raw)) {
             // Left in Firestore rather than deleted: skipping costs nothing,
             // and destroying a reader's book on a shape guess cannot be undone
@@ -189,6 +198,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
           }
         }
         if (cancelled) return;
+        saved.current = new Map(active.map(c => [c.id, c]));
         setCourses(active);
       } catch (err) {
         console.error('Failed to load courses:', err);
@@ -218,11 +228,50 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         console.error('Refusing to save a malformed course:', course);
         continue;
       }
-      setDoc(doc(db, 'users', user.uid, 'courses', course.id), course).catch((err) =>
-        console.error('Failed to save course:', course.id, err)
-      );
+      const before = saved.current.get(course.id);
+      if (before === course) continue;
+      saved.current.set(course.id, course);
+      const uid = user.uid;
+      saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
+        if (auth.currentUser?.uid !== uid) return;
+        await runTransaction(db, async tx => {
+          const ref = doc(db, 'users', uid, 'courses', course.id);
+          const snapshot = await tx.get(ref);
+          // A remotely deleted copy/course must never be resurrected by autosave.
+          if (!snapshot.exists() && before) return;
+          if (!snapshot.exists()) { tx.set(ref, course); return; }
+          const remote = snapshot.data() as Course;
+          const days = remote.days.map(d => {
+            const incoming = course.days.find(n => n.dayNumber === d.dayNumber);
+            if (!incoming) return d;
+            return { ...d, lesson: d.lesson || incoming.lesson,
+              flashcards: d.flashcards?.length ? d.flashcards : incoming.flashcards,
+              chatSeed: d.chatSeed?.length ? d.chatSeed : incoming.chatSeed,
+              closingAxiom: d.closingAxiom || incoming.closingAxiom || '',
+              isCompleted: d.isCompleted || incoming.isCompleted,
+              isUnlocked: d.isUnlocked || incoming.isUnlocked,
+              committedActions: JSON.stringify(incoming.committedActions) !== JSON.stringify(before?.days.find(old => old.dayNumber === d.dayNumber)?.committedActions) ? incoming.committedActions ?? [] : d.committedActions ?? [],
+            };
+          });
+          tx.update(ref, { days, status: days.every(d => d.isCompleted) ? 'completed' : remote.status,
+            ...(course.activeDayNumber !== before?.activeDayNumber && course.activeDayNumber ? { activeDayNumber: course.activeDayNumber } : {}) });
+        });
+      }).catch(err => { saved.current.delete(course.id); console.error('Failed to save course:', course.id, err); });
     }
   }, [courses, hydratedUid, user]);
+
+  useEffect(() => {
+    if (!user || hydratedUid !== user.uid) return;
+    return onSnapshot(collection(db, 'users', user.uid, 'courses'), snapshot => {
+      if (snapshot.metadata.hasPendingWrites) return;
+      for (const change of snapshot.docChanges()) {
+        if (change.type === 'removed') {
+          saved.current.delete(change.doc.id);
+          setCourses(prev => prev.filter(c => c.id !== change.doc.id));
+        }
+      }
+    }, error => console.error('Shelf subscription failed:', error));
+  }, [user, hydratedUid]);
 
   const coursesLoading = authLoading || (!!user && hydratedUid !== user.uid);
 
@@ -232,9 +281,9 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     // An empty path segment is the same synchronous Firestore throw as above.
     if (!courseId) return;
     if (user) {
-      await deleteDoc(doc(db, 'users', user.uid, 'courses', courseId)).catch((err) =>
-        console.error('Failed to delete course:', courseId, err)
-      );
+      await saveQueue.current;
+      await deleteDoc(doc(db, 'users', user.uid, 'courses', courseId));
+      saved.current.delete(courseId);
     }
     setCourses((prev) => prev.filter((c) => c.id !== courseId));
     setActiveCourseId((prev) => (prev === courseId ? null : prev));

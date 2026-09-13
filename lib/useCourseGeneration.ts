@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { doc, updateDoc, increment } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext, type Book } from "@/lib/BookwormContext";
 import { generateCourseDays, buildCourse } from "@/lib/generate-course";
@@ -14,6 +14,7 @@ import {
   effectiveMaxOpenBooks,
   isBillingEnabled,
 } from "@/lib/billing";
+import { postAuthed } from "@/lib/api-client";
 import { personalCourses } from "@/lib/book-club";
 
 export const GENERATION_STEPS = [
@@ -39,6 +40,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 export function useCourseGeneration() {
   const router = useRouter();
+  const running = useRef(false);
   const { user } = useAuth();
   const { courses, setCourses, setActiveCourseId, setCurrentReadingLevel } = useBookwormContext();
 
@@ -48,7 +50,9 @@ export function useCourseGeneration() {
 
   const start = useCallback(
     async (book: Book, readingLevel: string) => {
-      if (!user) return;
+      if (!user || running.current) return;
+      running.current = true;
+      try {
       setError(null);
 
       // Remember the level for this session (the soft gate reads it) and
@@ -115,6 +119,8 @@ export function useCourseGeneration() {
 
       const result = await genTask;
 
+      if (auth.currentUser?.uid !== user.uid) return;
+
       if ("error" in result) {
         console.error("Generation error:", result.error);
         setError("We couldn't build your course right now. Please try again in a moment.");
@@ -127,16 +133,20 @@ export function useCourseGeneration() {
         readingLevel,
         result.days,
         result.thesis,
-        result.frameworks
+        result.frameworks,
+        result.generationId
       );
+      const saved = await postAuthed<{ error?: string }>("/api/course/save", { course: newCourse });
+      if (saved.error) { setError(saved.error); return; }
+      if (auth.currentUser?.uid !== user.uid) return;
       setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
 
-      updateDoc(doc(db, "users", user.uid), {
-        generationsThisMonth: increment(1),
-      }).catch((e) => console.error("Could not update generation count:", e));
-
       router.push("/dashboard");
+      } catch (e) {
+        console.error("Course creation failed:", e);
+        setError("We couldn't build your course right now. Please try again in a moment.");
+      } finally { running.current = false; setIsGenerating(false); }
     },
     [user, courses, setCourses, setActiveCourseId, setCurrentReadingLevel, router]
   );

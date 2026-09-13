@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
 import { AlertTriangle, Check, Loader2 } from "lucide-react";
@@ -27,7 +27,7 @@ import { postAuthed } from "@/lib/api-client";
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
 export default function DeleteAccountPage() {
-  const { user, loading, signInWithEmail, signInWithGoogle, logout } = useAuth();
+  const { user, loading, signInWithEmail, signInWithGoogle, logout, redirectError } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +36,8 @@ export default function DeleteAccountPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { if (redirectError) setError(redirectError); }, [redirectError]);
 
   const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -239,6 +241,7 @@ export default function DeleteAccountPage() {
                     {signingIn ? "Signing in..." : "Sign in"}
                   </button>
                 </form>
+                <Link href="/login" className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline">Forgot password?</Link>
 
                 <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-wide text-white/30">
                   <span className="h-px flex-1 bg-white/10" />

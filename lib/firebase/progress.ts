@@ -58,10 +58,10 @@ export function currentStreak(progress: UserProgress, now: Date): number {
 /** Read a normalized progress object, filling any missing fields with defaults. */
 function readProgress(data: Record<string, unknown> | undefined): UserProgress {
   return {
-    streakCount: (data?.streakCount as number) ?? 0,
-    lastActivityDate: (data?.lastActivityDate as string) ?? null,
-    booksFinished: (data?.booksFinished as number) ?? 0,
-    badges: (data?.badges as string[]) ?? [],
+    streakCount: typeof data?.streakCount === "number" && Number.isFinite(data.streakCount) ? Math.max(0, data.streakCount) : 0,
+    lastActivityDate: typeof data?.lastActivityDate === "string" ? data.lastActivityDate : null,
+    booksFinished: typeof data?.booksFinished === "number" && Number.isFinite(data.booksFinished) ? Math.max(0, data.booksFinished) : 0,
+    badges: Array.isArray(data?.badges) ? data.badges.filter((v): v is string => typeof v === "string") : [],
   };
 }
 
@@ -72,6 +72,7 @@ export async function getUserProgress(uid: string): Promise<UserProgress> {
 
 /** The shape computeBackfill needs from a course — a subset of Course. */
 interface BackfillCourse {
+  id?: string;
   days: { dayNumber: number; isCompleted: boolean }[];
 }
 
@@ -108,12 +109,14 @@ export function computeBackfill(progress: UserProgress, courses: BackfillCourse[
 }
 
 /** Persist just the derived fields (badges + booksFinished) from a backfill. */
-export async function persistBackfill(uid: string, progress: UserProgress): Promise<void> {
-  await setDoc(
-    doc(db, "users", uid),
-    { badges: progress.badges, booksFinished: progress.booksFinished },
-    { merge: true },
-  );
+export async function persistBackfill(uid: string, progress: UserProgress, courses: BackfillCourse[] = []): Promise<void> {
+  const ref = doc(db, "users", uid);
+  await runTransaction(db, async tx => {
+    const data = (await tx.get(ref)).data();
+    const current = readProgress(data);
+    const finishedCourseIds = [...new Set([...(Array.isArray(data?.finishedCourseIds) ? data.finishedCourseIds : []), ...courses.filter(c => c.id && c.days.length === 7 && c.days.every(d => d.isCompleted)).map(c => c.id!)])];
+    tx.set(ref, { finishedCourseIds, badges: [...new Set([...current.badges, ...progress.badges])], booksFinished: Math.max(current.booksFinished, progress.booksFinished) }, { merge: true });
+  });
 }
 
 /**
@@ -123,7 +126,7 @@ export async function persistBackfill(uid: string, progress: UserProgress): Prom
  */
 export async function recordDayCompletion(
   uid: string,
-  opts: { dayLevel: number; finishedBook: boolean },
+  opts: { courseId: string; dayLevel: number; finishedBook: boolean },
 ): Promise<UserProgress> {
   const ref = doc(db, "users", uid);
   const now = new Date();
@@ -133,6 +136,15 @@ export async function recordDayCompletion(
   return runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const prev = readProgress(snap.exists() ? snap.data() : undefined);
+
+    const courseRef = doc(db, "users", uid, "courses", opts.courseId);
+    const course = (await tx.get(courseRef)).data();
+    if (!course || !Array.isArray(course.days)) throw new Error("Course unavailable.");
+    const days = course.days.map((d: any) => d.dayNumber === opts.dayLevel ? { ...d, isCompleted: true } : d.dayNumber === opts.dayLevel + 1 ? { ...d, isUnlocked: true } : d);
+    const finishedBook = days.length === 7 && days.every((d: any) => d.isCompleted);
+    const key = `${opts.courseId}:${opts.dayLevel}`;
+    const completions: string[] = Array.isArray(snap.data()?.completedCourseDays) ? snap.data()!.completedCourseDays : [];
+    if (completions.includes(key)) return prev;
 
     // Streak: unchanged if already counted today, +1 if the last day was
     // yesterday, otherwise it resets to 1 (today starts a fresh streak).
@@ -145,13 +157,14 @@ export async function recordDayCompletion(
       streakCount = 1;
     }
 
-    const booksFinished = prev.booksFinished + (opts.finishedBook ? 1 : 0);
+    const finishedCourseIds: string[] = Array.isArray(snap.data()?.finishedCourseIds) ? snap.data()!.finishedCourseIds : [];
+    const booksFinished = prev.booksFinished + (finishedBook && !finishedCourseIds.includes(opts.courseId) ? 1 : 0);
 
     // Badges — earned once, never removed.
     const badges = new Set(prev.badges);
     badges.add("first_steps"); // any completion means Day 1 is done
     if (opts.dayLevel >= 4) badges.add("halfway");
-    if (opts.finishedBook) badges.add("book_finished");
+    if (finishedBook) badges.add("book_finished");
     if (booksFinished >= 3) badges.add("bookworm");
     if (streakCount >= 3) badges.add("on_fire");
 
@@ -162,7 +175,8 @@ export async function recordDayCompletion(
       badges: [...badges],
     };
 
-    tx.set(ref, next, { merge: true });
+    tx.update(courseRef, { days, status: finishedBook ? "completed" : course.status });
+    tx.set(ref, { ...next, finishedCourseIds: finishedBook ? [...new Set([...finishedCourseIds, opts.courseId])] : finishedCourseIds, completedCourseDays: [...completions, key] }, { merge: true });
     return next;
   });
 }

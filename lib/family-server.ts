@@ -115,33 +115,23 @@ export async function deleteSharedCopies(
  */
 export async function dissolveClub(db: Firestore, familyId: string, exceptUid: string): Promise<void> {
   const familyRef = db.collection("families").doc(familyId);
-  const [famSnap, shares] = await Promise.all([
-    familyRef.get(),
-    familyRef.collection("sharedBooks").get(),
-  ]);
-  if (!famSnap.exists) return;
-
-  const memberIds: string[] = famSnap.data()!.memberIds ?? [];
-  const shareIds = shares.docs.map((d) => d.id);
-
-  await familyRef.update({ status: "cancelled", cancelledAt: FieldValue.serverTimestamp() });
-
-  const batch = db.batch();
-  for (const doc of shares.docs) batch.delete(doc.ref);
-  for (const memberId of memberIds) {
-    for (const shareId of shareIds) {
-      batch.delete(db.collection("users").doc(memberId).collection("courses").doc(shareId));
+  // The family document serializes this with share/open/join/remove.
+  await db.runTransaction(async tx => {
+    const famSnap = await tx.get(familyRef);
+    if (!famSnap.exists) return;
+    const shares = await tx.get(familyRef.collection("sharedBooks"));
+    const invites = await tx.get(db.collection("invites").where("familyId", "==", familyId));
+    const ids: string[] = famSnap.data()!.memberIds ?? [];
+    const members = [];
+    for (const id of ids) members.push(await tx.get(db.collection("users").doc(id)));
+    tx.update(familyRef, { status: "cancelled", cancelledAt: FieldValue.serverTimestamp() });
+    for (const share of shares.docs) {
+      tx.delete(share.ref);
+      for (const id of ids) tx.delete(db.collection("users").doc(id).collection("courses").doc(share.id));
     }
-    if (memberId === exceptUid) continue;
-    batch.update(db.collection("users").doc(memberId), { familyId: null, isFamilyOwner: false });
-  }
-  await batch.commit();
-
-  // Unredeemed invites to a club that no longer exists.
-  const invites = await db.collection("invites").where("familyId", "==", familyId).get();
-  if (!invites.empty) {
-    const inviteBatch = db.batch();
-    for (const doc of invites.docs) inviteBatch.delete(doc.ref);
-    await inviteBatch.commit();
-  }
+    for (const member of members) {
+      if (member.exists && member.id !== exceptUid && member.data()?.familyId === familyId) tx.update(member.ref, { familyId: null, isFamilyOwner: false });
+    }
+    for (const invite of invites.docs) tx.delete(invite.ref);
+  });
 }

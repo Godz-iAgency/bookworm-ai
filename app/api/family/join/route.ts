@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -6,14 +7,14 @@ import { planFromId } from "@/lib/plans";
 const BOOK_CLUB_MAX_MEMBERS = planFromId("book_club").maxMembers ?? 4;
 
 /** Redeems a Book Club invite code, adding the joining user to the family. */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
       return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
     }
     const { code } = await req.json();
-    if (!code) {
+    if (typeof code !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(code)) {
       return NextResponse.json({ error: "Missing code." }, { status: 400 });
     }
 
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
       }
 
       tx.update(familyRef, { memberIds: FieldValue.arrayUnion(uid) });
-      tx.update(userRef, { familyId: invite.familyId, isFamilyOwner: false });
+      tx.update(userRef, { familyId: invite.familyId, isFamilyOwner: false, bookClubDeleteAt: null, bookClubRemovedAt: null });
       tx.update(inviteRef, { usedByUid: uid, usedAt: new Date().toISOString() });
     });
 
@@ -73,4 +74,12 @@ export async function POST(req: Request) {
     if (status === 500) console.error("family join failed:", error);
     return NextResponse.json({ error: error.message || "Could not join Book Club." }, { status });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

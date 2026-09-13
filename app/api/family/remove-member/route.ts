@@ -45,49 +45,27 @@ export async function POST(req: Request) {
       throw clubError(404, "That reader isn't in your Book Club.");
     }
 
-    const sharesRef = db.collection("families").doc(club.familyId).collection("sharedBooks");
-    const [allShares, memberSnap] = await Promise.all([
-      sharesRef.get(),
-      db.collection("users").doc(memberUid).get(),
-    ]);
-
-    const allShareIds = allShares.docs.map((d) => d.id);
-    const theirShareIds = allShares.docs.filter((d) => d.data().sharedByUid === memberUid).map((d) => d.id);
-    const remainingMembers = club.memberIds.filter((id) => id !== memberUid);
-
-    // Their shares leave the club entirely.
-    if (theirShareIds.length > 0) {
-      const batch = db.batch();
-      for (const shareId of theirShareIds) batch.delete(sharesRef.doc(shareId));
-      await batch.commit();
-    }
-
-    await Promise.all([
-      // Everyone else loses their copies of the books this member shared.
-      deleteSharedCopies(db, remainingMembers, theirShareIds),
-      // And they lose their copies of everything the club shared.
-      deleteSharedCopies(db, [memberUid], allShareIds),
-    ]);
-
-    const member = memberSnap.data() ?? {};
-    const keepsOwnAccess =
-      member.trialStatus === "active" || (!!member.plan && member.plan !== "free");
-
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + CONVERSION_WINDOW_DAYS);
-
-    await db.collection("families").doc(club.familyId).update({
-      memberIds: FieldValue.arrayRemove(memberUid),
-    });
-    await db
-      .collection("users")
-      .doc(memberUid)
-      .update({
-        familyId: null,
-        isFamilyOwner: false,
+    await db.runTransaction(async tx => {
+      const familyRef = db.collection("families").doc(club.familyId);
+      const family = (await tx.get(familyRef)).data();
+      if (family?.ownerId !== uid || family.status !== "active") throw clubError(403, "Membership changed.");
+      const memberRef = db.collection("users").doc(memberUid);
+      const member = (await tx.get(memberRef)).data();
+      if (!family.memberIds.includes(memberUid) || member?.familyId !== club.familyId) return;
+      const shares = await tx.get(familyRef.collection("sharedBooks"));
+      const keepsOwnAccess = !!member.accessOverride || !!member.stripeSubscriptionId || member.trialStatus === "active" || (!!member.plan && member.plan !== "free");
+      for (const share of shares.docs) {
+        tx.delete(memberRef.collection("courses").doc(share.id));
+        if (share.data().sharedByUid === memberUid) {
+          tx.delete(share.ref);
+          for (const id of family.memberIds) tx.delete(db.collection("users").doc(id).collection("courses").doc(share.id));
+        }
+      }
+      tx.update(familyRef, { memberIds: FieldValue.arrayRemove(memberUid) });
+      tx.update(memberRef, { familyId: null, isFamilyOwner: false,
         bookClubRemovedAt: new Date().toISOString(),
-        bookClubDeleteAt: keepsOwnAccess ? null : deadline.toISOString(),
-      });
+        bookClubDeleteAt: keepsOwnAccess ? null : new Date(Date.now() + CONVERSION_WINDOW_DAYS * 86400000).toISOString() });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

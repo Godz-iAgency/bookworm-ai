@@ -98,27 +98,8 @@ const STOP_WORDS = new Set([
  * distinctive words actually appear.
  */
 export function titlesMatch(requested: string, returned: string | undefined): boolean {
-  const want = normalizeTitle(requested);
-  const got = normalizeTitle(returned ?? "");
-  if (!want || !got) return false;
-
-  // Anchored at a word boundary, at one end or the other. A title is either
-  // the head of what came back ("Influence" -> "Influence: The Psychology of
-  // Persuasion") or its tail ("Money" -> "The Psychology of Money"). Loose
-  // containment would also accept "Grit" for "The Grit Factor", which is a
-  // different book that merely uses the word.
-  const heads = (hay: string, needle: string) => hay === needle || hay.startsWith(`${needle} `);
-  const tails = (hay: string, needle: string) => hay === needle || hay.endsWith(` ${needle}`);
-  if (heads(got, want) || heads(want, got)) return true;
-  if (tails(got, want) || tails(want, got)) return true;
-
-  // Otherwise, most of the distinctive words should be present, for reorderings
-  // and edition noise the anchors miss. Needs at least two such words to mean
-  // anything: for a one-word title this would match every book containing that
-  // word, which is exactly what the anchors above just ruled out.
-  const distinctive = want.split(" ").filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-  if (distinctive.length < 2) return false;
-  const gotWords = new Set(got.split(" "));
-  const hits = distinctive.filter((w) => gotWords.has(w)).length;
-  return hits / distinctive.length >= 0.7;
+  const main = (value: string) => normalizeTitle(value.split(/[:：]/)[0]);
+  const want = main(requested);
+  const got = main(returned ?? "");
+  return !!want && want === got;
 }

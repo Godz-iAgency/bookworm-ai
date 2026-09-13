@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
+import { validOutline } from "@/lib/course-validation";
+import { guardAI, aiAdmissions } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { buildOutlineMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
@@ -8,6 +12,8 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "course");
+    if (denied) return denied;
     const { title, author, readingLevel } = await req.json();
     if (!title) {
       return NextResponse.json({ error: "Missing book title." }, { status: 400 });
@@ -23,10 +29,21 @@ export async function POST(req: Request) {
       if (typeof days[0]?.lesson !== "string" || !days[0].lesson.trim()) {
         return "Outline returned no Day 1 lesson.";
       }
-      return null;
+      return validOutline(p) ? null : "Outline response is incomplete.";
     });
 
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Access revoked." }, { status: 403 });
+    const generationId = randomUUID();
+    const db = getAdminDb();
+    await db.runTransaction(async tx => {
+      const ref = db.collection("users").doc(uid);
+      const profile = (await tx.get(ref)).data();
+      if (!profile || profile.accessOverride?.active === false || profile.deletionPending) throw new Error("Access revoked.");
+      tx.create(ref.collection("generatedCourses").doc(generationId), { title, author: author ?? "", readingLevel: readingLevel ?? "", createdAt: new Date().toISOString(), consumed: false, charged: aiAdmissions.get(req) === true });
+    });
     return NextResponse.json({
+      generationId,
       days: parsed.days,
       familiar: parsed.familiar !== false,
       // Carried through to the client and stored on the course, so days 2-7 are

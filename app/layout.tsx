@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { GeistMono } from "geist/font/mono"
 import { Caveat, Nunito, Lora } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { PrivateAnalytics } from "@/components/private-analytics"
 
 // Warm handwritten display font, used only for the personal Home greeting.
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", weight: ["500", "600", "700"] })
@@ -58,7 +58,7 @@ export default function RootLayout({
           <BookwormProvider>
             <Suspense fallback={<div>Loading...</div>}>
             {children}
-            <Analytics />
+            <PrivateAnalytics />
           </Suspense>
           <ServiceWorkerRegister />
           </BookwormProvider>

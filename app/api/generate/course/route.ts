@@ -1,8 +1,11 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { generateGeminiContent } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "course");
+    if (denied) return denied;
     const { title, author, readingLevel } = await req.json();
 
     const prompt = `You are an expert course designer. Generate a 7-day learning course for the book '${title}' by '${author}' for a ${readingLevel} reader. The depth and vocabulary of the course should perfectly match the ${readingLevel} reading level. For each day provide: a day title, 3-4 key concepts, exactly 1000 words of lesson content for the previewText, and 2 reflection questions. Return as JSON.`;
@@ -28,6 +31,8 @@ DO NOT wrap the response in markdown \`\`\`json blocks.`;
     const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const data = JSON.parse(cleanJson);
 
+    const revoked = await guardAI(req, "course", false);
+    if (revoked) return revoked;
     return NextResponse.json(data);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

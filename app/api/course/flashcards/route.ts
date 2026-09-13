@@ -1,3 +1,5 @@
+import { validDeck } from "@/lib/course-validation";
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { buildFlashcardsMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
@@ -14,6 +16,8 @@ export const maxDuration = 60;
  */
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "study");
+    if (denied) return denied;
     const { title, author, readingLevel, dayNumber, dayTitle, lesson } = await req.json();
     if (!title || !dayNumber || !lesson) {
       return NextResponse.json({ error: "Missing day details." }, { status: 400 });
@@ -28,7 +32,10 @@ export async function POST(req: Request) {
       lesson
     );
 
-    const parsed = await generateJson(user, system, 2048);
+    const parsed = await generateJson(user, system, 2048, 3, (value) =>
+      validDeck(value?.flashcards) && Array.isArray(value?.chatSeed) && value.chatSeed.length === 3 && value.chatSeed.every((s: any) => typeof s === "string" && s.trim()) && typeof value?.closingAxiom === "string" && value.closingAxiom.trim()
+        ? null : "Flashcard repair returned incomplete content."
+    );
 
     const flashcards = Array.isArray(parsed?.flashcards)
       ? parsed.flashcards
@@ -41,6 +48,8 @@ export async function POST(req: Request) {
       throw new Error("Flashcard generation returned no usable cards.");
     }
 
+    const revoked = await guardAI(req, "study", false);
+    if (revoked) return revoked;
     return NextResponse.json({
       flashcards,
       chatSeed: Array.isArray(parsed?.chatSeed)

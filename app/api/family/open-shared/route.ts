@@ -28,21 +28,26 @@ export async function POST(req: Request) {
     const db = getAdminDb();
     const club = await requireClub(db, uid);
 
-    const shareSnap = await db
+    const result = await db.runTransaction(async tx => {
+    const familyRef = db.collection("families").doc(club.familyId);
+    const family = (await tx.get(familyRef)).data();
+    const member = (await tx.get(db.collection("users").doc(uid))).data();
+    if (family?.status !== "active" || !family.memberIds?.includes(uid) || member?.familyId !== club.familyId) throw clubError(403, "Membership changed.");
+    const shareSnap = await tx.get(db
       .collection("families")
       .doc(club.familyId)
       .collection("sharedBooks")
-      .doc(shareId)
-      .get();
+      .doc(shareId));
     if (!shareSnap.exists) throw clubError(404, "That book is no longer shared with your Book Club.");
     const share = shareSnap.data()!;
     if (new Date(share.expiresAt).getTime() <= Date.now()) {
       throw clubError(400, "That book has expired.");
     }
 
-    const existing = await db.collection("users").doc(uid).collection("courses").doc(shareId).get();
+    const copyRef = db.collection("users").doc(uid).collection("courses").doc(shareId);
+    const existing = await tx.get(copyRef);
     if (existing.exists) {
-      return NextResponse.json({ course: existing.data(), resumed: true });
+      return { course: existing.data(), resumed: true };
     }
 
     const course = {
@@ -62,7 +67,10 @@ export async function POST(req: Request) {
       },
     };
 
-    return NextResponse.json({ course, resumed: false });
+    tx.create(copyRef, course);
+    return { course, resumed: false };
+    });
+    return NextResponse.json(result);
   } catch (error: any) {
     const status = statusOf(error);
     if (status === 500) console.error("open shared book failed:", error);

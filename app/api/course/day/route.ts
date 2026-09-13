@@ -1,3 +1,5 @@
+import { validLesson } from "@/lib/course-validation";
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { buildDayMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
@@ -7,6 +9,8 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "study");
+    if (denied) return denied;
     const { title, author, readingLevel, dayNumber, dayTitle, allTitles, thesis, frameworks, keyIdeas } =
       await req.json();
     if (!title || !dayNumber || !dayTitle) {
@@ -26,10 +30,12 @@ export async function POST(req: Request) {
     );
 
     const parsed = await generateJson(user, system, 8192, 3, (p) =>
-      typeof p?.lesson === "string" && p.lesson.trim() ? null : "Day generation returned no lesson."
+      validLesson(p) ? null : "Day generation returned no lesson."
     );
 
     // The prompt asks for no em dashes; this is what actually guarantees it.
+    const revoked = await guardAI(req, "study", false);
+    if (revoked) return revoked;
     return NextResponse.json({
       lesson: stripEmDashes(parsed.lesson),
       flashcards: Array.isArray(parsed.flashcards)

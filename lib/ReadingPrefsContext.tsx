@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getUserProfile, updateUserProfile } from "./firebase/profile";
 import {
@@ -34,6 +34,8 @@ const LS_KEY = "bookworm_reading_prefs";
 
 export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const revision = useRef(0);
+  const storageKey = `${LS_KEY}_${user?.uid ?? "guest"}`;
   const [fontSize, setFontSizeState] = useState<ReadingFontSize>(DEFAULT_FONT_SIZE);
   const [readingMode, setReadingModeState] = useState<ReadingMode>(DEFAULT_READING_MODE);
 
@@ -42,7 +44,9 @@ export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
   // would produce a hydration mismatch.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(LS_KEY);
+      setFontSizeState(DEFAULT_FONT_SIZE);
+      setReadingModeState(DEFAULT_READING_MODE);
+      const raw = localStorage.getItem(storageKey);
       if (!raw) return;
       const cached = JSON.parse(raw);
       setFontSizeState(coerceFontSize(cached.fontSize));
@@ -50,15 +54,16 @@ export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
     } catch {
       // Corrupt or unavailable storage just means we start at the defaults.
     }
-  }, []);
+  }, [storageKey]);
 
   // Then the authoritative copy from the reader's profile.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    const started = revision.current;
     getUserProfile(user.uid)
       .then((profile) => {
-        if (cancelled || !profile) return;
+        if (cancelled || !profile || started !== revision.current) return;
         if (profile.readingFontSize) setFontSizeState(coerceFontSize(profile.readingFontSize));
         if (profile.readingMode) setReadingModeState(coerceReadingMode(profile.readingMode));
       })
@@ -70,11 +75,12 @@ export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
 
   const persist = useCallback(
     (patch: { readingFontSize?: string; readingMode?: string }) => {
+      revision.current++;
       try {
-        const raw = localStorage.getItem(LS_KEY);
+        const raw = localStorage.getItem(storageKey);
         const cached = raw ? JSON.parse(raw) : {};
         localStorage.setItem(
-          LS_KEY,
+          storageKey,
           JSON.stringify({
             fontSize: patch.readingFontSize ?? cached.fontSize,
             readingMode: patch.readingMode ?? cached.readingMode,
@@ -88,7 +94,7 @@ export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
         console.error("Failed to save reading preferences:", e)
       );
     },
-    [user]
+    [user, storageKey]
   );
 
   const setFontSize = useCallback(

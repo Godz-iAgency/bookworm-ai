@@ -1,3 +1,4 @@
+import { providerSignal } from "./generation-budget";
 import { generateGroqContent } from "./groq";
 
 /** An inline image attached to a Gemini call, base64-encoded with no data-URL prefix. */
@@ -51,6 +52,7 @@ async function callGemini(
 
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: "POST",
+    signal: providerSignal(),
     headers: {
       "Content-Type": "application/json"
     },

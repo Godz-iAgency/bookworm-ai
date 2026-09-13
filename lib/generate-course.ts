@@ -1,5 +1,6 @@
 "use client";
 
+import { aiFetch } from "@/lib/ai-fetch";
 import type { Book, Course, Day } from "./BookwormContext";
 
 /**
@@ -10,6 +11,7 @@ import type { Book, Course, Day } from "./BookwormContext";
  */
 export interface GeneratedCourse {
   days: Day[];
+  generationId?: string;
   /** The outline's reading of the book, stored so later days inherit it. */
   thesis: string;
   frameworks: string[];
@@ -21,7 +23,7 @@ export async function generateCourseDays(
   readingLevel: string,
 ): Promise<GeneratedCourse | { error: string }> {
   try {
-    const res = await fetch("/api/course/generate", {
+    const res = await aiFetch("/api/course/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, author, readingLevel }),
@@ -52,6 +54,7 @@ export async function generateCourseDays(
 
     return {
       days,
+      generationId: data.generationId,
       thesis: typeof data.thesis === "string" ? data.thesis : "",
       frameworks: Array.isArray(data.frameworks) ? data.frameworks : [],
     };
@@ -65,12 +68,13 @@ export function buildCourse(
   readingLevel: string,
   days: Day[],
   thesis = "",
-  frameworks: string[] = []
+  frameworks: string[] = [],
+  generationId?: string
 ): Course {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 8);
   return {
-    id: Math.random().toString(36).slice(2, 11),
+    id: generationId ?? crypto.randomUUID(),
     book,
     readingLevel,
     status: "active",

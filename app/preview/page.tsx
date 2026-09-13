@@ -17,7 +17,7 @@ import { READING_LEVELS } from "@/lib/reading-levels";
 import { parseLesson } from "@/lib/lesson";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
 import { getBillingProfile, hasActiveAccess, isBillingEnabled } from "@/lib/billing";
-import { db } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
 import { doc, updateDoc, increment } from "firebase/firestore";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -40,7 +40,7 @@ export default function PreviewPage() {
    * does. Without it, a reader's very first book would be the one course whose
    * later days had nothing to write from.
    */
-  const [outline, setOutline] = useState<{ thesis: string; frameworks: string[] }>({
+  const [outline, setOutline] = useState<{ thesis: string; frameworks: string[]; generationId?: string }>({
     thesis: "",
     frameworks: [],
   });
@@ -111,7 +111,7 @@ export default function PreviewPage() {
         setGenError(result.error);
       } else {
         setDays(result.days);
-        setOutline({ thesis: result.thesis, frameworks: result.frameworks });
+        setOutline({ thesis: result.thesis, frameworks: result.frameworks, generationId: result.generationId });
       }
     })();
 
@@ -123,9 +123,10 @@ export default function PreviewPage() {
   // The course is only ever saved once, whether that's the card form finishing
   // or the already-subscribed shortcut below firing first.
   const savedRef = useRef(false);
+  useEffect(() => { savedRef.current = false; setDays(null); }, [user?.uid]);
 
   const saveCourse = useCallback(
-    (destination: string) => {
+    async (destination: string) => {
       if (savedRef.current) return;
       if (!user || !currentBook || !currentReadingLevel || !days) return;
       savedRef.current = true;
@@ -135,16 +136,17 @@ export default function PreviewPage() {
         currentReadingLevel,
         days,
         outline.thesis,
-        outline.frameworks
+        outline.frameworks,
+        outline.generationId
       );
+      const saved = await postAuthed<{ error?: string }>("/api/course/save", { course: newCourse });
+      if (saved.error) { savedRef.current = false; setGenError(saved.error); return; }
+      if (auth.currentUser?.uid !== user.uid) return;
       setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
       // For a new trial, activate-trial already reset this to 0 server-side and
       // this is the first of the 3 trial books. For an existing subscriber it
       // counts against their monthly quota the same as any other generation.
-      updateDoc(doc(db, "users", user.uid), { generationsThisMonth: increment(1) }).catch((e) =>
-        console.error("Could not update generation count:", e)
-      );
       router.push(destination);
     },
     [user, currentBook, currentReadingLevel, days, outline, courses, setCourses, setActiveCourseId, router]

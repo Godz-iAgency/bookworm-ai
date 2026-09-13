@@ -1,3 +1,4 @@
+import { withAccountLock } from "./account-lock";
 import { FieldValue } from "firebase-admin/firestore";
 import { getStripe } from "./stripe/server";
 import { getAdminAuth, getAdminDb } from "./firebase/admin";
@@ -23,11 +24,17 @@ import { dissolveClub } from "./family-server";
  * the reader asking for it (/api/account/delete) and the daily sweep clearing
  * out removed Book Club members who never chose a plan.
  */
-export async function deleteAccount(uid: string): Promise<void> {
+export async function deleteAccount(uid: string, onlyIfRemoved = false): Promise<boolean> {
+  return withAccountLock(uid, () => deleteLocked(uid, onlyIfRemoved));
+}
+
+async function deleteLocked(uid: string, onlyIfRemoved: boolean): Promise<boolean> {
   const db = getAdminDb();
   const userRef = db.collection("users").doc(uid);
   const snap = await userRef.get();
   const user = snap.exists ? snap.data()! : null;
+
+  if (onlyIfRemoved && (!user?.bookClubDeleteAt || Date.parse(user.bookClubDeleteAt) > Date.now() || !Number.isFinite(Date.parse(user.bookClubDeleteAt)) || user.accessOverride || user.stripeSubscriptionId || user.familyId || user.trialStatus === "active" || (user.plan && user.plan !== "free"))) return false;
 
   // ---- 1. Stop any billing -------------------------------------------
   if (user?.stripeSubscriptionId) {
@@ -35,11 +42,13 @@ export async function deleteAccount(uid: string): Promise<void> {
       const stripe = getStripe();
       await stripe.subscriptions.cancel(user.stripeSubscriptionId);
     } catch (e: any) {
-      // Already cancelled or gone is fine; anything else must not leave the
-      // reader unable to delete their account, but it does need saying.
-      console.error("Could not cancel subscription during account delete:", e?.message);
+      // A missing subscription is already stopped. Any other failure must
+      // preserve the account so cancellation can be retried safely.
+      if (e?.code !== "resource_missing") throw e;
     }
   }
+
+  if (user) await userRef.update({ deletionPending: true });
 
   // ---- 2. Detach from any Book Club ------------------------------------
   if (user?.familyId) {
@@ -58,24 +67,16 @@ export async function deleteAccount(uid: string): Promise<void> {
         // copy of it — a copy is the access. Books OTHER members shared need
         // no special handling here: this reader's copies of those are simply
         // their own courses, cleared by the sweep below.
-        const memberIds: string[] = famSnap.data()!.memberIds ?? [];
-        await familyRef.update({ memberIds: FieldValue.arrayRemove(uid) });
-
-        const theirShares = await familyRef
-          .collection("sharedBooks")
-          .where("sharedByUid", "==", uid)
-          .get();
-        if (!theirShares.empty) {
-          const batch = db.batch();
-          for (const d of theirShares.docs) batch.delete(d.ref);
-          for (const memberId of memberIds) {
-            if (memberId === uid) continue;
-            for (const d of theirShares.docs) {
-              batch.delete(db.collection("users").doc(memberId).collection("courses").doc(d.id));
-            }
+        await db.runTransaction(async tx => {
+          const family = (await tx.get(familyRef)).data();
+          const shares = await tx.get(familyRef.collection("sharedBooks"));
+          if (!family) return;
+          tx.update(familyRef, { memberIds: FieldValue.arrayRemove(uid) });
+          for (const share of shares.docs) if (share.data().sharedByUid === uid) {
+            tx.delete(share.ref);
+            for (const id of family.memberIds ?? []) tx.delete(db.collection("users").doc(id).collection("courses").doc(share.id));
           }
-          await batch.commit();
-        }
+        });
       }
     }
   }
@@ -84,7 +85,7 @@ export async function deleteAccount(uid: string): Promise<void> {
   // Subcollections are not removed with their parent, so each is cleared
   // explicitly. `summaries` is from the retired long-form feature and may
   // still hold documents on older accounts.
-  for (const sub of ["courses", "summaries"]) {
+  for (const sub of ["courses", "summaries", "generatedCourses", "aiUsage"]) {
     const docs = await userRef.collection(sub).get();
     while (docs.docs.length) {
       const batch = db.batch();
@@ -93,7 +94,17 @@ export async function deleteAccount(uid: string): Promise<void> {
     }
   }
 
+  for (const [name, field] of [["accessLinks", "uid"], ["invites", "usedByUid"]]) {
+    const records = await db.collection(name).where(field, "==", uid).get();
+    for (let i = 0; i < records.docs.length; i += 400) {
+      const batch = db.batch();
+      for (const record of records.docs.slice(i, i + 400)) batch.delete(record.ref);
+      await batch.commit();
+    }
+  }
+
   // ---- 4. Remove the profile, then the sign-in -------------------------
-  await userRef.delete().catch(() => {});
-  await getAdminAuth().deleteUser(uid);
+  await userRef.delete();
+  try { await getAdminAuth().deleteUser(uid); } catch (error: any) { if (error.code !== "auth/user-not-found") throw error; }
+  return true;
 }

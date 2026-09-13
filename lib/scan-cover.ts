@@ -59,7 +59,7 @@ export interface ScannedBook {
 export async function scanBookCover(file: File): Promise<ScannedBook | null> {
   const { data, mimeType } = await downscaleImage(file);
 
-  const res = await fetch("/api/books/scan", {
+  const res = await aiFetch("/api/books/scan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imageBase64: data, mimeType }),
@@ -72,4 +72,4 @@ export async function scanBookCover(file: File): Promise<ScannedBook | null> {
 
   const body = await res.json();
   return body.book ?? null;
-}
+}import { aiFetch } from "@/lib/ai-fetch";

@@ -74,9 +74,7 @@ async function dayCase({ lesson = '', axiom = '', response, concurrent }) {
     useCallback: (fn) => (...args) => (pending = fn(...args)),
     useEffect: (fn) => fn(),
   };
-  const { useDayContent } = load('lib/useDayContent.ts', { react }, {
-    fetch: async () => ({ ok: true, json: async () => response }),
-  });
+  const { useDayContent } = load('lib/useDayContent.ts', { react, '@/lib/ai-fetch': { aiFetch: async () => ({ ok: true, json: async () => response }) } });
   useDayContent(course, day, (update) => { updates++; current = update(current); }, true);
   if (concurrent) current = [{ ...course, days: [{ ...day, ...concurrent }] }];
   await pending;
@@ -92,6 +90,7 @@ async function courseCases() {
   let stateIndex = 0;
   const { useCourseGeneration } = load('lib/useCourseGeneration.ts', {
     react: {
+      useRef: (v) => ({ current: v }),
       useCallback: (fn) => fn,
       useState: (initial) => {
         const index = stateIndex++;
@@ -100,7 +99,7 @@ async function courseCases() {
     },
     'next/navigation': { useRouter: () => ({ push() {} }) },
     'firebase/firestore': { doc() {}, updateDoc: async () => {}, increment: (v) => v },
-    '@/lib/firebase/config': { db: {} },
+    '@/lib/firebase/config': { db: {}, auth: { currentUser: { uid: 'test' } } },
     '@/context/AuthContext': { useAuth: () => ({ user: { uid: 'test' } }) },
     '@/lib/BookwormContext': { useBookwormContext: () => ({
       courses: current, setCourses: (update) => { current = update(current); },
@@ -114,6 +113,8 @@ async function courseCases() {
       isBillingEnabled: () => billingEnabled,
       getBillingProfile: async () => { throw Error('offline profile'); },
     },
+    '@/lib/api-client': { postAuthed: async () => ({ success: true }) },
+    '@/lib/book-club': { personalCourses: (courses) => courses.filter((c) => !c.sharedFrom) },
   }, { setTimeout: (callback) => { callback(); return 0; } });
   const hook = useCourseGeneration();
   const pending = hook.start({ title: 'Book', author: 'Author' }, 'scholar');
@@ -131,6 +132,7 @@ async function courseCases() {
 }
 
 async function main() {
+  await require("./hardening.cjs")(load);
   const prefs = load('lib/reading-prefs.ts', {});
   for (const input of ['constructor', '__proto__', 'toString', '', null, 3]) {
     assert.equal(prefs.coerceFontSize(input), prefs.DEFAULT_FONT_SIZE);

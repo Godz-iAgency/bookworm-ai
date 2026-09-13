@@ -1,222 +1,86 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripe, planForPriceId } from "@/lib/stripe/server";
 import { getAdminDb } from "@/lib/firebase/admin";
-import type { Firestore } from "firebase-admin/firestore";
-
+import { dissolveClub } from "@/lib/family-server";
 export const runtime = "nodejs";
 
-async function findUserByCustomerId(db: Firestore, customerId: string) {
-  const snap = await db.collection("users").where("stripeCustomerId", "==", customerId).limit(1).get();
-  return snap.empty ? null : snap.docs[0];
-}
-
-async function findFamilyByCustomerId(db: Firestore, customerId: string) {
-  const snap = await db.collection("families").where("stripeCustomerId", "==", customerId).limit(1).get();
-  return snap.empty ? null : snap.docs[0];
-}
-
+/** Verify the event, then reconcile its subscription against Stripe's current
+ * state. Invoice renewal is applied once per period, never per delivery.
+ * Failed renewal keeps the existing grace policy; incomplete/unpaid does not
+ * create new access. Old subscriptions cannot change a replacement's account.
+ */
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) {
-    // Not configured yet — acknowledge so Stripe doesn't retry, same inert
-    // posture as the rest of the billing routes before setup.
-    return NextResponse.json({ received: true, handled: false });
-  }
-
-  const sig = req.headers.get("stripe-signature");
-  const body = await req.text();
-
+  if (!secret) return NextResponse.json({ error: "Webhook not configured." }, { status: 503 });
   let event: Stripe.Event;
+  const stripe = getStripe();
+  try { event = stripe.webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret); }
+  catch { return NextResponse.json({ error: "Invalid signature." }, { status: 400 }); }
+  if (!["customer.subscription.updated", "customer.subscription.deleted", "customer.subscription.trial_will_end", "invoice.payment_succeeded", "invoice.payment_failed"].includes(event.type)) return NextResponse.json({ received: true });
   try {
-    const stripe = getStripe();
-    event = stripe.webhooks.constructEvent(body, sig ?? "", secret);
-  } catch (err: any) {
-    console.error("Webhook signature verification failed:", err.message);
-    return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+    const object: any = event.data.object;
+    const subValue = event.type.startsWith("invoice.") ? object.parent?.subscription_details?.subscription ?? object.subscription : object.id;
+    const subId = typeof subValue === "string" ? subValue : subValue?.id;
+    if (!subId) return NextResponse.json({ received: true });
+    const sub = await stripe.subscriptions.retrieve(subId);
+    const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+    const db = getAdminDb();
+    const users = await db.collection("users").where("stripeCustomerId", "==", customerId).limit(2).get();
+    if (users.size !== 1) return NextResponse.json({ received: true });
+    const ref = users.docs[0].ref;
+    return await withAccountLock(ref.id, async () => {
+    const sub = await stripe.subscriptions.retrieve(subId);
+    const plan = planForPriceId(sub.items.data[0]?.price.id ?? "");
+    const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
+    // Revocation first, and retry it even if a preceding attempt partially ran.
+    const profile = (await ref.get()).data()!;
+    if (profile.stripeSubscriptionId !== subId) return NextResponse.json({ received: true });
+    if (profile.isFamilyOwner && profile.familyId && (!active || plan !== "book_club")) await dissolveClub(db, profile.familyId, ref.id);
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const p = snap.data()!;
+      if (p.stripeSubscriptionId !== subId) return;
+      const receipt = db.collection("stripeEvents").doc(event.id);
+      if ((await tx.get(receipt)).exists) return;
+      const memberDocs = [];
+      if (p.isFamilyOwner && p.familyId && active && plan === "book_club") {
+        const family = (await tx.get(db.collection("families").doc(p.familyId))).data();
+        if (family && family.stripeSubscriptionId === subId && family.status === "active") {
+          for (const id of family.memberIds ?? []) if (id !== ref.id) memberDocs.push(await tx.get(db.collection("users").doc(id)));
+        }
+      }
+      const updates: Record<string, unknown> = { billingEventCreated: Math.max(Number(p.billingEventCreated ?? 0), event.created),
+        plan: active && plan ? plan : "free",
+        trialStatus: sub.status === "trialing" ? "active" : active ? "converted" : "expired",
+        subscriptionCancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : null,
+      };
+      if (!active) { updates.stripeSubscriptionId = null; updates.previousSubscriptionId = subId; }
+      if (p.isFamilyOwner && (!active || plan !== "book_club")) { updates.familyId = null; updates.isFamilyOwner = false; }
+      if (event.type === "customer.subscription.trial_will_end") updates.showTrialEndWarning = true;
+      const period = Number(object.lines?.data?.[0]?.period?.end ?? 0);
+      if (event.type === "invoice.payment_succeeded" && object.status === "paid") {
+        if (sub.status === "active" || sub.status === "trialing") { updates.paymentFailedAt = null; updates.paymentFailureCount = 0; }
+        if (object.billing_reason === "subscription_cycle" && period === sub.items.data[0]?.current_period_end && period > Number(p.lastPaidPeriod ?? 0)) {
+          updates.lastPaidPeriod = period;
+          updates.lastPaidInvoice = object.id;
+          updates.monthResetAt = new Date(period * 1000).toISOString();
+          if (!p.accessOverride) updates.generationsThisMonth = 0;
+          for (const member of memberDocs) if (member.exists && member.data()?.familyId === p.familyId && !member.data()?.accessOverride && period > Number(member.data()?.lastPaidPeriod ?? 0)) tx.update(member.ref, { generationsThisMonth: 0, lastPaidPeriod: period, monthResetAt: updates.monthResetAt });
+        }
+      }
+      if (event.type === "invoice.payment_failed" && sub.status === "past_due") {
+        updates.paymentFailedAt = new Date(event.created * 1000).toISOString();
+        updates.paymentFailureCount = Number(p.paymentFailureCount ?? 0) + 1;
+      }
+      tx.update(ref, updates);
+      tx.create(receipt, { created: event.created, type: event.type });
+    });
+    return NextResponse.json({ received: true });
+    });
+  } catch (e) {
+    console.error("Webhook reconciliation failed:", event.id, e);
+    return NextResponse.json({ error: "Webhook reconciliation failed." }, { status: 500 });
   }
-
-  const db = getAdminDb();
-
-  try {
-    switch (event.type) {
-      case "customer.subscription.trial_will_end": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-        const userDoc = await findUserByCustomerId(db, customerId);
-        if (userDoc) {
-          await userDoc.ref.update({
-            showTrialEndWarning: true,
-            reminderEmailSentAt: new Date().toISOString(),
-          });
-          // TODO: send the actual Day-5 reminder email once an email
-          // service is wired up — this only flags the in-app banner state.
-        }
-        break;
-      }
-
-      case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-        const priceId = sub.items.data[0]?.price?.id;
-        const planId = priceId ? planForPriceId(priceId) : null;
-
-        const userDoc = await findUserByCustomerId(db, customerId);
-        if (userDoc) {
-          const wasTrial = userDoc.data().trialStatus === "active";
-          const updates: Record<string, unknown> = {};
-          if (planId) updates.plan = planId;
-          if (sub.status === "active" && wasTrial) {
-            updates.trialStatus = "converted";
-            updates.generationsThisMonth = 0;
-            const d = new Date();
-            d.setMonth(d.getMonth() + 1);
-            updates.monthResetAt = d.toISOString();
-          }
-          if (Object.keys(updates).length > 0) await userDoc.ref.update(updates);
-        }
-
-        const familyDoc = await findFamilyByCustomerId(db, customerId);
-        if (familyDoc) {
-          if (sub.status === "active" && planId === "book_club") {
-            await familyDoc.ref.update({ status: "active" });
-          } else if (planId && planId !== "book_club") {
-            /**
-             * The owner's subscription is active but no longer on Book Club,
-             * so the shared plan is gone and the club goes with it.
-             *
-             * This branch used to be the "reactivate" one: it only checked
-             * `sub.status === "active"` and ignored WHICH plan the
-             * subscription was for. Downgrading from Book Club therefore
-             * un-cancelled the family that /api/stripe/upgrade had just
-             * cancelled, moments earlier, from the very event the downgrade
-             * itself triggered. Caught by an end-to-end test reading the
-             * family twice and getting "cancelled" then "active".
-             */
-            const memberIds: string[] = familyDoc.data().memberIds ?? [];
-            await familyDoc.ref.update({ status: "cancelled" });
-            const batch = db.batch();
-            for (const memberId of memberIds) {
-              batch.update(db.collection("users").doc(memberId), {
-                familyId: null,
-                isFamilyOwner: false,
-              });
-            }
-            await batch.commit();
-          }
-        }
-        break;
-      }
-
-      case "invoice.payment_succeeded": {
-        // Each successful renewal starts a fresh billing period, so the
-        // monthly generation allowance resets here. This is the ONLY place
-        // the counter rolls over — without it, `monthResetAt` would stay in
-        // the past forever and canGenerate() would stop capping anything.
-        const invoice = event.data.object as Stripe.Invoice;
-        const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-        if (!customerId) break;
-
-        const periodEnd = invoice.lines?.data?.[0]?.period?.end;
-        const nextReset = periodEnd
-          ? new Date(periodEnd * 1000).toISOString()
-          : (() => {
-              const d = new Date();
-              d.setMonth(d.getMonth() + 1);
-              return d.toISOString();
-            })();
-
-        const userDoc = await findUserByCustomerId(db, customerId);
-        if (userDoc) {
-          // A successful payment clears any earlier failure flag, so a card
-          // that was declined once and then went through stops warning.
-          await userDoc.ref.update({
-            generationsThisMonth: 0,
-            monthResetAt: nextReset,
-            paymentFailedAt: null,
-            paymentFailureCount: 0,
-          });
-        }
-
-        // Book Club: every member's allowance is individual, so all of them
-        // reset when the owner's subscription renews.
-        const familyDoc = await findFamilyByCustomerId(db, customerId);
-        if (familyDoc) {
-          const memberIds: string[] = familyDoc.data().memberIds ?? [];
-          const batch = db.batch();
-          for (const memberId of memberIds) {
-            batch.update(db.collection("users").doc(memberId), {
-              generationsThisMonth: 0,
-              monthResetAt: nextReset,
-            });
-          }
-          await batch.commit();
-        }
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        /**
-         * A renewal was declined. Stripe retries on its own schedule and only
-         * deletes the subscription once it gives up, so access deliberately
-         * continues for now - cutting someone off over a card that is about to
-         * succeed on retry is worse than the alternative. What was missing was
-         * any signal at all: nothing told the reader their card had failed, so
-         * the first they knew of it was the app going quiet days later.
-         */
-        const invoice = event.data.object as Stripe.Invoice;
-        const customerId =
-          typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
-        if (!customerId) break;
-
-        const userDoc = await findUserByCustomerId(db, customerId);
-        if (userDoc) {
-          await userDoc.ref.update({
-            paymentFailedAt: new Date().toISOString(),
-            paymentFailureCount: (userDoc.data().paymentFailureCount ?? 0) + 1,
-          });
-        }
-        break;
-      }
-
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-
-        const userDoc = await findUserByCustomerId(db, customerId);
-        if (userDoc) {
-          const wasTrial = userDoc.data().trialStatus === "active";
-          await userDoc.ref.update({
-            plan: "free",
-            trialStatus: wasTrial ? "cancelled" : "expired",
-            stripeSubscriptionId: null,
-          });
-        }
-
-        // Book Club cancellation revokes every member's access, not just the
-        // owner's — access checks only ever read the member's own user doc
-        // (see lib/billing.ts), so clearing familyId there is what actually
-        // takes access away.
-        const familyDoc = await findFamilyByCustomerId(db, customerId);
-        if (familyDoc) {
-          const memberIds: string[] = familyDoc.data().memberIds ?? [];
-          await familyDoc.ref.update({ status: "cancelled" });
-          const batch = db.batch();
-          for (const memberId of memberIds) {
-            batch.update(db.collection("users").doc(memberId), { familyId: null, isFamilyOwner: false });
-          }
-          await batch.commit();
-        }
-        break;
-      }
-
-      default:
-        break;
-    }
-  } catch (err: any) {
-    console.error(`Webhook handler failed for ${event.type}:`, err);
-    return NextResponse.json({ error: "Webhook handler failed." }, { status: 500 });
-  }
-
-  return NextResponse.json({ received: true, handled: true });
 }

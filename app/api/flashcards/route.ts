@@ -1,7 +1,10 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "study");
+    if (denied) return denied;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("API Key missing: GEMINI_API_KEY is not defined in environment variables.");
@@ -26,6 +29,7 @@ export async function POST(req: Request) {
 
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
+      signal: AbortSignal.timeout(20000),
       headers: {
         "Content-Type": "application/json"
       },
@@ -49,6 +53,8 @@ export async function POST(req: Request) {
     const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsedCards = JSON.parse(cleanJson);
 
+    const revoked = await guardAI(req, "study", false);
+    if (revoked) return revoked;
     return NextResponse.json({ cards: parsedCards });
   } catch (error: any) {
     console.error("Server Route Error:", error.message);

@@ -37,12 +37,10 @@ export async function POST(req: Request) {
       if (!linkSnap.exists) {
         return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
       }
-      await linkRef.update({ active });
-      await db
-        .collection("users")
-        .doc(linkSnap.data()!.uid)
-        .update({ "accessOverride.active": active })
-        .catch((e) => console.error("Could not sync the account's override:", e));
+      const batch = db.batch();
+      batch.update(linkRef, { active });
+      batch.update(db.collection("users").doc(linkSnap.data()!.uid), { "accessOverride.active": active });
+      await batch.commit();
     }
 
     const snap = await db.collection("accessLinks").orderBy("createdAt", "desc").get();

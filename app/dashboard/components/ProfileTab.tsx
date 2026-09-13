@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase/config";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle } from "lucide-react";
@@ -63,6 +65,21 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   const { courses } = useBookwormContext();
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
 
+  // Keep billing live without replacing an in-progress preferences draft.
+  useEffect(() => {
+    setBilling(null);
+    if (!user) return;
+    let cancelled = false;
+    let revision = 0;
+    const stop = onSnapshot(doc(db, "users", user.uid), () => {
+      const request = ++revision;
+      getBillingProfile(user.uid).then(value => {
+        if (!cancelled && request === revision && auth.currentUser?.uid === user.uid) { setBilling(value); setPlan(value?.plan ?? null); }
+      }).catch(e => console.error("Billing refresh failed:", e));
+    }, e => console.error("Billing listener failed:", e));
+    return () => { cancelled = true; stop(); };
+  }, [user]);
+
   // Load the user's profile doc (avatar + reading level).
   useEffect(() => {
     if (!user) return;
@@ -77,9 +94,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         setGenres(knownGenres(profile?.genrePreferences ?? []));
         setLastBook(profile?.lastBookRead ?? "");
         setPlan(profile?.plan ?? null);
-        const billingProfile = await getBillingProfile(user.uid);
-        if (cancelled) return;
-        setBilling(billingProfile);
+
       } catch (e) {
         console.error("Failed to load profile:", e);
       } finally {
@@ -194,7 +209,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
       setError(res.error);
       return;
     }
-    if (user) setBilling(await getBillingProfile(user.uid));
+    if (user) { try { setBilling(await getBillingProfile(user.uid)); } catch (e) { console.error("Billing refresh failed:", e); } }
   };
 
   /** Collapsing drops any half-typed deletion confirmation rather than leaving

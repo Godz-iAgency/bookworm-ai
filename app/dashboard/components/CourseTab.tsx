@@ -1,5 +1,6 @@
 "use client";
 
+import { aiFetch } from "@/lib/ai-fetch";
 import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { CalendarClock } from "lucide-react";
@@ -15,7 +16,7 @@ export default function CourseTab({
   course: Course;
   /** Fired when a day is marked complete, so the dashboard can update the
    *  user's streak/badges. `finishedBook` is true when this was the 7th day. */
-  onDayCompleted?: (dayLevel: number, finishedBook: boolean) => void;
+  onDayCompleted?: (dayLevel: number, finishedBook: boolean, courseId: string) => void;
 }) {
   const { courses, setCourses } = useBookwormContext();
   const [openDay, setOpenDay] = useState<number | null>(null);
@@ -62,10 +63,11 @@ export default function CourseTab({
     axiomTried.current.add(attemptKey);
     setAxiomPendingDay(day.dayNumber);
 
-    fetch("/api/course/axiom", {
+    aiFetch("/api/course/axiom", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        courseId: course.id,
         title: course.book.title,
         author: course.book.author,
         readingLevel: course.readingLevel,
@@ -114,10 +116,11 @@ export default function CourseTab({
     setLoadingDay(dayNumber);
     setLoadError(null);
     try {
-      const res = await fetch("/api/course/day", {
+      const res = await aiFetch("/api/course/day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        courseId: course.id,
           title: course.book.title,
           author: course.book.author,
           readingLevel: course.readingLevel,
@@ -178,6 +181,7 @@ export default function CourseTab({
    * lesson first, since it is about to open the next one in its place.
    */
   const completeDay = (dayLevel: number) => {
+    if (course.days.find(d => d.dayNumber === dayLevel)?.isCompleted) return;
     // This completion finishes the book if every other day is already done.
     // (Computed from the current course before we mutate state below.)
     const finishedBook = course.days.every((d) => d.dayNumber === dayLevel || d.isCompleted);
@@ -197,7 +201,7 @@ export default function CourseTab({
 
     // Update the user's streak + badges (fire-and-forget; failures are logged
     // inside the helper and never block the reading flow).
-    onDayCompleted?.(dayLevel, finishedBook);
+    onDayCompleted?.(dayLevel, finishedBook, course.id);
   };
 
   const handleMarkComplete = (dayLevel: number) => {

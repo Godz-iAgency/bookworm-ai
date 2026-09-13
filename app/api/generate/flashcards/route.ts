@@ -1,8 +1,11 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { generateGeminiContent } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "study");
+    if (denied) return denied;
     const { title, author } = await req.json();
 
     const prompt = `Generate 15 flashcards for '${title}' by '${author}'. Each card has a question and answer based on the core principles of the book. Return as JSON array with 'question' and 'answer' fields.`;
@@ -13,6 +16,8 @@ export async function POST(req: Request) {
     const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const data = JSON.parse(cleanJson);
 
+    const revoked = await guardAI(req, "study", false);
+    if (revoked) return revoked;
     return NextResponse.json({ cards: data });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

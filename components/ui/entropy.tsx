@@ -130,10 +130,14 @@ export function Entropy({ className = "", size = 400 }: EntropyProps) {
       })
     }
 
+    let visible = true
+    const observer = new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? false })
+    observer.observe(canvas)
     let time = 0
     let animationId: number
     
     function animate() {
+      if (!visible || document.hidden) { animationId = requestAnimationFrame(animate); return }
       ctx.clearRect(0, 0, size, size)
 
       // 更新邻居关系
@@ -179,6 +183,7 @@ export function Entropy({ className = "", size = 400 }: EntropyProps) {
     animate()
 
     return () => {
+      observer.disconnect()
       if (animationId) {
         cancelAnimationFrame(animationId)
       }

@@ -46,13 +46,24 @@ export async function POST(req: Request) {
       throw clubError(400, "That book has expired.");
     }
 
+    if (!Array.isArray(course.days) || course.days.length !== 7 || course.days.some((day: any) => !day.lesson || !day.closingAxiom || day.flashcards?.length !== 3)) {
+      throw clubError(400, "Open all seven lessons before sharing this snapshot.");
+    }
     const shareId = shareIdFor(uid, courseId);
-    await db
+    await db.runTransaction(async tx => {
+      const familyRef = db.collection("families").doc(club.familyId);
+      const family = (await tx.get(familyRef)).data();
+      const currentUser = (await tx.get(db.collection("users").doc(uid))).data();
+      if (family?.status !== "active" || !family.memberIds?.includes(uid) || currentUser?.familyId !== club.familyId) throw clubError(403, "Membership changed.");
+      const source = await tx.get(db.collection("users").doc(uid).collection("courses").doc(courseId));
+      if (!source.exists || JSON.stringify(source.data()) !== JSON.stringify(course)) throw clubError(409, "The course changed. Please try sharing again.");
+      const shareRef = db
       .collection("families")
       .doc(club.familyId)
       .collection("sharedBooks")
-      .doc(shareId)
-      .set({
+      .doc(shareId);
+      if ((await tx.get(shareRef)).exists) return;
+      tx.create(shareRef, {
         sharedByUid: uid,
         sharedByName: memberName(userSnap.data()),
         sourceCourseId: courseId,
@@ -60,10 +71,8 @@ export async function POST(req: Request) {
         readingLevel: course.readingLevel ?? "",
         thesis: course.thesis ?? "",
         frameworks: course.frameworks ?? [],
-        // Progress reset, content kept. Days the sharer never opened have no
-        // lesson yet — those generate for each reader when they reach them,
-        // exactly as they would on a book of their own, and cost no
-        // generation either way (only whole courses count against the quota).
+        // Progress resets, content stays. All seven lessons must already
+        // exist: opening this snapshot never regenerates missing content.
         days: (course.days ?? []).map((day: any, i: number) => ({
           dayNumber: day.dayNumber ?? i + 1,
           title: day.title ?? `Day ${i + 1}`,
@@ -82,6 +91,7 @@ export async function POST(req: Request) {
         expiresAt: course.expiresAt,
         sharedAt: new Date().toISOString(),
       });
+    });
 
     return NextResponse.json({ success: true, shareId });
   } catch (error: any) {

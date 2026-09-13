@@ -63,7 +63,7 @@ export default function BookClubTab({
 
     const entitled = new Set(overview.sharedBooks.map((s) => s.shareId));
     for (const course of sharedCourses(courses)) {
-      if (!entitled.has(course.id)) void deleteCourse(course.id);
+      if (!entitled.has(course.id)) void deleteCourse(course.id).catch(e => setError(e.message));
     }
   }, [overview, courses, deleteCourse]);
 

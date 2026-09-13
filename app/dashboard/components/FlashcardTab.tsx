@@ -129,6 +129,10 @@ export default function FlashcardTab({
             them. At md this is the same size the old h-96 gave. */}
         <div
           className="relative w-full max-w-lg aspect-[4/3] cursor-pointer group perspective-[1000px]"
+          role="button"
+          tabIndex={0}
+          aria-label="Flip flashcard"
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsFlipped(v => !v); } }}
           onClick={() => setIsFlipped(!isFlipped)}
         >
           {/* Rotation is driven by Framer Motion (JS-animated) rather than a
@@ -156,6 +160,7 @@ export default function FlashcardTab({
                 background image is invisible to a screen reader. */}
             <div
               className="absolute inset-0 w-full h-full rounded-3xl overflow-hidden flex flex-col text-center shadow-2xl"
+              aria-hidden={isFlipped}
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
             >
               <img
@@ -189,6 +194,7 @@ export default function FlashcardTab({
             {/* Back of card */}
             <div
               className="absolute inset-0 w-full h-full rounded-3xl overflow-hidden flex flex-col text-center shadow-[0_0_30px_rgba(255,0,110,0.15)]"
+              aria-hidden={!isFlipped}
               style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
             >
               <img

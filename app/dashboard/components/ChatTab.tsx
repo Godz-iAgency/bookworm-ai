@@ -1,5 +1,6 @@
 "use client";
 
+import { aiFetch } from "@/lib/ai-fetch";
 import { useState, useRef, useEffect } from "react";
 import { Course, Day } from "@/lib/BookwormContext";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function ChatTab({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const sending = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { remaining, limitReached, consume } = quota;
@@ -56,9 +58,10 @@ export default function ChatTab({
   }, [messages, isTyping]);
 
   const handleSend = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || sending.current) return;
     if (limitReached) return;
 
+    sending.current = true;
     consume();
 
     const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: text };
@@ -67,10 +70,11 @@ export default function ChatTab({
     setIsTyping(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await aiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        courseId: course.id,
           title: course.book.title,
           author: course.book.author,
           message: text,
@@ -94,6 +98,7 @@ export default function ChatTab({
     } catch (err: any) {
       setMessages(prev => [...prev, { id: Date.now().toString(), role: "ai", content: "My connection to Bookworm APIs is currently unavailable. Please verify your Gemini API Key." }]);
     } finally {
+      sending.current = false;
       setIsTyping(false);
     }
   };
@@ -181,11 +186,12 @@ export default function ChatTab({
               className="h-12 flex-1 rounded-xl border-white/20 bg-[#1a1a1a] text-base focus-visible:ring-[#00D4FF]"
             />
             <Button
+              aria-label="Send message"
               type="submit"
               disabled={!input.trim() || isTyping}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#FF006E] transition-transform hover:scale-105 group"
             >
-              <Send className="w-5 h-5 text-white group-hover:-translate-y-1 transition-transform cursor-pointer" />
+              <Send aria-label="Send message" className="w-5 h-5 text-white group-hover:-translate-y-1 transition-transform cursor-pointer" />
             </Button>
           </form>
         )}

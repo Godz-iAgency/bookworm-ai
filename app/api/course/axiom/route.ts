@@ -1,3 +1,4 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { buildAxiomMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
@@ -10,6 +11,8 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "study");
+    if (denied) return denied;
     const { title, author, readingLevel, dayTitle, lesson } = await req.json();
     if (!title || !lesson) {
       return NextResponse.json({ error: "Missing lesson." }, { status: 400 });
@@ -29,6 +32,8 @@ export async function POST(req: Request) {
         : "Axiom generation returned nothing."
     );
 
+    const revoked = await guardAI(req, "study", false);
+    if (revoked) return revoked;
     return NextResponse.json({ closingAxiom: stripEmDashes(parsed.closingAxiom).trim() });
   } catch (error: any) {
     console.error("Axiom generation failed:", error);

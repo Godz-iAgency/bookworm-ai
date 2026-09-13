@@ -55,7 +55,8 @@ export default function CourseDetail({
 
   const handleRemove = async () => {
     setRemoving(true);
-    await onRemove();
+    try { await onRemove(); }
+    catch (e: any) { setShareError(e.message || "Could not remove this course."); setRemoving(false); }
     // The parent unmounts this view on removal; no need to reset state.
   };
 

@@ -28,6 +28,7 @@ export async function postAuthed<T = any>(path: string, body: Record<string, unk
       body: JSON.stringify(body),
     });
     const data = await res.json();
+    if (auth.currentUser !== user) return { error: "Account changed. Please retry." } as T;
     if (!data || typeof data !== "object" || Array.isArray(data)) {
       return { error: "Could not complete your request." } as T;
     }

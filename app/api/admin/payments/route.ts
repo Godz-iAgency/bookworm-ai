@@ -55,6 +55,13 @@ export async function POST(req: Request) {
       }
 
       const charge = await stripe.charges.retrieve(chargeId);
+      const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+      const owners = customerId
+        ? await getAdminDb().collection("users").where("stripeCustomerId", "==", customerId).limit(2).get()
+        : null;
+      if (!owners || owners.size !== 1 || charge.disputed) {
+        return NextResponse.json({ error: "Charge is not an undisputed Bookworm payment." }, { status: 400 });
+      }
       if (!charge || charge.status !== "succeeded") {
         return NextResponse.json({ error: "That charge can't be refunded." }, { status: 400 });
       }
@@ -69,8 +76,8 @@ export async function POST(req: Request) {
       const refund = await stripe.refunds.create({
         charge: chargeId,
         reason: "requested_by_customer",
-        metadata: { refundedBy: caller.email ?? "admin", refundedAt: new Date().toISOString() },
-      });
+        metadata: { refundedBy: caller.email ?? "admin" },
+      }, { idempotencyKey: `bookworm-full-refund-${chargeId}` });
 
       return NextResponse.json({
         success: true,

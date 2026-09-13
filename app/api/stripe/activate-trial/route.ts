@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getStripe, priceIdForPlan } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
@@ -9,7 +10,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
  * fields to Firestore via the Admin SDK (never the client SDK; see
  * lib/firebase/admin.ts for why).
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found." }, { status: 404 });
     }
     const user = snap.data()!;
+    if (user.accessOverride) return NextResponse.json({ error: "This account has complimentary access." }, { status: 403 });
     const customerId = user.stripeCustomerId;
     if (!customerId) {
       return NextResponse.json({ error: "No Stripe customer on file — start card setup first." }, { status: 400 });
@@ -43,16 +45,25 @@ export async function POST(req: Request) {
       });
     }
 
+    if (user.trialStartedAt || user.trialStatus) {
+      return NextResponse.json({ error: "Trial already used." }, { status: 409 });
+    }
+
+    const history = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 1 });
+    const recovered = history.data[0]?.status === "trialing" && history.data[0].metadata.firebaseUid === uid ? history.data[0] : null;
+    if (history.data.length && !recovered) return NextResponse.json({ error: "Subscription already exists. Choose a paid plan to continue." }, { status: 409 });
+
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    const subscription = await stripe.subscriptions.create({
+    const subscription = recovered ?? await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: priceIdForPlan("page_turner") }],
       trial_period_days: 7,
+      metadata: { firebaseUid: uid },
       default_payment_method: paymentMethodId,
-    });
+    }, { idempotencyKey: `bookworm-trial-${uid}` });
 
     const trialEndsAt = subscription.trial_end
       ? new Date(subscription.trial_end * 1000).toISOString()
@@ -78,4 +89,12 @@ export async function POST(req: Request) {
     console.error("activate-trial failed:", error);
     return NextResponse.json({ error: error.message || "Could not start trial." }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

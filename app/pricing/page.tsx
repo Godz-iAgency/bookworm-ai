@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase/config";
+import { useDialogFocus } from "@/lib/useDialogFocus";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { Check, Loader2 } from "lucide-react";
@@ -72,6 +75,7 @@ export default function PricingPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ planId: Plan["id"]; quote: UpgradeQuote } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const dialogRef = useDialogFocus(!!pending, () => { if (!confirming) setPending(null); });
   const reduceMotion = useReducedMotion();
 
   // The dialog is a bottom sheet on a phone and a centred card above it (the
@@ -91,9 +95,9 @@ export default function PricingPage() {
       router.push("/login");
       return;
     }
-    getBillingProfile(user.uid)
-      .then(setBilling)
-      .catch((e) => console.error("Failed to load billing:", e));
+    return onSnapshot(doc(db, "users", user.uid), () => {
+      getBillingProfile(user.uid).then(p => { if (auth.currentUser?.uid === user.uid) setBilling(p); }).catch(e => console.error("Failed to load billing:", e));
+    });
   }, [loading, user, router]);
 
   const currentPlan = billing ? getEffectivePlanId(billing) : "free";
@@ -124,7 +128,7 @@ export default function PricingPage() {
       setError(res.error);
       return;
     }
-    if (user) setBilling(await getBillingProfile(user.uid));
+    if (user) { try { setBilling(await getBillingProfile(user.uid)); } catch (e) { console.error("Billing refresh failed:", e); } }
   };
 
   if (loading || !user) {
@@ -217,6 +221,8 @@ export default function PricingPage() {
           {pending && (
             <motion.div
               className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+              ref={dialogRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="switch-plan-title"

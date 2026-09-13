@@ -1,5 +1,6 @@
 "use client";
 
+import { aiFetch } from "@/lib/ai-fetch";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Course, Day } from "./BookwormContext";
 
@@ -41,8 +42,9 @@ export function useDayContent(
   // Days written before axioms existed have a lesson and a deck but nothing to
   // close on, so a missing axiom is a repairable gap like an empty deck is.
   const hasAxiom = !!day?.closingAxiom;
+  const hasStarters = (day?.chatSeed?.length ?? 0) > 0;
   // Locked days are never generated — the reader hasn't earned them yet.
-  const needsContent = enabled && !!day?.isUnlocked && (!hasLesson || !hasCards || !hasAxiom);
+  const needsContent = enabled && !!day?.isUnlocked && (!hasLesson || !hasCards || !hasAxiom || !hasStarters);
 
   const run = useCallback(
     async (force: boolean) => {
@@ -50,7 +52,7 @@ export function useDayContent(
 
       const needsFull = !day.lesson;
       const needsRepair =
-        !needsFull && ((day.flashcards?.length ?? 0) === 0 || !day.closingAxiom);
+        !needsFull && ((day.flashcards?.length ?? 0) === 0 || !day.closingAxiom || !(day.chatSeed?.length));
       if (!needsFull && !needsRepair) return;
 
       const attemptKey = `${course.id}:${day.dayNumber}`;
@@ -85,13 +87,14 @@ export function useDayContent(
               lesson: day.lesson,
             };
 
-        const res = await fetch(endpoint, {
+        const res = await aiFetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ ...body, courseId: course.id }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");
+        if (!(data.chatSeed?.length > 0)) throw new Error("No chat starters returned");
         if (!(data.flashcards?.length > 0)) throw new Error("No flashcards returned");
         // A successful HTTP response can still omit a required field. Without
         // failing this attempt, the one-attempt guard leaves status stuck at

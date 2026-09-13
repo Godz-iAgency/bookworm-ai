@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, getRedirectResult, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
+import { db } from "@/lib/firebase/config";
+import { doc, onSnapshot } from "firebase/firestore";
 import {
   signInWithGoogle,
   signInWithEmail,
@@ -49,6 +51,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [redirectCompleted, setRedirectCompleted] = useState(false);
   const [redirectIsNew, setRedirectIsNew] = useState(false);
   const [redirectError, setRedirectError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(doc(db, "users", user.uid), (snapshot) => {
+      if (snapshot.data()?.accessOverride?.active === false) {
+        void logout();
+      }
+    }, (error) => console.error("Access subscription failed:", error));
+  }, [user]);
 
   // Collect the result of a mobile/Kindle signInWithRedirect. Without this the
   // redirect back from Google was never resolved: a failure (an unauthorised

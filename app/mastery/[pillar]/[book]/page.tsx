@@ -46,7 +46,7 @@ export default function MasteryBookPage({
   // Already on the shelf? Then this is a "keep reading" screen, not a start one.
   const existing = book
     ? courses.find(
-        (c) => c.book.title.trim().toLowerCase() === book.title.trim().toLowerCase()
+        (c) => c.book.title.trim().toLowerCase() === book.title.trim().toLowerCase() && c.book.author.trim().toLowerCase() === book.author.trim().toLowerCase()
       )
     : undefined;
 
@@ -91,13 +91,15 @@ export default function MasteryBookPage({
 
     try {
       const found = await searchGoogleBooks(`${book.title} ${book.author}`);
-      const resolved = found ?? {
+      const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const matches = found && norm(found.title) === norm(book.title) && norm(found.author) === norm(book.author);
+      const resolved = {
         // The catalog is the source of truth for what this book IS; the lookup
         // only decorates it. A search miss must not block a curated title.
         title: book.title,
         author: book.author,
-        coverUrl: "",
-        description: "",
+        coverUrl: matches ? found.coverUrl : "",
+        description: matches ? found.description : "",
       };
 
       setCurrentBook(resolved);

@@ -18,6 +18,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function accountEnabled(uid) {
+      let p = get(/databases/$(database)/documents/users/$(uid)).data;
+      return (!('accessOverride' in p) || p.accessOverride == null || p.accessOverride.active == true)
+        && (!('deletionPending' in p) || p.deletionPending == false);
+    }
+
     // Fields that decide what a reader has paid for. Only the Admin SDK may
     // ever set these; a client that tries is rejected outright.
     function serverOnlyFields() {
@@ -41,7 +47,8 @@ service cloud.firestore {
         'bookClubDeleteAt',
         // Complimentary access — the demo links and the Hudson account. A
         // client-writable "I don't pay" flag is not a flag, it is a free tier.
-        'accessOverride'
+        'accessOverride', 'previewAttempts', 'deletionPending', 'subscriptionCancelAt',
+        'paymentFailedAt', 'paymentFailureCount', 'billingEventCreated', 'lastPaidInvoice', 'lastPaidPeriod', 'previousSubscriptionId'
       ];
     }
 
@@ -50,13 +57,10 @@ service cloud.firestore {
         .hasAny(serverOnlyFields());
     }
 
-    // The generation counter is incremented client-side after a course is
-    // built, so it can't be locked down completely — but it may only ever go
-    // up. Without this a reader could zero it out and mint unlimited books.
+    // Generation usage is now reserved server-side. Clients cannot change
+    // or delete the counter, including through a merge or field deletion.
     function generationCountNotRewound() {
-      return !('generationsThisMonth' in request.resource.data)
-        || !('generationsThisMonth' in resource.data)
-        || request.resource.data.generationsThisMonth >= resource.data.generationsThisMonth;
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['generationsThisMonth']);
     }
 
     // A brand-new profile must start unpaid. Stops someone creating their own
@@ -67,7 +71,13 @@ service cloud.firestore {
         && request.resource.data.familyId == null
         && request.resource.data.isFamilyOwner == false
         && request.resource.data.stripeCustomerId == null
-        && request.resource.data.stripeSubscriptionId == null;
+        && request.resource.data.stripeSubscriptionId == null
+        && request.resource.data.generationsThisMonth == 0
+        && request.resource.data.trialStartedAt == null
+        && request.resource.data.trialEndsAt == null
+        && request.resource.data.monthResetAt == null
+        && request.resource.data.stripePaymentMethodId == null
+        && !request.resource.data.keys().hasAny(['accessOverride', 'previewAttempts', 'deletionPending', 'bookClubDeleteAt', 'bookClubRemovedAt', 'lastPaidInvoice', 'lastPaidPeriod', 'billingEventCreated', 'previousSubscriptionId', 'subscriptionCancelAt', 'paymentFailedAt', 'paymentFailureCount']);
     }
 
     match /users/{uid} {
@@ -81,7 +91,15 @@ service cloud.firestore {
 
       // A reader's courses are theirs alone to read, write and delete.
       match /courses/{courseId} {
-        allow read, write: if isOwner(uid);
+        allow read, delete: if isOwner(uid) && accountEnabled(uid);
+        allow create: if false;
+        allow update: if isOwner(uid) && accountEnabled(uid)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sharedFrom', 'expiresAt', 'id', 'book']);
+      }
+
+      match /aiUsage/{day} {
+        allow get: if isOwner(uid) && accountEnabled(uid);
+        allow list, write: if false;
       }
 
       // Personal Development summaries — same ownership rule as courses.
@@ -90,7 +108,7 @@ service cloud.firestore {
       // the client SDK writing them directly is the intended design, not a
       // shortcut around one.
       match /summaries/{summaryId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if isOwner(uid) && accountEnabled(uid);
       }
     }
 

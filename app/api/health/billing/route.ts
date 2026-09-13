@@ -28,12 +28,11 @@ export async function GET() {
     priceBookClubSet: !!process.env.STRIPE_PRICE_BOOK_CLUB,
   };
 
-  // The kill switch in lib/billing.ts's isBillingEnabled(). When it's on, the
-  // app never calls any of the routes this check is diagnosing, so a broken
-  // admin credential stops mattering to what a reader actually experiences.
+  // This switch hides the client card gate; server authentication and quota
+  // checks still require valid configuration, even while billing is paused.
   const billingPaused = process.env.NEXT_PUBLIC_BILLING_PAUSED === "true";
 
-  const configReady = admin.initializes && stripe.secretKeySet && stripe.publishableKeySet;
+  const configReady = admin.initializes && Object.values(stripe).every(Boolean);
 
   /**
    * Which commit is actually serving this request.
@@ -54,10 +53,8 @@ export async function GET() {
 
   return NextResponse.json({
     deployment,
-    // What matters to a reader right now: is the app either working (paused)
-    // or fully configured? False only means readers are hitting the broken
-    // trial gate.
-    ready: billingPaused || configReady,
+    // A paused client gate cannot make broken server configuration ready.
+    ready: configReady,
     billingPaused,
     // Whether paid billing COULD run if the pause switch were removed — stays
     // useful even while paused, so this doesn't need rechecking twice.

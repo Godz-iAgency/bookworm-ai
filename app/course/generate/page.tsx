@@ -1,4 +1,5 @@
 "use client"
+import { aiFetch } from "@/lib/ai-fetch";
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -27,7 +28,7 @@ export default function GenerateCoursePage() {
       setCurrentStep("Extracting key principles...")
       setProgress(20)
 
-      const response = await fetch("/api/course/generate", {
+      const response = await aiFetch("/api/course/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, author }),

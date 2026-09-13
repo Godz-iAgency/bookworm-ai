@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
@@ -15,7 +16,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
  * customer.subscription.deleted, and that handler already downgrades the user
  * and tears down a Book Club properly.
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -73,4 +74,12 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

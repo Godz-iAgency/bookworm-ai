@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
@@ -12,7 +13,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
  * /api/stripe/upgrade requires a saved payment method before it will
  * subscribe anyone. This is the missing step between the two.
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -47,4 +48,12 @@ export async function POST(req: Request) {
     console.error("attach-card failed:", error);
     return NextResponse.json({ error: error.message || "Could not save your card." }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

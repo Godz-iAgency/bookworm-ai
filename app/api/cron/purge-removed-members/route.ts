@@ -40,17 +40,19 @@ export async function GET(req: Request) {
 
     let deleted = 0;
     let reprieved = 0;
+    let paused = 0;
     const failures: string[] = [];
 
     for (const doc of due.docs) {
-      const user = doc.data();
+      const user = (await doc.ref.get()).data();
+      if (!user || !user.bookClubDeleteAt || Date.parse(user.bookClubDeleteAt) > Date.now()) continue;
 
       // Checked again here, not just trusted from the query: the countdown is
       // cleared when someone converts, but a write can fail, and deleting the
       // account of a reader who has since started paying is not a mistake that
       // can be walked back. Access wins over the clock, every time.
       const hasAccess =
-        !!user.familyId || user.trialStatus === "active" || (!!user.plan && user.plan !== "free");
+        !!user.accessOverride || !!user.stripeSubscriptionId || !!user.familyId || user.trialStatus === "active" || (!!user.plan && user.plan !== "free");
       if (hasAccess) {
         await doc.ref.update({ bookClubDeleteAt: null, bookClubRemovedAt: null });
         reprieved++;
@@ -58,8 +60,9 @@ export async function GET(req: Request) {
       }
 
       try {
-        await deleteAccount(doc.id);
-        deleted++;
+        if (process.env.ENABLE_AUTOMATIC_ACCOUNT_DELETION !== "true") { paused++; continue; }
+        if (await deleteAccount(doc.id, true)) deleted++;
+        else reprieved++;
       } catch (e: any) {
         // One bad account must not stop the rest of the sweep.
         console.error(`purge-removed-members: could not delete ${doc.id}:`, e?.message);
@@ -67,7 +70,7 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json({ checked: due.size, deleted, reprieved, failures: failures.length });
+    return NextResponse.json({ checked: due.size, deleted, reprieved, paused, failures: failures.length });
   } catch (error: any) {
     console.error("purge-removed-members failed:", error);
     return NextResponse.json({ error: error.message || "Sweep failed." }, { status: 500 });

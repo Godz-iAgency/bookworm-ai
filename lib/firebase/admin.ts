@@ -180,8 +180,10 @@ export async function getAuthedUser(req: Request): Promise<{ uid: string; email:
   const app = getAdminApp();
 
   try {
-    const decoded = await getAuth(app).verifyIdToken(token);
-    return { uid: decoded.uid, email: decoded.email ?? null };
+    const decoded = await getAuth(app).verifyIdToken(token, true);
+    const profile = (await getAdminDb().collection("users").doc(decoded.uid).get()).data();
+    if (profile?.accessOverride?.active === false || (profile?.deletionPending && new URL(req.url).pathname !== "/api/account/delete")) return null;
+    return { uid: decoded.uid, email: decoded.email_verified ? decoded.email ?? null : null };
   } catch (err) {
     console.error("ID token verification failed:", err);
     return null;

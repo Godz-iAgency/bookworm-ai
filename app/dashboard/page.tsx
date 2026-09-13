@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { StoredBookCover } from "@/components/book-cover";
 import { useRouter } from "next/navigation";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 import { useBookwormContext } from "@/lib/BookwormContext";
 import {
@@ -157,13 +159,15 @@ export default function DashboardPage() {
       return;
     }
     getBillingProfile(user.uid)
-      .then(setBilling)
+      .then(p => { if (auth.currentUser?.uid === user.uid) setBilling(p); })
       .catch((e) => console.error("Failed to load billing profile:", e));
   }, [user]);
 
   useEffect(() => {
     refreshBilling();
-  }, [refreshBilling]);
+    if (!user) return;
+    return onSnapshot(doc(db, "users", user.uid), () => refreshBilling());
+  }, [refreshBilling, user]);
 
   /**
    * A reader whose Book Club access was taken away, with nothing of their own
@@ -189,7 +193,7 @@ export default function DashboardPage() {
       console.error("Failed to load Book Club:", res.error);
       return;
     }
-    setClub(res);
+    if (auth.currentUser?.uid === user.uid) setClub(res);
   }, [user]);
 
   useEffect(() => {
@@ -228,15 +232,15 @@ export default function DashboardPage() {
     const next = computeBackfill(progress, courses);
     if (next) {
       setProgress(next);
-      persistBackfill(user.uid, next).catch((e) => console.error("Backfill failed:", e));
+      persistBackfill(user.uid, next, courses).catch((e) => console.error("Backfill failed:", e));
     }
   }, [user, progressLoaded, coursesLoading, courses, progress]);
 
   // Called by CourseTab when a day is completed — updates streak/badges.
-  const handleDayCompleted = async (dayLevel: number, finishedBook: boolean) => {
+  const handleDayCompleted = async (dayLevel: number, finishedBook: boolean, courseId: string) => {
     if (!user) return;
     try {
-      const next = await recordDayCompletion(user.uid, { dayLevel, finishedBook });
+      const next = await recordDayCompletion(user.uid, { dayLevel, finishedBook, courseId });
       setProgress(next);
     } catch (e) {
       console.error("Failed to record day completion:", e);
@@ -331,7 +335,7 @@ export default function DashboardPage() {
           <CourseTab course={activeCourse} onDayCompleted={handleDayCompleted} />
         </div>
         <div className={activeTab === "chat" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
-          <ChatTab course={activeCourse} day={currentDay} quota={chatQuota} />
+          <ChatTab key={`${user?.uid}:${activeCourse.id}:${currentDay.dayNumber}`} course={activeCourse} day={currentDay} quota={chatQuota} />
         </div>
         <div className={activeTab === "flashcards" ? "h-full w-full block animate-in fade-in duration-300" : "hidden"}>
           <FlashcardTab

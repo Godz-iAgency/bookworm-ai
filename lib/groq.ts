@@ -1,3 +1,4 @@
+import { providerSignal } from "./generation-budget";
 /**
  * Groq fallback model (free tier). Used automatically when the primary Gemini
  * call fails. Groq's API is OpenAI-compatible.
@@ -37,6 +38,7 @@ export async function generateGroqContent(
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
+    signal: providerSignal(),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
@@ -53,6 +55,7 @@ export async function generateGroqContent(
   }
 
   const data = await res.json();
+  if (data.choices?.[0]?.finish_reason !== "stop") throw new Error("Fallback response incomplete.");
   const text = data.choices?.[0]?.message?.content;
 
   if (!text) {

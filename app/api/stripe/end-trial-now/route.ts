@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
@@ -8,7 +9,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
  * Firestore stays untouched here; the resulting `customer.subscription.updated`
  * webhook event is the single source of truth for flipping trialStatus.
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -26,11 +27,19 @@ export async function POST(req: Request) {
     }
 
     const stripe = getStripe();
-    await stripe.subscriptions.update(user.stripeSubscriptionId, { trial_end: "now" });
+    await stripe.subscriptions.update(user.stripeSubscriptionId, { trial_end: "now", payment_behavior: "error_if_incomplete" });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("end-trial-now failed:", error);
     return NextResponse.json({ error: error.message || "Could not end trial." }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }

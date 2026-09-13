@@ -21,6 +21,7 @@ export default function TrialBanner({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (profile.trialStatus !== "active" || !profile.trialEndsAt) return null;
 
@@ -69,15 +70,18 @@ export default function TrialBanner({
       router.push("/pricing");
       return;
     }
+    setError(null);
     setBusy(true);
     const res = await postAuthed("/api/stripe/end-trial-now");
     setBusy(false);
-    if (!res.error) onConverted?.();
+    if (res.error) setError(res.error);
+    else onConverted?.();
   };
 
   return (
     <div className={`mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 ${toneClasses}`}>
       <p className="text-xs text-white/80 sm:text-sm">{message}</p>
+      {error && <p role="alert" className="text-xs text-white/80 sm:text-sm">{error}</p>}
       <button
         onClick={handleCta}
         disabled={busy}

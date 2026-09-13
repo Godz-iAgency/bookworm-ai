@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useDialogFocus } from "@/lib/useDialogFocus";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X, Check, BookOpen, ScrollText } from "lucide-react";
 import { motion } from "motion/react";
@@ -90,6 +91,7 @@ export default function LessonReader({
   onClose,
 }: LessonReaderProps) {
   const isPhone = useIsPhone();
+  const dialogRef = useDialogFocus(isPhone, onClose);
   const { fontSize, readingMode, setFontSize, setReadingMode } = useReadingPrefs();
   const scale = FONT_SCALE[fontSize];
   const paged = readingMode === "page";
@@ -98,7 +100,7 @@ export default function LessonReader({
 
   // The closing actions are lifted out of the prose and rendered as a
   // commitment the reader makes, so they must not also appear as text above it.
-  const { blocks, actions } = splitLesson(lesson);
+  const { blocks, actions } = useMemo(() => splitLesson(lesson), [lesson]);
   const committed = committedActions ?? [];
 
   const reader = usePagedReader({
@@ -120,6 +122,8 @@ export default function LessonReader({
   useEffect(() => {
     if (!paged) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]")) return;
+      if (dialogRef.current && !dialogRef.current.getClientRects().length) return;
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") goNext();
     };
@@ -189,7 +193,7 @@ export default function LessonReader({
   );
 
   const shell = (
-    <div
+    <div ref={dialogRef} role={isPhone ? "dialog" : undefined} aria-modal={isPhone || undefined} aria-label={dayTitle} tabIndex={-1}
       className={
         isPhone
           ? "fixed inset-0 z-50 flex flex-col bg-[#0a0a0a] text-white animate-in fade-in duration-300"
@@ -323,6 +327,8 @@ export default function LessonReader({
                 {FONT_SIZE_ORDER.map((id) => (
                   <button
                     key={id}
+                    aria-label={`Text size ${id}`}
+                    aria-pressed={fontSize === id}
                     onClick={() => setFontSize(id)}
                     className={`flex-1 rounded-lg border py-1.5 text-center transition-all ${
                       fontSize === id

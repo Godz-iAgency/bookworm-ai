@@ -84,8 +84,8 @@ export async function POST(req: Request) {
 
     // ---- Accounts, money, engagement --------------------------------------
     const tiers: Record<string, number> = { page_turner: 0, well_read: 0, book_club: 0 };
-    const readingLevels: Record<string, number> = {};
-    const topicCounts: Record<string, number> = {};
+    const readingLevels: Record<string, number> = Object.create(null);
+    const topicCounts: Record<string, number> = Object.create(null);
     let trialsActive = 0, trialsConverted = 0, trialsLapsed = 0;
     let booksThisMonth = 0, paymentFailures = 0, cancelling = 0, comped = 0;
     let onboarded = 0, everGenerated = 0, finishedABook = 0;
@@ -108,11 +108,11 @@ export async function POST(req: Request) {
       // A streak only counts as alive if it was fed today or yesterday.
       if (p.lastActivityDate === todayKey || p.lastActivityDate === yesterdayKey) streaksActive++;
 
-      if (p.readingLevel) {
+      if (typeof p.readingLevel === "string" && p.readingLevel) {
         onboarded++;
         readingLevels[p.readingLevel] = (readingLevels[p.readingLevel] ?? 0) + 1;
       }
-      for (const topic of (p.genrePreferences ?? []) as string[]) {
+      for (const topic of (Array.isArray(p.genrePreferences) ? p.genrePreferences.filter((v: unknown) => typeof v === "string") : []) as string[]) {
         topicCounts[topic] = (topicCounts[topic] ?? 0) + 1;
       }
       if (Number(p.generationsThisMonth ?? 0) > 0) everGenerated++;
@@ -125,11 +125,11 @@ export async function POST(req: Request) {
       // A Book Club member counts against the club's tier, not their own
       // (blank) plan — familyId is what actually grants them access.
       const tier = p.familyId ? "book_club" : p.plan;
-      if (tier && tier in tiers && (p.familyId || p.plan !== "free")) tiers[tier]++;
+      if (tier && tier in tiers && p.trialStatus !== "active" && !p.accessOverride && (p.familyId || p.plan !== "free")) tiers[tier]++;
     }
 
     // ---- Courses ----------------------------------------------------------
-    const bookCounts: Record<string, { title: string; author: string; count: number }> = {};
+    const bookCounts: Record<string, { title: string; author: string; count: number }> = Object.create(null);
     let coursesActive = 0, coursesShared = 0, coursesExpiringSoon = 0;
     let daysCompletedTotal = 0, coursesComplete = 0;
 
@@ -141,14 +141,14 @@ export async function POST(req: Request) {
       if (c.sharedFrom) coursesShared++;
       if (c.expiresAt && new Date(c.expiresAt).getTime() - now <= 2 * day) coursesExpiringSoon++;
 
-      const done = (c.days ?? []).filter((d: any) => d.isCompleted).length;
+      const done = (Array.isArray(c.days) ? c.days : []).filter((d: any) => d?.isCompleted).length;
       daysCompletedTotal += done;
       if (done >= 7) coursesComplete++;
 
-      const title = c.book?.title;
+      const title = typeof c.book?.title === "string" ? c.book.title : "";
       if (title) {
         const key = String(title).trim().toLowerCase();
-        bookCounts[key] ??= { title, author: c.book?.author ?? "", count: 0 };
+        bookCounts[key] ??= { title, author: typeof c.book?.author === "string" ? c.book.author : "", count: 0 };
         bookCounts[key].count++;
       }
     }

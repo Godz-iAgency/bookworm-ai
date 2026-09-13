@@ -1,3 +1,4 @@
+import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { generateVisionJson } from "@/lib/generate";
 
@@ -30,6 +31,8 @@ Do not guess a plausible-sounding book that is not what is actually shown. An ho
  */
 export async function POST(req: Request) {
   try {
+    const denied = await guardAI(req, "scan");
+    if (denied) return denied;
     const { imageBase64, mimeType } = await req.json();
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json({ error: "Missing image." }, { status: 400 });
@@ -46,6 +49,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ book: null });
     }
 
+    const revoked = await guardAI(req, "scan", false);
+    if (revoked) return revoked;
     return NextResponse.json({
       book: {
         title: parsed.title.trim(),

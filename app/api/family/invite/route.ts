@@ -41,11 +41,16 @@ export async function POST(req: Request) {
     // Top-level collection (not a subcollection of the family) so /api/family/join
     // can redeem a code with a single direct doc lookup — no collection-group
     // query or extra Firestore index needed.
-    await db.collection("invites").doc(code).set({
+    await db.runTransaction(async tx => {
+      const currentUser = (await tx.get(db.collection("users").doc(uid))).data();
+      const family = (await tx.get(familyRef)).data();
+      if (currentUser?.familyId !== user.familyId || family?.status !== "active" || family.ownerId !== uid || !family.memberIds?.includes(uid) || family.memberIds.length >= BOOK_CLUB_MAX_MEMBERS) throw new Error("Book Club membership changed.");
+      tx.create(db.collection("invites").doc(code), {
       familyId: user.familyId,
       createdAt: new Date().toISOString(),
       usedByUid: null,
       usedAt: null,
+      });
     });
 
     return NextResponse.json({ code });

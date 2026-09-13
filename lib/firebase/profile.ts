@@ -26,15 +26,15 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (!snap.exists()) return null;
   const d = snap.data();
   return {
-    email: d.email ?? null,
-    displayName: d.displayName ?? null,
-    photoURL: d.photoURL ?? null,
-    readingLevel: d.readingLevel ?? null,
-    genrePreferences: d.genrePreferences ?? [],
-    lastBookRead: d.lastBookRead ?? null,
-    plan: d.plan ?? null,
-    readingFontSize: d.readingFontSize ?? null,
-    readingMode: d.readingMode ?? null,
+    email: typeof d.email === "string" ? d.email : null,
+    displayName: typeof d.displayName === "string" ? d.displayName : null,
+    photoURL: typeof d.photoURL === "string" ? d.photoURL : null,
+    readingLevel: typeof d.readingLevel === "string" ? d.readingLevel : null,
+    genrePreferences: Array.isArray(d.genrePreferences) ? d.genrePreferences.filter((v: unknown) => typeof v === "string") : [],
+    lastBookRead: typeof d.lastBookRead === "string" ? d.lastBookRead : null,
+    plan: typeof d.plan === "string" ? d.plan : null,
+    readingFontSize: typeof d.readingFontSize === "string" ? d.readingFontSize : null,
+    readingMode: typeof d.readingMode === "string" ? d.readingMode : null,
   };
 }
 

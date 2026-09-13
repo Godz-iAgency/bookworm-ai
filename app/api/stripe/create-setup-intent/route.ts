@@ -1,3 +1,4 @@
+import { withAccountLock } from "@/lib/account-lock";
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
@@ -7,7 +8,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
  * user and open a SetupIntent so the browser can save a card via Stripe
  * Elements without charging anything.
  */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
     if (!uid) {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
         email: user.email ?? undefined,
         name: user.displayName ?? undefined,
         metadata: { firebaseUid: uid },
-      });
+      }, { idempotencyKey: `bookworm-customer-${uid}` });
       customerId = customer.id;
       await userRef.update({ stripeCustomerId: customerId });
     }
@@ -45,4 +46,12 @@ export async function POST(req: Request) {
     console.error("create-setup-intent failed:", error);
     return NextResponse.json({ error: error.message || "Could not start card setup." }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return await withAccountLock(uid, () => handle(req));
+  } catch (error: any) { return NextResponse.json({ error: error.message || "Account operation failed." }, { status: 409 }); }
 }
