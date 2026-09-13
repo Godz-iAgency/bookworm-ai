@@ -96,7 +96,7 @@ export default function ChatTab({
         throw new Error(data.error || "Failed to fetch response");
       }
     } catch (err: any) {
-      setMessages(prev => [...prev, { id: Date.now().toString(), role: "ai", content: "My connection to Bookworm APIs is currently unavailable. Please verify your Gemini API Key." }]);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: "ai", content: "Oops, that one's on us! Please try again in a moment." }]);
     } finally {
       sending.current = false;
       setIsTyping(false);

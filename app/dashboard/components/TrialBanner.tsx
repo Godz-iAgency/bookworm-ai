@@ -34,26 +34,26 @@ export default function TrialBanner({
   let ctaLabel: string;
   let convertNow = false;
 
+  // Each book counts down on its own 8-day clock from when it was generated,
+  // completely separate from the trial. Trial ending only ever affects future
+  // generations, never an already-started book, so the message never claims
+  // otherwise.
   if (daysLeft <= 0) {
-    message = "Your trial ends today.";
+    message = "Your trial ends today. Choose a plan to keep generating new books.";
     tone = "red";
-    ctaLabel = `Keep Learning — ${entryPrice}/month`;
+    ctaLabel = `Keep Learning: ${entryPrice}/month`;
     convertNow = true;
   } else if (daysLeft === 1) {
-    message = "Your trial ends tomorrow. Your book disappears at midnight.";
+    message = "Your trial ends tomorrow. Choose a plan to keep generating new books.";
     tone = "red";
-    ctaLabel = `Keep Learning — ${entryPrice}/month`;
+    ctaLabel = `Keep Learning: ${entryPrice}/month`;
     convertNow = true;
   } else if (daysLeft <= 3) {
-    message = `Your trial ends in ${daysLeft} days — your book disappears with it.`;
+    message = `Your trial ends in ${daysLeft} days. Choose a plan to keep generating new books.`;
     tone = "amber";
     ctaLabel = "Upgrade Now";
-  } else if (profile.showTrialEndWarning) {
-    message = `Your trial ends in ${daysLeft} days. A reminder is in your inbox.`;
-    tone = "neutral";
-    ctaLabel = "Upgrade Now";
   } else {
-    message = `Your trial ends in ${daysLeft} days — your book disappears with it.`;
+    message = `Your trial ends in ${daysLeft} days.`;
     tone = "neutral";
     ctaLabel = "Upgrade Now";
   }
