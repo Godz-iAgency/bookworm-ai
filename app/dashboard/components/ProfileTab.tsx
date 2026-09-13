@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
+import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "@/lib/firebase/config";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle } from "lucide-react";
+import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
+import { CHRISTOPHER_READER_UID } from "@/lib/admin";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
@@ -42,6 +44,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   const [uploading, setUploading] = useState(false);
   const [savingLevel, setSavingLevel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   // Reading preferences (genres + last book) — set at onboarding, edited here.
   const [genres, setGenres] = useState<string[]>([]);
@@ -196,6 +199,22 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  // Only ever offered on this one account (see CHRISTOPHER_READER_UID) —
+  // the server independently re-checks the caller's uid before minting
+  // anything, this is just what decides whether the button appears.
+  const switchToAdmin = async () => {
+    setSwitching(true);
+    setError(null);
+    const res = await postAuthed<{ customToken?: string; error?: string }>("/api/admin/switch");
+    if (res.error || !res.customToken) {
+      setError(res.error || "Could not switch accounts.");
+      setSwitching(false);
+      return;
+    }
+    await signInWithCustomToken(auth, res.customToken);
+    router.replace("/admin");
   };
 
   /** Stop the renewal, or undo that. Access continues either way until it lapses. */
@@ -723,6 +742,16 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
 
       {/* Log out — pinned to the bottom of the screen */}
       <div className="mt-auto pt-6">
+        {user?.uid === CHRISTOPHER_READER_UID && (
+          <button
+            onClick={() => void switchToAdmin()}
+            disabled={switching}
+            className="mb-3 flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-3 font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-60"
+          >
+            <ShieldCheck className="w-5 h-5" strokeWidth={2} />
+            {switching ? "Switching…" : "Switch to admin"}
+          </button>
+        )}
         <button
           onClick={handleLogout}
           className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#FF006E]/30 bg-[#FF006E]/10 px-4 py-3 font-bold text-[#FF006E] transition-all hover:bg-[#FF006E]/20"

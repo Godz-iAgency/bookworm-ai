@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signInWithCustomToken } from "firebase/auth";
 import {
   Loader2, Users, TrendingUp, BookOpen, Flame, AlertTriangle, Link2, Copy, LogOut, RefreshCw,
-  CreditCard, ExternalLink, Undo2,
+  CreditCard, ExternalLink, Undo2, BookOpenCheck,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
+import { auth } from "@/lib/firebase/config";
 import { isAdminEmail } from "@/lib/admin";
 import type { AccessLink } from "@/lib/access";
 import type { AdminCharge } from "@/app/api/admin/payments/route";
@@ -78,6 +80,7 @@ export default function AdminPage() {
   const [confirmRefund, setConfirmRefund] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<string | null>(null);
   const [refundNote, setRefundNote] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   const isAdmin = isAdminEmail(user?.email);
 
@@ -127,6 +130,23 @@ export default function AdminPage() {
     if (!loading && user && isAdmin) void load();
   }, [loading, user, isAdmin, load]);
 
+  // Swaps this browser into the founder's own reading account. Firebase only
+  // holds one signed-in identity at a time, so this replaces the admin
+  // session rather than running both at once — getting back is the same
+  // switch in reverse, from a button inside the reading app itself.
+  const switchToReading = async () => {
+    setSwitching(true);
+    setError(null);
+    const res = await postAuthed<{ customToken?: string; error?: string }>("/api/admin/switch");
+    if (res.error || !res.customToken) {
+      setError(res.error || "Could not switch accounts.");
+      setSwitching(false);
+      return;
+    }
+    await signInWithCustomToken(auth, res.customToken);
+    router.replace("/dashboard");
+  };
+
   const toggleLink = async (token: string, active: boolean) => {
     setBusyToken(token);
     const res = await postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", {
@@ -170,6 +190,14 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() => void switchToReading()}
+              disabled={switching}
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-3 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-60"
+            >
+              <BookOpenCheck className="h-3.5 w-3.5" strokeWidth={2} />
+              {switching ? "Switching…" : "Switch to reading"}
+            </button>
             <button
               onClick={() => void load()}
               disabled={refreshing}
