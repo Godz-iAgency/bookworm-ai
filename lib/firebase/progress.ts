@@ -123,6 +123,14 @@ export async function persistBackfill(uid: string, progress: UserProgress, cours
  * Record that the user just completed a day. Atomically bumps the streak,
  * awards any newly-earned badges, and (if the book is now finished) increments
  * the finished-books count. Returns the new progress for the UI to display.
+ *
+ * Only ever touches /users/{uid} — never the course itself. CourseTab already
+ * persists the day's own isCompleted/isUnlocked (via BookwormContext's
+ * autosave for a personal book, or the shared-progress effect for a book
+ * someone else shared), so re-deriving `finishedBook` from a second read of
+ * the course would be redundant at best. For a shared book it would also be
+ * impossible: the reader has no course document of their own to read, and no
+ * permission to write the sharer's.
  */
 export async function recordDayCompletion(
   uid: string,
@@ -137,11 +145,7 @@ export async function recordDayCompletion(
     const snap = await tx.get(ref);
     const prev = readProgress(snap.exists() ? snap.data() : undefined);
 
-    const courseRef = doc(db, "users", uid, "courses", opts.courseId);
-    const course = (await tx.get(courseRef)).data();
-    if (!course || !Array.isArray(course.days)) throw new Error("Course unavailable.");
-    const days = course.days.map((d: any) => d.dayNumber === opts.dayLevel ? { ...d, isCompleted: true } : d.dayNumber === opts.dayLevel + 1 ? { ...d, isUnlocked: true } : d);
-    const finishedBook = days.length === 7 && days.every((d: any) => d.isCompleted);
+    const finishedBook = opts.finishedBook;
     const key = `${opts.courseId}:${opts.dayLevel}`;
     const completions: string[] = Array.isArray(snap.data()?.completedCourseDays) ? snap.data()!.completedCourseDays : [];
     if (completions.includes(key)) return prev;
@@ -175,7 +179,6 @@ export async function recordDayCompletion(
       badges: [...badges],
     };
 
-    tx.update(courseRef, { days, status: finishedBook ? "completed" : course.status });
     tx.set(ref, { ...next, finishedCourseIds: finishedBook ? [...new Set([...finishedCourseIds, opts.courseId])] : finishedCourseIds, completedCourseDays: [...completions, key] }, { merge: true });
     return next;
   });

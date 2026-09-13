@@ -54,6 +54,21 @@ module.exports = async function(load) {
   const study = new Request('http://local',{method:'POST',body:JSON.stringify({courseId:'c',title:'Book',author:'Author'})});
   assert.equal((await guardAI(study,'study')).status,403,'A stale family pointer grants nothing');
 
+  // A book someone else shared: no course of this reader's own, resolved
+  // instead through families/{familyId}/sharedBooks/{shareId} to the
+  // sharer's real course. Chat is fine; generation never is.
+  db.records.set('users/u',{plan:'free',familyId:'fam1'});
+  db.records.set('families/fam1',{status:'active',memberIds:['u','owner']});
+  db.records.set('users/owner/courses/real',{book:{title:'Shared Book',author:'Sharer'},expiresAt:'2099-01-01'});
+  db.records.set('families/fam1/sharedBooks/owner_real',{sharedByUid:'owner',sourceCourseId:'real'});
+  const sharedChat=new Request('http://local',{method:'POST',body:JSON.stringify({courseId:'owner_real',title:'Shared Book',author:'Sharer'})});
+  assert.equal(await guardAI(sharedChat,'chat'),null,'Chat is allowed on a live-shared book');
+  const sharedStudy=new Request('http://local',{method:'POST',body:JSON.stringify({courseId:'owner_real',title:'Shared Book',author:'Sharer'})});
+  assert.equal((await guardAI(sharedStudy,'study')).status,403,'Generation stays blocked on a live-shared book');
+  db.records.delete('families/fam1/sharedBooks/owner_real');
+  const withdrawnChat=new Request('http://local',{method:'POST',body:JSON.stringify({courseId:'owner_real',title:'Shared Book',author:'Sharer'})});
+  assert.equal((await guardAI(withdrawnChat,'chat')).status,403,'Withdrawing the share blocks even chat immediately');
+
   const auth = {currentUser:{uid:'u',getIdToken:async()=> 'token'}};
   let finish;
   const {aiFetch}=load('lib/ai-fetch.ts', {'./firebase/config':{auth}}, {fetch:()=>new Promise(r=>finish=r)});
@@ -84,19 +99,23 @@ module.exports = async function(load) {
   const savedId=savedb.records.has('users/u/courses/a')?'a':'b';
   assert.equal((await save({json:async()=>({course:course(savedId)})})).status,200,'Retrying a save is idempotent');
 
-  const clubdb=database({'users/u':{familyId:'f'},'families/f':{status:'active',ownerId:'u',memberIds:['u']},'families/f/sharedBooks/u_c':{book:{title:'Book',author:'Author'},days:[],expiresAt:'2099-01-01',sharedByUid:'u',sharedByName:'Reader'}});
-  const clubHelpers={requireClub:async()=>({familyId:'f',memberIds:['u']}),clubError:(status,message)=>Object.assign(Error(message),{httpStatus:status}),statusOf:e=>e.httpStatus??500,deleteSharedCopies:async()=>{throw Error('Must use transaction')}};
+  const clubdb=database({'users/u':{familyId:'f'},'families/f':{status:'active',ownerId:'u',memberIds:['u']},'families/f/sharedBooks/u_c':{sharedByUid:'u',sharedByName:'Reader',sourceCourseId:'c',sharedAt:'2020-01-01'},'users/u/courses/c':{book:{title:'Book',author:'Author'},readingLevel:'scholar',days:[{dayNumber:1,lesson:'L1'}],expiresAt:'2099-01-01'}});
+  const clubHelpers={requireClub:async()=>({familyId:'f',memberIds:['u']}),clubError:(status,message)=>Object.assign(Error(message),{httpStatus:status}),statusOf:e=>e.httpStatus??500};
   const clubMocks={'next/server':{NextResponse:json},'@/lib/firebase/admin':{getUidFromRequest:async()=> 'u',getAdminDb:()=>clubdb},'@/lib/family-server':clubHelpers};
   const {POST:open}=load('app/api/family/open-shared/route.ts',clubMocks);
   const {POST:unshare}=load('app/api/family/unshare/route.ts',clubMocks);
   const shareReq={json:async()=>({shareId:'u_c'})};
-  assert.equal((await open(shareReq)).body.resumed,false);
-  assert.ok(clubdb.records.has('users/u/courses/u_c'),'Opening creates the copy on the server');
-  clubdb.records.get('users/u/courses/u_c').progress='kept';
-  assert.equal((await open(shareReq)).body.course.progress,'kept');
+  const opened=await open(shareReq);
+  assert.equal(opened.body.sharedByUid,'u');
+  assert.equal(opened.body.sourceCourseId,'c');
+  assert.equal(clubdb.records.has('users/u/courses/u_c'),false,'Opening a share never creates a copy of it');
+  // The sharer generates another day; a reader who resolves the share again
+  // sees it purely by reading the sharer's own course live — nothing to redo.
+  clubdb.records.get('users/u/courses/c').days.push({dayNumber:2,lesson:'L2'});
+  assert.equal((await open(shareReq)).body.sourceCourseId,'c');
   assert.equal((await unshare(shareReq)).status,200);
-  assert.equal(clubdb.records.has('users/u/courses/u_c'),false);
-  assert.equal((await open(shareReq)).status,404,'Withdrawn share cannot recreate a copy');
+  assert.equal(clubdb.records.has('families/f/sharedBooks/u_c'),false,'Unsharing deletes the pointer');
+  assert.equal((await open(shareReq)).status,404,'A withdrawn share cannot be opened');
 
   let event={id:'evt_1',created:100,type:'invoice.payment_succeeded',data:{object:{id:'in_1',parent:{subscription_details:{subscription:'sub_1'}},status:'paid',billing_reason:'subscription_cycle',lines:{data:[{period:{end:200}}]}}}};
   const webhookdb=database({'users/u':{stripeCustomerId:'cus_1',stripeSubscriptionId:'sub_1',generationsThisMonth:8}});
@@ -124,6 +143,6 @@ module.exports = async function(load) {
   await persistBackfill('u',{booksFinished:0,badges:[],streakCount:0,lastActivityDate:null});
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Stale backfill never lowers the finished count');
   console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice.');
-  console.log('PASS: atomic shelf cap/idempotent save, server-created share/resume/withdrawal, webhook replay and out-of-order period protection.');
-  console.log('PASS: concurrent AI quota, revoked access, stale family denial, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
+  console.log('PASS: atomic shelf cap/idempotent save, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
+  console.log('PASS: concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
 };

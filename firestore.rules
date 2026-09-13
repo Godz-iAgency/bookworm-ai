@@ -24,6 +24,25 @@ service cloud.firestore {
         && (!('deletionPending' in p) || p.deletionPending == false);
     }
 
+    // A Book Club member reads someone else's book directly and live — there is
+    // no copy to grant access to instead. Both accounts must still be in good
+    // standing, both must currently be in the SAME family (not just once, at
+    // share time), and an active share record for this exact book must exist.
+    // Any one of those going false (removed from the club, share withdrawn,
+    // account disabled) closes the door on the very next read.
+    function isSharedWithReader(ownerUid, courseId) {
+      let reader = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let owner = get(/databases/$(database)/documents/users/$(ownerUid)).data;
+      return isSignedIn()
+        && (!('accessOverride' in reader) || reader.accessOverride == null || reader.accessOverride.active == true)
+        && (!('deletionPending' in reader) || reader.deletionPending == false)
+        && (!('accessOverride' in owner) || owner.accessOverride == null || owner.accessOverride.active == true)
+        && (!('deletionPending' in owner) || owner.deletionPending == false)
+        && reader.familyId != null
+        && reader.familyId == owner.familyId
+        && exists(/databases/$(database)/documents/families/$(owner.familyId)/sharedBooks/$(ownerUid + '_' + courseId));
+    }
+
     // Fields that decide what a reader has paid for. Only the Admin SDK may
     // ever set these; a client that tries is rejected outright.
     function serverOnlyFields() {
@@ -89,12 +108,24 @@ service cloud.firestore {
       // Account deletion goes through support/Admin, never straight from the client.
       allow delete: if false;
 
-      // A reader's courses are theirs alone to read, write and delete.
+      // A reader's courses are theirs alone to write and delete. A fellow
+      // Book Club member may also read one directly — live, never a copy —
+      // exactly while it is actively shared with their family (see
+      // isSharedWithReader). Read-only: nothing below grants them write.
       match /courses/{courseId} {
-        allow read, delete: if isOwner(uid) && accountEnabled(uid);
+        allow read: if (isOwner(uid) && accountEnabled(uid)) || isSharedWithReader(uid, courseId);
+        allow delete: if isOwner(uid) && accountEnabled(uid);
         allow create: if false;
         allow update: if isOwner(uid) && accountEnabled(uid)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sharedFrom', 'expiresAt', 'id', 'book']);
+      }
+
+      // Each reader's own progress on a book someone else shared with the club
+      // — which days they have opened/completed, their own commitments. Purely
+      // theirs: ordinary per-user ownership, no sharing logic needed here at
+      // all, because nobody but this reader ever has a reason to touch it.
+      match /sharedProgress/{shareId} {
+        allow read, write: if isOwner(uid) && accountEnabled(uid);
       }
 
       match /aiUsage/{day} {
@@ -118,13 +149,12 @@ service cloud.firestore {
       allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
       allow write: if false;
 
-      // Books members have put on the club's shelf. Closed to clients in both
-      // directions, unlike the family document above: these carry whole
-      // generated courses, so the check that the reader is on the roster is
-      // made server-side by /api/family/* (lib/family-server.ts) rather than
-      // by a rule that would have to re-read the parent on every access.
-      // A member reads a shared book through their own copy of it, which is an
-      // ordinary document in their own courses collection.
+      // Pointers to books members have shared — {sharedByUid, sourceCourseId,
+      // sharedAt}, never the content itself. Closed to clients in both
+      // directions: /api/family/* (lib/family-server.ts) is the only reader,
+      // for the roster/expiry checks it does server-side. Its existence is
+      // also what isSharedWithReader checks, above, to let a fellow member
+      // read the sharer's actual course document — live, never a copy.
       match /sharedBooks/{shareId} {
         allow read, write: if false;
       }

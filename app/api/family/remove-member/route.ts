@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
-import { clubError, deleteSharedCopies, requireClub, statusOf } from "@/lib/family-server";
+import { clubError, requireClub, statusOf } from "@/lib/family-server";
 import { CONVERSION_WINDOW_DAYS } from "@/lib/book-club";
 
 /**
@@ -11,10 +11,13 @@ import { CONVERSION_WINDOW_DAYS } from "@/lib/book-club";
  * result honest rather than merely tidy:
  *
  *  1. Access ends now. Membership is what grants the tier (see
- *     getEffectivePlanId), so clearing familyId is the revocation — and every
- *     copy of a shared book, in both directions, goes with it. Books they
- *     shared leave the club's shelf; books others shared leave their device.
- *     Their OWN books are not touched. They generated those.
+ *     getEffectivePlanId) AND what firestore.rules' isSharedWithReader checks
+ *     (reader's familyId must match the sharer's) — so clearing familyId is
+ *     the revocation, immediately, for every book read through it in either
+ *     direction. Books they shared leave the club's shelf (the pointer is
+ *     deleted); books others shared simply stop resolving for them on their
+ *     very next read. Nothing is copied anywhere, so there is nothing else to
+ *     clean up. Their OWN books are not touched. They generated those.
  *
  *  2. Their account is not deleted. They keep their reading, their streak and
  *     their preferences while they decide what to do next.
@@ -52,15 +55,9 @@ export async function POST(req: Request) {
       const memberRef = db.collection("users").doc(memberUid);
       const member = (await tx.get(memberRef)).data();
       if (!family.memberIds.includes(memberUid) || member?.familyId !== club.familyId) return;
-      const shares = await tx.get(familyRef.collection("sharedBooks"));
+      const shares = await tx.get(familyRef.collection("sharedBooks").where("sharedByUid", "==", memberUid));
       const keepsOwnAccess = !!member.accessOverride || !!member.stripeSubscriptionId || member.trialStatus === "active" || (!!member.plan && member.plan !== "free");
-      for (const share of shares.docs) {
-        tx.delete(memberRef.collection("courses").doc(share.id));
-        if (share.data().sharedByUid === memberUid) {
-          tx.delete(share.ref);
-          for (const id of family.memberIds) tx.delete(db.collection("users").doc(id).collection("courses").doc(share.id));
-        }
-      }
+      for (const share of shares.docs) tx.delete(share.ref);
       tx.update(familyRef, { memberIds: FieldValue.arrayRemove(memberUid) });
       tx.update(memberRef, { familyId: null, isFamilyOwner: false,
         bookClubRemovedAt: new Date().toISOString(),

@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
-import { clubError, deleteSharedCopies, requireClub, statusOf } from "@/lib/family-server";
+import { clubError, requireClub, statusOf } from "@/lib/family-server";
 
 /**
  * Take a book back off the Book Club's shelf.
  *
- * Only the reader who shared it can withdraw it. Everyone else's copy goes
- * with it — a copy IS the access, so leaving copies behind would make
- * "removed from the club" mean nothing. The sharer's own book is untouched:
- * this withdraws the share, it does not delete anyone's course.
+ * Only the reader who shared it can withdraw it. Deleting this one pointer IS
+ * the revocation: firestore.rules' isSharedWithReader requires an active share
+ * record to exist, so the moment it's gone, every other member's live read of
+ * that course fails on their very next request. The sharer's own book is
+ * untouched — this withdraws the share, it does not delete anyone's course.
  */
 export async function POST(req: Request) {
   try {
@@ -39,7 +40,6 @@ export async function POST(req: Request) {
     }
 
     tx.delete(shareRef);
-    for (const memberId of family.memberIds) tx.delete(db.collection("users").doc(memberId).collection("courses").doc(shareId));
     });
 
     return NextResponse.json({ success: true });

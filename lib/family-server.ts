@@ -73,42 +73,15 @@ export function memberName(data: DocumentData | undefined): string {
 }
 
 /**
- * Take every member's personal copy of a shared book away.
- *
- * Used when a share is withdrawn and when a member is removed from the club.
- * Access to a shared book is the copy — there is nothing else to revoke — so
- * this is what "they immediately lose access" actually means.
- *
- * The sharer's own original is never caught by this: a copy is stored under
- * the share id ("<uid>_<courseId>"), an original under its own generated id,
- * so the two can't collide.
- */
-export async function deleteSharedCopies(
-  db: Firestore,
-  memberIds: string[],
-  shareIds: string[],
-): Promise<void> {
-  if (shareIds.length === 0) return;
-  const batch = db.batch();
-  let writes = 0;
-  for (const memberId of memberIds) {
-    for (const shareId of shareIds) {
-      batch.delete(db.collection("users").doc(memberId).collection("courses").doc(shareId));
-      writes++;
-    }
-  }
-  if (writes > 0) await batch.commit();
-}
-
-/**
  * Close a Book Club down: the owner has stopped paying for it, by changing
  * tier or by deleting their account.
  *
- * Everything the club granted goes at once — membership, the shared shelf, and
- * every copy taken from it. Marking the family cancelled is not enough on its
- * own: access is granted on a member's familyId, and a shared book is read
- * through a copy sitting in that member's own collection, so a club that is
- * only *flagged* closed leaves both of those still working.
+ * Everything the club granted goes at once — membership and the shared shelf.
+ * Marking the family cancelled is not enough on its own: a shared book is read
+ * live off the sharer's own course, gated by firestore.rules' isSharedWithReader
+ * checking the reader's familyId against the owner's — so clearing every
+ * member's familyId (and deleting the share pointers, belt-and-braces) is what
+ * actually closes every door at once, not just the family document's label.
  *
  * `exceptUid` is the caller — the owner, whose own record the caller updates
  * itself (with the tier change, or by deleting the account outright).
@@ -125,10 +98,7 @@ export async function dissolveClub(db: Firestore, familyId: string, exceptUid: s
     const members = [];
     for (const id of ids) members.push(await tx.get(db.collection("users").doc(id)));
     tx.update(familyRef, { status: "cancelled", cancelledAt: FieldValue.serverTimestamp() });
-    for (const share of shares.docs) {
-      tx.delete(share.ref);
-      for (const id of ids) tx.delete(db.collection("users").doc(id).collection("courses").doc(share.id));
-    }
+    for (const share of shares.docs) tx.delete(share.ref);
     for (const member of members) {
       if (member.exists && member.id !== exceptUid && member.data()?.familyId === familyId) tx.update(member.ref, { familyId: null, isFamilyOwner: false });
     }

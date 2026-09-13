@@ -8,25 +8,30 @@ import { planFromId } from "./plans";
  * the roster, membership grants the tier (see getEffectivePlanId), and invites
  * are redeemed by /api/family/join. What's here is the sharing layer built on
  * top: a member deliberately puts one of their books on the club's shelf, and
- * the other members can study that already-generated course without spending a
- * generation of their own.
+ * the other members read it live — whatever the sharer has generated so far,
+ * updating the moment they generate more — without spending a generation of
+ * their own, and without ever being able to change a word of it.
  *
  * Where the data lives, and why:
  *
  *   /families/{familyId}/sharedBooks/{shareId}
- *     The shared course itself, snapshotted at the moment it was shared.
- *     Admin SDK only (firestore.rules denies clients outright), so a stranger
- *     who guesses a familyId still reads nothing — every route below checks
- *     the caller is actually on the roster first.
+ *     A pointer, not a copy: {sharedByUid, sourceCourseId, sharedAt}. Admin
+ *     SDK only (firestore.rules denies clients outright), so a stranger who
+ *     guesses a familyId still reads nothing — every route below checks the
+ *     caller is actually on the roster first. Its existence is also what
+ *     firestore.rules checks (isSharedWithReader) to let a fellow member read
+ *     the sharer's course document directly — see /users/{uid}/courses below.
  *
- *   /users/{uid}/courses/{shareId}
- *     Each reader's OWN copy, made the first time they open a shared book, and
- *     tagged with `sharedFrom`. Their progress is independent because it is
- *     simply their document — no shared mutable progress to keep untangled.
- *     Living in the existing courses collection is deliberate: loading,
- *     saving, the countdown and the 7-day expiry sweep all work on it unchanged
- *     and needed no new security rule. It is excluded from the personal
- *     shelf cap by `sharedFrom` alone (see personalCourses).
+ *   /users/{sharerUid}/courses/{courseId}
+ *     The sharer's own book, unmodified. A fellow member reads this SAME
+ *     document live — no copy, no lag — the instant a share pointer exists
+ *     for it and both accounts are in the same family. Never a target for a
+ *     member's writes: firestore.rules' courses match grants read only.
+ *
+ *   /users/{uid}/sharedProgress/{shareId}
+ *     Each reader's OWN reading progress on a shared book — which days they
+ *     have unlocked/completed, their own commitments. Ordinary per-user
+ *     ownership; nothing here is ever visible to anyone but that one reader.
  */
 
 /** Where a shared copy came from. Present only on a copy, never on an original. */
@@ -53,9 +58,35 @@ export interface SharedBookSummary {
   readingLevel: string;
   sharedByUid: string;
   sharedByName: string;
+  /** The sharer's own course id — what a reader's live listener subscribes to. */
+  sourceCourseId: string;
   expiresAt: string;
   /** True when the signed-in reader is the one who shared it. */
   isMine: boolean;
+}
+
+/** A reader's own progress on a book someone else shared — never anyone else's. */
+export interface SharedProgress {
+  /** Day numbers (1-7) this reader has personally marked complete. */
+  completedDays: number[];
+  /** Per-day committed-action indices, keyed by day number as a string. */
+  committedActionsByDay?: Record<string, number[]>;
+  /** Firestore stores absent-so-far as null: the client SDK rejects `undefined`. */
+  activeDayNumber?: number | null;
+}
+
+/**
+ * Whether this reader may open a given day of a shared book.
+ *
+ * Capped twice: by what the sharer has actually generated (a day with no
+ * lesson yet does not exist for anyone but them), and by this reader's own
+ * pace through it (day 1, or the day after one they have completed) — the
+ * same "unlock as you finish" rhythm as a personal book, just never able to
+ * outrun the sharer's own generation.
+ */
+export function isSharedDayUnlocked(dayNumber: number, sharerDayHasLesson: boolean, completedDays: number[]): boolean {
+  if (!sharerDayHasLesson) return false;
+  return dayNumber === 1 || completedDays.includes(dayNumber - 1);
 }
 
 /** What /api/family/overview answers with. */
@@ -87,7 +118,7 @@ export function personalCourses(courses: Course[]): Course[] {
   return courses.filter((c) => !c.sharedFrom);
 }
 
-/** Copies of books other members put on the club's shelf. */
+/** Live views of books other members put on the club's shelf — never copies. */
 export function sharedCourses(courses: Course[]): Course[] {
   return courses.filter((c) => !!c.sharedFrom);
 }
@@ -98,11 +129,44 @@ export function sharedCourses(courses: Course[]): Course[] {
  * Derived rather than random so both ends can work it out without a lookup —
  * the detail screen asking "is this book already shared?", and the share route
  * making re-sharing the same book a harmless overwrite instead of a duplicate.
- * It is also the id of every reader's copy, which is what lets a withdrawal
- * find and delete those copies.
+ * It is also the id a reader's live view is held under locally, and the doc id
+ * of that reader's own progress on it.
  */
 export function shareIdFor(uid: string, courseId: string): string {
   return `${uid}_${courseId}`;
+}
+
+/**
+ * Build the Course-shaped object the existing reading UI already knows how to
+ * render, entirely in memory — this is never written back to Firestore as
+ * this shape (see BookwormContext's autosave, which skips anything carrying
+ * `sharedFrom`).
+ *
+ * Content (lesson, flashcards, chatSeed, closingAxiom, book, thesis...) comes
+ * straight from the sharer's own course, live. Progress (which days are
+ * unlocked/completed, committed actions, which day is active) comes entirely
+ * from this reader's own, private sharedProgress doc — the two are stitched
+ * together fresh on every change to either source.
+ */
+export function buildSharedCourseView(
+  shareId: string,
+  sharedFrom: SharedFrom,
+  ownerCourse: Course,
+  progress: SharedProgress | null,
+): Course {
+  const completedDays = progress?.completedDays ?? [];
+  return {
+    ...ownerCourse,
+    id: shareId,
+    sharedFrom,
+    activeDayNumber: progress?.activeDayNumber ?? undefined,
+    days: ownerCourse.days.map((day) => ({
+      ...day,
+      isUnlocked: isSharedDayUnlocked(day.dayNumber, !!day.lesson, completedDays),
+      isCompleted: completedDays.includes(day.dayNumber),
+      committedActions: progress?.committedActionsByDay?.[String(day.dayNumber)] ?? [],
+    })),
+  };
 }
 
 /** Whole days left before a removed member's account is deleted (never negative). */

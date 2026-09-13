@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { useAuth } from '@/context/AuthContext';
 import { auth, db } from '@/lib/firebase/config';
 import { collection, getDocs, doc, setDoc, deleteDoc, runTransaction, onSnapshot } from 'firebase/firestore';
-import type { SharedFrom } from './book-club';
+import { buildSharedCourseView, type SharedFrom, type SharedProgress } from './book-club';
 
 export interface Book {
   title: string;
@@ -95,6 +95,13 @@ interface BookwormContextType {
   deleteCourse: (courseId: string) => Promise<void>;
   /** True until the signed-in user's courses have been loaded from Firestore. */
   coursesLoading: boolean;
+  /**
+   * Start a live, read-only view of a book another Book Club member shared.
+   * Subscribes directly to the sharer's own course plus this reader's private
+   * progress on it, and keeps a merged Course in `courses` up to date as
+   * either changes. Call the returned function to stop watching it.
+   */
+  openSharedBook: (shareId: string, sharedFrom: SharedFrom, ownerUid: string, courseId: string) => () => void;
 }
 
 const BookwormContext = createContext<BookwormContextType | undefined>(undefined);
@@ -142,6 +149,14 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   const saveQueue = useRef(Promise.resolve());
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
 
+  // Shared-book live views: one pair of Firestore listeners per open share
+  // (the sharer's course + this reader's own progress on it), and the last
+  // Course object built from them — set the moment either fires, so the
+  // progress-autosave effect below never mistakes an incoming snapshot for a
+  // local edit that still needs saving.
+  const sharedSubs = useRef(new Map<string, () => void>());
+  const sharedProgressSaved = useRef(new Map<string, Course>());
+
   // The uid whose courses currently live in `courses`. Persistence only writes
   // when this matches the signed-in user, so a previous account's courses can
   // NEVER be written under a new account — even if the user logs out and signs
@@ -154,6 +169,9 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
 
     if (!user) {
+      for (const unsub of sharedSubs.current.values()) unsub();
+      sharedSubs.current.clear();
+      sharedProgressSaved.current.clear();
       setCourses([]);
       setActiveCourseId(null);
       setHydratedUid(null);
@@ -163,6 +181,9 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     // Immediately drop any previous account's courses and block persistence
     // until THIS user's courses have loaded.
+    for (const unsub of sharedSubs.current.values()) unsub();
+    sharedSubs.current.clear();
+    sharedProgressSaved.current.clear();
     setHydratedUid(null);
     saved.current.clear();
     setCurrentBook(null);
@@ -221,6 +242,10 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || hydratedUid !== user.uid) return;
     for (const course of courses) {
+      // A shared book is a live view of someone else's course, never this
+      // reader's own document — see the shared-progress effect below, which
+      // is what actually persists a reader's side of it.
+      if (course.sharedFrom) continue;
       // setCourses is exposed on this context, so anything can end up here.
       // Firestore throws synchronously on a missing id, and a throw inside an
       // effect unmounts the whole app - so this never reaches doc() unchecked.
@@ -260,6 +285,35 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     }
   }, [courses, hydratedUid, user]);
 
+  // A reader's own progress on a shared book — which days they've completed,
+  // their commitments, which day they're on. Parallels the autosave effect
+  // above, but writes only these fields, to sharedProgress rather than the
+  // course itself (which the reader has no permission to touch). Skipped
+  // entirely for anything just received FROM Firestore: openSharedBook marks
+  // that object as already-saved the moment it builds it, below.
+  useEffect(() => {
+    if (!user || hydratedUid !== user.uid) return;
+    for (const course of courses) {
+      if (!course.sharedFrom) continue;
+      const before = sharedProgressSaved.current.get(course.id);
+      if (before === course) continue;
+      sharedProgressSaved.current.set(course.id, course);
+      const uid = user.uid;
+      const shareId = course.id;
+      const completedDays = course.days.filter(d => d.isCompleted).map(d => d.dayNumber);
+      const committedActionsByDay: Record<string, number[]> = {};
+      for (const d of course.days) if (d.committedActions?.length) committedActionsByDay[String(d.dayNumber)] = d.committedActions;
+      // Firestore's client SDK throws on an `undefined` field value (no
+      // ignoreUndefinedProperties here), and activeDayNumber starts out
+      // exactly that — before the reader has opened any day.
+      const progress: SharedProgress = { completedDays, committedActionsByDay, activeDayNumber: course.activeDayNumber ?? null };
+      saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
+        if (auth.currentUser?.uid !== uid) return;
+        await setDoc(doc(db, 'users', uid, 'sharedProgress', shareId), progress, { merge: true });
+      }).catch(err => { sharedProgressSaved.current.delete(course.id); console.error('Failed to save shared progress:', course.id, err); });
+    }
+  }, [courses, hydratedUid, user]);
+
   useEffect(() => {
     if (!user || hydratedUid !== user.uid) return;
     return onSnapshot(collection(db, 'users', user.uid, 'courses'), snapshot => {
@@ -277,16 +331,81 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
 
   // Remove a course everywhere: Firestore first, then local state. Clears the
   // active selection if it was the one removed (the dashboard re-selects).
+  //
+  // A shared book has no document of this reader's own course collection to
+  // delete — it was never copied there — but it DOES have this reader's own
+  // progress doc, and that has to go too: CourseDetail promises removing one
+  // means starting over from day one, which would be a lie if progress just
+  // sat there waiting to resume the moment they reopened it.
   const deleteCourse = async (courseId: string) => {
     // An empty path segment is the same synchronous Firestore throw as above.
     if (!courseId) return;
-    if (user) {
+    if (courses.find((c) => c.id === courseId)?.sharedFrom) {
+      sharedSubs.current.get(courseId)?.();
+      if (user) deleteDoc(doc(db, 'users', user.uid, 'sharedProgress', courseId)).catch(err => console.error('Failed to clear shared progress:', courseId, err));
+    } else if (user) {
       await saveQueue.current;
       await deleteDoc(doc(db, 'users', user.uid, 'courses', courseId));
       saved.current.delete(courseId);
     }
     setCourses((prev) => prev.filter((c) => c.id !== courseId));
     setActiveCourseId((prev) => (prev === courseId ? null : prev));
+  };
+
+  // Watch a book someone else shared: live off their course document, merged
+  // with this reader's own private progress on it. Both listeners feed the
+  // same recompute, so a new lesson generated on the other end and a day this
+  // reader just completed locally both land through the same path.
+  const openSharedBook = (shareId: string, sharedFrom: SharedFrom, ownerUid: string, courseId: string) => {
+    const existing = sharedSubs.current.get(shareId);
+    if (existing) return existing;
+
+    let ownerCourse: Course | null = null;
+    let progress: SharedProgress | null = null;
+    const readerUid = user?.uid;
+
+    const recompute = () => {
+      if (!ownerCourse) return;
+      const view = buildSharedCourseView(shareId, sharedFrom, ownerCourse, progress);
+      // Set BEFORE setCourses: the progress-autosave effect diffs against
+      // this on its very next run, so a view built from Firestore is never
+      // mistaken for a local edit still waiting to be saved.
+      sharedProgressSaved.current.set(shareId, view);
+      setCourses(prev => {
+        const idx = prev.findIndex(c => c.id === shareId);
+        if (idx === -1) return [...prev, view];
+        const next = prev.slice();
+        next[idx] = view;
+        return next;
+      });
+    };
+
+    const unsubCourse = onSnapshot(doc(db, 'users', ownerUid, 'courses', courseId), snap => {
+      if (!snap.exists()) {
+        // Withdrawn, expired, or the sharer deleted it — either way, gone.
+        setCourses(prev => prev.filter(c => c.id !== shareId));
+        unsubscribe();
+        return;
+      }
+      ownerCourse = { ...(snap.data() as Course), id: courseId };
+      recompute();
+    }, error => console.error('Shared book subscription failed:', error));
+
+    const unsubProgress = readerUid
+      ? onSnapshot(doc(db, 'users', readerUid, 'sharedProgress', shareId), snap => {
+          progress = snap.exists() ? (snap.data() as SharedProgress) : null;
+          recompute();
+        }, error => console.error('Shared progress subscription failed:', error))
+      : () => {};
+
+    const unsubscribe = () => {
+      unsubCourse();
+      unsubProgress();
+      sharedSubs.current.delete(shareId);
+      sharedProgressSaved.current.delete(shareId);
+    };
+    sharedSubs.current.set(shareId, unsubscribe);
+    return unsubscribe;
   };
 
   return (
@@ -302,6 +421,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         setActiveCourseId,
         deleteCourse,
         coursesLoading,
+        openSharedBook,
       }}
     >
       {children}

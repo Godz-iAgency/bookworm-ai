@@ -33,7 +33,7 @@ export default function BookClubTab({
   overview,
   reloadClub,
 }: BookClubTabProps) {
-  const { courses, setCourses, deleteCourse } = useBookwormContext();
+  const { courses, deleteCourse, openSharedBook } = useBookwormContext();
 
   const [error, setError] = useState<string | null>(null);
   const [busyShare, setBusyShare] = useState<string | null>(null);
@@ -46,14 +46,14 @@ export default function BookClubTab({
   const prunedFor = useRef<string | null>(null);
 
   /**
-   * Let go of any shared book this reader is no longer entitled to.
+   * Stop watching any shared book this reader is no longer entitled to.
    *
-   * A shared book is read through a copy in the reader's own collection, so
-   * the copy IS the access. The server deletes copies the moment a share is
-   * withdrawn or a member removed, and this is the same rule applied from the
-   * other end — it catches the device that was offline when that happened,
-   * and anything that expired while the app sat open. Keyed on the answer it
-   * acted on so it runs once per load, not once per render.
+   * firestore.rules closes the actual door the moment a share is withdrawn, a
+   * member is removed, or the book expires — this just stops the local
+   * listener and drops it from the shelf on the same basis, so a device that
+   * was mid-read when that happened doesn't sit there quietly re-fetching a
+   * book it can no longer read. Keyed on the answer it acted on so it runs
+   * once per load, not once per render.
    */
   useEffect(() => {
     if (!overview?.inClub) return;
@@ -69,14 +69,18 @@ export default function BookClubTab({
 
   const openShared = async (shareId: string) => {
     setError(null);
-    // Already reading it: their copy carries their progress, so go straight in
-    // rather than asking the server for a book they already have.
+    if (!overview?.inClub) return;
+    // Already watching it: go straight in rather than re-validating a share
+    // that's already live on screen.
     if (courses.some((c) => c.id === shareId)) {
       onOpenCourse(shareId);
       return;
     }
     setBusyShare(shareId);
-    const res = await postAuthed("/api/family/open-shared", { shareId });
+    const res = await postAuthed<{ error?: string; sharedByUid: string; sharedByName: string; sourceCourseId: string }>(
+      "/api/family/open-shared",
+      { shareId },
+    );
     setBusyShare(null);
     if (res.error) {
       setError(res.error);
@@ -86,8 +90,13 @@ export default function BookClubTab({
       void reloadClub();
       return;
     }
-    setCourses((prev) => (prev.some((c) => c.id === res.course.id) ? prev : [...prev, res.course]));
-    onOpenCourse(res.course.id);
+    openSharedBook(
+      shareId,
+      { shareId, familyId: overview.familyId, sharedByUid: res.sharedByUid, sharedByName: res.sharedByName },
+      res.sharedByUid,
+      res.sourceCourseId,
+    );
+    onOpenCourse(shareId);
   };
 
   const unshare = async (shareId: string) => {
