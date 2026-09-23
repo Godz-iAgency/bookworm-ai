@@ -1,5 +1,6 @@
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
+import { AI_TASKS } from "@/lib/ai-models";
 import { buildAxiomMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
 import { stripEmDashes } from "@/lib/lesson";
@@ -7,7 +8,7 @@ import { stripEmDashes } from "@/lib/lesson";
 // One sentence. The flashcard repair route can also produce an axiom, but it
 // regenerates a whole deck on the way and takes about a minute; this exists so
 // a day that only needs its closing line gets it in seconds.
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -27,11 +28,13 @@ export async function POST(req: Request) {
       lesson
     );
 
-    const parsed = await generateJson(user, system, 256, 2, (p) =>
-      typeof p?.closingAxiom === "string" && p.closingAxiom.trim()
-        ? null
-        : "Axiom generation returned nothing."
-    );
+    const { data: parsed } = await generateJson(AI_TASKS.axiom, user, system, {
+      maxOutputTokens: 1024,
+      budgetMs: 55_000,
+      attempts: 2,
+      validate: (p) =>
+        typeof p?.closingAxiom === "string" && p.closingAxiom.trim() ? null : "Axiom generation returned nothing.",
+    });
 
     const revoked = await guardAI(req, "study", false);
     if (revoked) return revoked;

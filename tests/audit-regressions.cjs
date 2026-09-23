@@ -138,6 +138,7 @@ async function courseCases() {
 
 async function main() {
   await require("./hardening.cjs")(load);
+  await require("./model-routing.cjs")(load);
   const prefs = load('lib/reading-prefs.ts', {});
   for (const input of ['constructor', '__proto__', 'toString', '', null, 3]) {
     assert.equal(prefs.coerceFontSize(input), prefs.DEFAULT_FONT_SIZE);

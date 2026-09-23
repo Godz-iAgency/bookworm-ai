@@ -41,8 +41,13 @@ export async function generateCourseDays(
       previewText: d.previewText ?? "",
       // The anchors this day gets written from when the reader opens it.
       keyIdeas: Array.isArray(d.keyIdeas)
-        ? d.keyIdeas.filter((k: unknown) => typeof k === "string").slice(0, 5)
+        ? d.keyIdeas.filter((k: unknown) => typeof k === "string").slice(0, 6)
         : [],
+      // "" rather than undefined throughout: Firestore rejects undefined values.
+      coreConcept: typeof d.coreConcept === "string" ? d.coreConcept : "",
+      learningObjective: typeof d.learningObjective === "string" ? d.learningObjective : "",
+      bookConnection: typeof d.bookConnection === "string" ? d.bookConnection : "",
+      // Every lesson, Day 1 included, is written when the day is opened.
       lesson: d.lesson ?? "",
       flashcards: Array.isArray(d.flashcards) ? d.flashcards.slice(0, 3) : [],
       chatSeed: Array.isArray(d.chatSeed) ? d.chatSeed.slice(0, 3) : [],

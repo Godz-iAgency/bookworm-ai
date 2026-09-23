@@ -11,7 +11,7 @@ export type DayContentStatus = "ready" | "generating" | "error";
  * regardless of whether the reader ever opened the Course tab.
  *
  * Two repair paths:
- *  - no lesson at all (days 2–7 before they're opened) → generate the full day
+ *  - no lesson at all (any day before it's opened, Day 1 included) → generate the full day
  *  - lesson present but an empty deck → rebuild only the cards, leaving the
  *    lesson the reader already read untouched
  *
@@ -70,6 +70,7 @@ export function useDayContent(
               dayNumber: day.dayNumber,
               dayTitle: day.title,
               allTitles: course.days.map((d) => d.title),
+              arc: course.days.map((d) => ({ title: d.title, coreConcept: d.coreConcept ?? "" })),
               // What the outline established about this book. Without these a
               // day generated here would be written from the title alone,
               // which is exactly the generic-summary failure the outline's key
@@ -77,6 +78,9 @@ export function useDayContent(
               thesis: course.thesis ?? "",
               frameworks: course.frameworks ?? [],
               keyIdeas: day.keyIdeas ?? [],
+              coreConcept: day.coreConcept ?? "",
+              learningObjective: day.learningObjective ?? "",
+              bookConnection: day.bookConnection ?? "",
             }
           : {
               title: course.book.title,

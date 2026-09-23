@@ -30,7 +30,16 @@ export interface Day {
    * general. Undefined on courses generated before the outline captured them.
    */
   keyIdeas?: string[];
-  /** Full 800–1200 word AI-generated lesson (Phase 4). */
+  /**
+   * What the plan decided this day teaches: its one central idea, what the
+   * reader should be able to do after it, and how it fits the whole book.
+   * Handed to the lesson writer with keyIdeas. Undefined on courses planned
+   * before the outline produced them.
+   */
+  coreConcept?: string;
+  learningObjective?: string;
+  bookConnection?: string;
+  /** The day's main lesson, 3,600+ instructional words. Empty until opened. */
   lesson: string;
   /** Exactly 3 flashcards for this day. */
   flashcards: Flashcard[];

@@ -1,8 +1,11 @@
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
-import { generateGeminiContent } from "@/lib/gemini";
+import { AI_TASKS } from "@/lib/ai-models";
+import { generateContent } from "@/lib/gemini";
 import { stripEmDashes } from "@/lib/lesson";
 import { STYLE_RULES, getLanguageRules } from "@/lib/course-prompts";
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -23,11 +26,11 @@ export async function POST(req: Request) {
     // even after they switch the setting for future books.
     const systemPrompt = `You are BookPal, a warm and sharp reading tutor for the book '${title}' by '${author}'. Answer using the book's principles, lessons, and concepts. Be engaging, clear, and educational.${lessonContext}\n\nLimit every response to a maximum of 25 words. Be concise, direct, and on-topic.\n\n${getLanguageRules(language, { json: false })}\n\n${STYLE_RULES}`;
 
-    const response = await generateGeminiContent(prompt, systemPrompt, false);
+    const { text } = await generateContent(AI_TASKS.chat, prompt, systemPrompt);
 
     const revoked = await guardAI(req, "chat", false);
     if (revoked) return revoked;
-    return NextResponse.json({ reply: stripEmDashes(response) });
+    return NextResponse.json({ reply: stripEmDashes(text) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

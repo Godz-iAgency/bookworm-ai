@@ -1,6 +1,7 @@
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
-import { generateGeminiContent } from "@/lib/gemini";
+import { AI_TASKS } from "@/lib/ai-models";
+import { generateContent } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     
     const systemPrompt = `Return a pure JSON array of objects. Keys must be exactly "front" (for the question) and "back" (for the answer). Do NOT wrap in markdown backticks.`;
 
-    const rawResponse = await generateGeminiContent(prompt, systemPrompt, true);
+    const { text: rawResponse } = await generateContent(AI_TASKS.studyAids, prompt, systemPrompt, { json: true });
     const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const data = JSON.parse(cleanJson);
 

@@ -1,5 +1,6 @@
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
+import { AI_TASKS } from "@/lib/ai-models";
 import { generateVisionJson } from "@/lib/generate";
 
 // Matches the other Gemini-calling routes. A vision call is normally fast,
@@ -38,11 +39,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing image." }, { status: 400 });
     }
 
-    const parsed = await generateVisionJson(
+    const { data: parsed } = await generateVisionJson(
+      AI_TASKS.coverScan,
       PROMPT,
       SYSTEM,
       { mimeType: typeof mimeType === "string" ? mimeType : "image/jpeg", data: imageBase64 },
-      256
+      { maxOutputTokens: 1024, budgetMs: 55_000 }
     );
 
     if (parsed?.confident !== true || typeof parsed.title !== "string" || !parsed.title.trim()) {

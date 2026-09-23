@@ -1,6 +1,7 @@
-import { validDeck } from "@/lib/course-validation";
+import { validStudyAids } from "@/lib/course-validation";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
+import { AI_TASKS } from "@/lib/ai-models";
 import { buildFlashcardsMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
 import { stripEmDashes } from "@/lib/lesson";
@@ -33,10 +34,12 @@ export async function POST(req: Request) {
       lesson
     );
 
-    const parsed = await generateJson(user, system, 2048, 3, (value) =>
-      validDeck(value?.flashcards) && Array.isArray(value?.chatSeed) && value.chatSeed.length === 3 && value.chatSeed.every((s: any) => typeof s === "string" && s.trim()) && typeof value?.closingAxiom === "string" && value.closingAxiom.trim()
-        ? null : "Flashcard repair returned incomplete content."
-    );
+    const { data: parsed } = await generateJson(AI_TASKS.studyAids, user, system, {
+      maxOutputTokens: 8192,
+      budgetMs: 50_000,
+      attempts: 3,
+      validate: (value) => (validStudyAids(value) ? null : "Flashcard repair returned incomplete content."),
+    });
 
     const flashcards = Array.isArray(parsed?.flashcards)
       ? parsed.flashcards

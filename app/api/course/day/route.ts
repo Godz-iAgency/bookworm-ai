@@ -1,56 +1,25 @@
-import { validLesson } from "@/lib/course-validation";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
-import { buildDayMessages } from "@/lib/course-prompts";
-import { generateJson } from "@/lib/generate";
-import { stripEmDashes } from "@/lib/lesson";
+import { dayInputFromBody, generateDayContent } from "@/lib/day-generation";
 
-export const maxDuration = 60;
+// A 3,600+ word lesson, a possible expansion pass and the study aids, one
+// after another. Needs Vercel Fluid Compute (300s on every plan).
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
     const denied = await guardAI(req, "study");
     if (denied) return denied;
-    const { title, author, readingLevel, language, dayNumber, dayTitle, allTitles, thesis, frameworks, keyIdeas } =
-      await req.json();
-    if (!title || !dayNumber || !dayTitle) {
+    const input = dayInputFromBody(await req.json());
+    if (!input) {
       return NextResponse.json({ error: "Missing day details." }, { status: 400 });
     }
 
-    const { system, user } = buildDayMessages(
-      title,
-      author,
-      readingLevel,
-      language,
-      dayNumber,
-      dayTitle,
-      Array.isArray(allTitles) ? allTitles : [],
-      typeof thesis === "string" ? thesis : "",
-      Array.isArray(frameworks) ? frameworks : [],
-      Array.isArray(keyIdeas) ? keyIdeas : []
-    );
+    const content = await generateDayContent(input.ctx, input.day);
 
-    const parsed = await generateJson(user, system, 8192, 3, (p) =>
-      validLesson(p) ? null : "Day generation returned no lesson."
-    );
-
-    // The prompt asks for no em dashes; this is what actually guarantees it.
     const revoked = await guardAI(req, "study", false);
     if (revoked) return revoked;
-    return NextResponse.json({
-      lesson: stripEmDashes(parsed.lesson),
-      flashcards: Array.isArray(parsed.flashcards)
-        ? parsed.flashcards.slice(0, 3).map((c: any) => ({
-            front: typeof c?.front === "string" ? stripEmDashes(c.front) : c?.front,
-            back: typeof c?.back === "string" ? stripEmDashes(c.back) : c?.back,
-          }))
-        : [],
-      chatSeed: Array.isArray(parsed.chatSeed)
-        ? parsed.chatSeed.slice(0, 3).map((s: any) => (typeof s === "string" ? stripEmDashes(s) : s))
-        : [],
-      closingAxiom:
-        typeof parsed.closingAxiom === "string" ? stripEmDashes(parsed.closingAxiom).trim() : "",
-    });
+    return NextResponse.json(content);
   } catch (error: any) {
     console.error("Day generation failed:", error);
     return NextResponse.json(

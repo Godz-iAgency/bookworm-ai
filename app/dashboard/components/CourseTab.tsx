@@ -100,8 +100,8 @@ export default function CourseTab({
       .finally(() => setAxiomPendingDay((p) => (p === day.dayNumber ? null : p)));
   };
 
-  // Days 2–7 have their full lesson generated on demand (the outline call only
-  // produces Day 1). Open a day — fetching its lesson first if we don't have
+  // Every day, Day 1 included, has its full lesson generated on demand (the
+  // outline call only plans the course). Open a day, fetching its lesson first if we don't have
   // it. Returns whether a lesson ended up open, so a caller chaining more
   // state changes onto success (handleContinueToNextDay below) knows whether
   // to proceed.
@@ -129,11 +129,15 @@ export default function CourseTab({
           dayNumber,
           dayTitle: day?.title ?? `Day ${dayNumber}`,
           allTitles: course.days.map((d) => d.title),
+          arc: course.days.map((d) => ({ title: d.title, coreConcept: d.coreConcept ?? "" })),
           // What the outline established about this book, so a day opened days
           // later is still written about the same book it planned.
           thesis: course.thesis ?? "",
           frameworks: course.frameworks ?? [],
           keyIdeas: day?.keyIdeas ?? [],
+          coreConcept: day?.coreConcept ?? "",
+          learningObjective: day?.learningObjective ?? "",
+          bookConnection: day?.bookConnection ?? "",
         }),
       });
       const data = await res.json();
@@ -662,13 +666,14 @@ function CourseCompleteBanner({ course }: { course: Course }) {
 }
 
 // Friendly animated loader shown inline while a day's lesson is generated.
-// The cycling messages + shimmer make the ~10s wait feel purposeful.
+// A full lesson takes a couple of minutes, so the cycling messages never claim
+// it is nearly done, and the line underneath says how long to expect.
 function DayLoader({ dayNumber }: { dayNumber: number }) {
   const messages = [
     "Opening the book…",
     `Day ${dayNumber} coming up…`,
     "Gathering the key ideas…",
-    "Almost ready…",
+    "Writing your lesson…",
   ];
   const [i, setI] = useState(0);
 
@@ -699,6 +704,7 @@ function DayLoader({ dayNumber }: { dayNumber: number }) {
       <p className="animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-bold text-transparent">
         {messages[i]}
       </p>
+      <p className="mt-2 text-sm text-white/50">A full lesson takes a couple of minutes to write.</p>
     </div>
   );
 }

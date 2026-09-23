@@ -3,77 +3,143 @@ import { languageFromId } from "./languages";
 /**
  * Shared prompt building for course generation.
  *
- * Architecture: the course is generated in small, reliable pieces rather than
- * one giant call. `buildOutlineMessages` returns the 7-day arc (titles +
- * previews + key ideas) plus Day 1's full content. `buildDayMessages` generates
- * one later day's full lesson on demand when the reader opens it.
+ * Architecture: the course is generated in pieces, each by the model suited to
+ * it. `buildOutlineMessages` (lite model) decides WHAT each of the 7 days
+ * teaches: a learning stage with a core concept, an objective and the book's
+ * own material for it, and no lesson text at all. `buildDayMessages` (full
+ * lesson model) decides HOW one day is taught, writing its long-form lesson
+ * when the reader opens it. `buildFlashcardsMessages` (lite model) then builds
+ * the study aids from the lesson that was actually written.
  *
- * Two different jobs are being done here and they must not be confused:
- * FIDELITY_RULES govern WHAT is taught (this book's real content), and the
- * PERSONAS govern HOW it is delivered (the reader's chosen level). A course can
- * be written for a ten-year-old and still be about the author's actual
- * framework rather than the genre's generic advice.
+ * Three different jobs are being done in these prompts and they must not be
+ * confused: FIDELITY_RULES govern WHAT is taught (this book's real content),
+ * the PERSONAS govern HOW it is delivered (the reader's chosen mode), and the
+ * language rules govern which language it is delivered in. A course can be
+ * written for a beginner and still be about the author's actual framework
+ * rather than the genre's generic advice.
  */
 
 /**
  * Punctuation rule applied to every generated surface (lessons, flashcards,
  * chat). Models reach for em dashes constantly, so this is also enforced after
- * the fact by stripEmDashes() in lib/lesson.ts — the instruction reduces how
+ * the fact by stripEmDashes() in lib/lesson.ts. The instruction reduces how
  * often the sanitizer has to do anything, it doesn't replace it.
  */
 export const STYLE_RULES = `PUNCTUATION RULE: Never use an em dash (—) or an en dash (–) anywhere in your output. Where you would reach for one, use a comma, a period, a colon, or parentheses instead. Use a plain hyphen only inside hyphenated words and number ranges.`;
 
 /**
- * The accuracy contract, attached to every call.
+ * The accuracy contract, attached to every call that says anything about the
+ * book.
  *
- * Ported from the Personal Development summary prompts, which produced
- * measurably more faithful output than this file's original instructions did.
  * The failure mode it exists to prevent is confident genre-mush: a "course" on
  * a book the model half remembers, padded with plausible advice that book never
  * gave. The lever is specificity, not length. Naming the author's actual
  * frameworks and actual examples is what forces recall of the real book instead
- * of a summary of its category.
+ * of a summary of its category. Longer lessons raise the stakes: more room to
+ * fill is more temptation to invent, which is why the source-integrity rules
+ * are explicit about keeping Bookworm's own examples visibly Bookworm's.
  */
-export const FIDELITY_RULES = `ACCURACY REQUIREMENTS (these matter more than fluency):
+export const FIDELITY_RULES = `ACCURACY AND SOURCE INTEGRITY (these matter more than fluency or length):
 
-- Teach THIS book, not its genre. Every substantive claim should be one this specific author actually makes. If a point is generic advice that could appear in any book on the subject, cut it and replace it with something only this book says.
-- Use the author's own vocabulary for their own ideas. If they named a framework, a law, a step, a stage, a matrix, or a rule, call it by that name and define it the way they define it. Their terminology is the scaffolding of the course.
-- Ground ideas in the book's own material. Reference the specific studies, case studies, companies, historical episodes, clients, or personal stories the author actually uses. Name them.
-- Preserve the author's actual positions, including the unpopular or counterintuitive ones, and including anything that contradicts conventional wisdom in the field. Do not sand the book down into something safer or more agreeable than it is.
+- Teach THIS book, not its genre. Every substantive claim about what the book argues should be one this specific author actually makes. If a point is generic advice that could appear in any book on the subject, cut it and replace it with something only this book says.
+- Use the book's own vocabulary for its own ideas. If the author named a framework, a law, a step, a stage, a matrix, or a rule, call it by that name and define it the way the book defines it.
+- Ground ideas in the book's own material: the specific studies, case studies, companies, historical episodes, clients, or personal stories the author actually uses. Name them.
+- Preserve the author's actual positions, including the unpopular or counterintuitive ones. Do not sand the book down into something safer or more agreeable than it is.
+- Keep the book's knowledge and your own teaching visibly separate. When you add an illustrative example, analogy, scenario, or practical interpretation of your own, frame it as yours ("Imagine...", "Picture a...", "One way to apply this...") and never imply the author wrote it. Present something as the book's only when it genuinely is.
+- Never fabricate or misattribute a quote, statistic, study, research finding, story, framework, historical claim, or author statement. If you are not sure the book contains a specific detail, do not state it as the book's.
 
-HONESTY REQUIREMENT: If you do not reliably know this book's specific content, do not invent it. Set "familiar" to false and build the strongest course you can on the book's apparent topic, saying nothing you cannot stand behind. Never fabricate a framework name, a study, or a statistic.
+HONESTY REQUIREMENT: If you do not reliably know this book's specific content, do not invent it. Teach the strongest honest material you can on the book's apparent topic, saying nothing you cannot stand behind.
 
 ORIGINAL PROSE: Write every sentence yourself, in your own words. Do not reproduce passages from the book. Short quoted phrases (a sentence at most, in quotation marks) are fine where the exact wording is the point, such as a coined term or a famous line.`;
 
-/** Voice persona per reading level — applied to ALL generated text. */
+/**
+ * Bookworm is a course, not a summary app. The habit this exists to break is
+ * narrating the source ("the author explains...") instead of teaching what the
+ * source knows, which reads like a book report however accurate it is.
+ */
+const TEACHING_RULES = `TEACH, DON'T SUMMARIZE: You are the instructor of a structured course built on this book. Teach the knowledge directly to the reader.
+- State ideas as knowledge to be understood, not as reports of what someone said. Write "Habits compound because..." rather than "The author explains that habits compound because...".
+- Do not keep narrating the source. Avoid repeated framing such as "the author says", "according to the author", "[the author's name] explains", or "in the book". Attribute only where ownership genuinely matters: a distinctive framework or coined term, a specific argument, a direct quote, a research claim, a story, or an example that comes from the book. Attribute once, cleanly, then go back to teaching.
+- Ownership always matters for the book's own named frameworks and coined terms: the first time the lesson introduces one, credit it to the author by name, once (for example, "what [the author's name] calls [the framework]"). After that, just use it.
+- The reader should come away able to understand and use the ideas, feeling they took a course, not that they read a book report.`;
+
+/**
+ * How the lesson is delivered, per reader mode. The underlying knowledge is
+ * the same in all three; the language, depth, framing, examples, terminology
+ * and application change. Keyed by the stored reading-level ids, which are not
+ * renamed: "architect" is the mode the app labels Architect and teaches as
+ * Expert.
+ */
 export const PERSONAS: Record<string, string> = {
-  explorer: `EXPLORER VOICE: Write at a 3rd-to-5th grade reading level (Flesch-Kincaid grade 3–5). Use short sentences. Use simple, common words. Explain every idea with an everyday analogy a 10-year-old would understand (piggy banks, playgrounds, recipes, video games, sports). No jargon. Be warm, fun, and encouraging. This controls HOW you write, never WHAT you teach: still use the author's real framework names, and still explain their real examples, just in language this reader can follow.`,
-  scholar: `SCHOLAR VOICE: Write in the authentic voice and tone of the original author — match their vocabulary, cadence, and storytelling style as closely as you can. If you are not confident about this author's style, write as a warm, knowledgeable professor: clear and substantive, never dumbed down.`,
-  architect: `ARCHITECT VOICE: Write in the style of Alex Hormozi — direct, blunt, zero fluff, high energy. Short punchy sentences. Lead with the point. Every concept must end with a specific action the reader can take TODAY. No filler, no hedging. This controls HOW you write, never WHAT you teach: the ideas are still this author's, called by this author's names.`,
+  explorer: `EXPLORER MODE: Teach at roughly a 3rd-to-5th grade reading level without making the ideas childish. The reader is a capable person who wants hard ideas made clear.
+- Short, clear sentences: most under 12 words, rarely more than 15. Simple, everyday vocabulary; prefer the short common word over the long one.
+- Familiar examples and analogies drawn from ordinary life.
+- Step-by-step explanations: one idea at a time, each built on the one before.
+- When an important technical term or one of the book's named frameworks appears, keep its real name and define it immediately in plain words.
+- Keep the full meaning and accuracy of every idea. Simplify the language, never the truth.
+- Warm and encouraging, never condescending.
+Goal: the reader thinks "I understand this idea even though the original book may have been difficult."
+This controls HOW you write, never WHAT you teach.`,
+  scholar: `SCHOLAR MODE: Stay closest to the book's own intellectual framework.
+- Preserve its important terminology, nuance, distinctions, arguments, and reasoning, and the relationships between its concepts.
+- Explain why the ideas hold, not only what they conclude, and include the conditions or limits the book places on its own claims.
+- Attribute when the book introduces a distinctive framework or concept, then teach it directly rather than retelling the chapter.
+- Precise and substantive, like a clear professor: never dumbed down, never padded.
+Goal: the reader thinks "I understand the author's actual framework and reasoning."
+This controls HOW you write, never WHAT you teach.`,
+  architect: `EXPERT MODE: Translate the knowledge into practical, tactical application.
+- Focus on decisions, execution, behavior, systems, leverage, consequences, and tradeoffs, and on measurable application where it genuinely fits.
+- For each idea, make clear what someone could actually DO with it, when it applies, when it does not, and what it costs or risks.
+- Direct and concrete. Lead with the point. No hype and no generic motivational filler.
+- Do not distort the source to make it more actionable than it is. Where the book offers principles rather than tactics, work out what the principle implies in practice and make clear that this application is yours.
+Goal: the reader thinks "I know how this works and how I could use it."
+This controls HOW you write, never WHAT you teach.`,
 };
 
-const LESSON_RULES = `LESSON FORMATTING RULES:
-- Organize the lesson into 4–6 short sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2–5 word title. Example: "## Why This Matters". Then a blank line, then that section's paragraph(s).
-- Use "## " ONLY for section headings. Do NOT use any other markdown, asterisks, bold markers, or bullet symbols anywhere in the body.
-- Section flow: (1) an opening section that hooks why this matters to the reader's life, (2) two to four sections that teach the core idea, (3) a final section whose heading signals action, containing exactly three takeaways written as three lines starting with "1.", "2.", "3." — each a concrete action.
-- Explain ideas properly rather than listing them. A named framework should be defined, shown working through the author's own example, and given its limits if the author gives them.
-- Separate every heading and paragraph with a single blank line.
-- The lesson MUST be 800–1200 words (headings not counted). Aim for 1000+. Do not write short.`;
+/**
+ * The lesson contract. The length floor is enforced in code as well
+ * (lib/course-validation.ts), and a short lesson is expanded rather than
+ * shipped, so the instruction here is about how to earn the length: the
+ * failure a hard word count invites is padding, and padding is what makes a
+ * long lesson worse than a short one.
+ */
+const LESSON_RULES = `LESSON LENGTH:
+- The main lesson must contain at least 3,600 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 3,800 to 4,500 words; most sections will run 300 to 500 words.
+- Earn the length with depth: fuller explanation, more and better examples, sharper distinctions, context, practical application, connections between concepts, tradeoffs, and clarification of what readers commonly get wrong.
+- Never reach the length with filler, repetition, restating earlier sections, recaps, throat-clearing, or motivational padding. Every paragraph must teach something the reader did not have before it.
 
-const FLASHCARD_RULES = `FLASHCARD RULES: exactly 3. Front = an open-ended question (what / how / why), 5–10 words, never yes/no. Back = a concise answer, 10–15 words. Draw them from this book's specific ideas, using the author's own terms where they have them.`;
+LESSON STRUCTURE (a natural progression, not a template to announce):
+1. CONCEPT: introduce the day's central idea and why it matters to the reader.
+2. EXPLANATION: teach it clearly and deeply. Cover the mechanisms, relationships, distinctions, reasoning, causes, and consequences that make it work. This is usually the longest part.
+3. EXAMPLE: make it concrete with examples, scenarios, analogies, stories, or the book's own examples. Lead with the book's real examples where they exist; frame your own illustrations as yours.
+4. APPLICATION: connect it to real decisions, behavior, systems, or situations the reader faces.
+5. KEY TAKEAWAY: close the teaching with a concise synthesis of what the reader should remember.
+Then move naturally into the final 24-hour actions section.
+
+LESSON FORMAT:
+- Organize the lesson into 8 to 12 sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 6 word title specific to its content, such as "## Why Small Changes Compound". Then a blank line, then that section's paragraphs. A stage above may span more than one section. Do not use the stage names themselves as headings.
+- Use "## " ONLY for section headings. Do NOT use any other markdown, asterisks, bold markers, or bullet symbols anywhere.
+- Separate every heading and paragraph with a single blank line.
+- The FINAL section is the 24-hour actions. Its heading signals action within the next day. It contains exactly three lines starting with "1.", "2.", "3.", and nothing after them. Each action connects directly to this lesson, is specific and achievable, and is something the reader can begin within 24 hours. Never write vague actions such as "think about this", "reflect on", or "remember this".
+- Lines starting with a number and a period appear only in that final section.`;
+
+const FLASHCARD_RULES = `FLASHCARD RULES: exactly 3. Each tests one of the most important concepts the lesson teaches, an idea the reader must understand to apply the day, never trivia such as names, dates, or numbers for their own sake. Front = an open-ended question (what / how / why), 5 to 10 words, never yes/no. Back = a concise answer, 10 to 15 words. Use the book's own terms where it has them.`;
 
 /**
  * The line the reader is left holding after they commit to an action.
  *
  * It is deliberately a principle rather than another instruction: the three
- * takeaways already tell them what to do, and following a commitment with more
- * homework undercuts the moment. The specificity requirement is the whole
- * point — a generic "you've got this" would be indistinguishable from every
- * other app, where a line in this author's own terms is the book still talking.
+ * actions already tell them what to do, and following a commitment with more
+ * homework undercuts the moment. It states why those actions are worth doing,
+ * which is what makes it reinforce whichever one the reader chose. The
+ * specificity requirement is the whole point: a generic "you've got this"
+ * would be indistinguishable from every other app, where a line in this
+ * book's own terms is the book still talking.
  */
-const AXIOM_RULES = `CLOSING AXIOM RULES: exactly one sentence, 8–18 words, returned as "closingAxiom".
-- It must come out of THIS day's material: its idea, its framework, its example. Use the author's own terms where they fit. Generic motivation is a failure.
-- Write it as a principle the reader can hold in their head, not as another instruction. The takeaways already handle what to do.
+const AXIOM_RULES = `CLOSING AXIOM RULES: exactly one sentence, 8 to 18 words, returned as "closingAxiom".
+- It states the principle behind the day's 24-hour actions: the truth that makes those actions worth doing, so it reinforces whichever one the reader chooses.
+- It must come out of THIS day's material: its idea, its framework, its example. Use the book's own terms where they fit. Generic motivation is a failure.
+- Phrase it positively, as a principle the reader can hold in their head, not as another instruction.
 - Do not mention the book, the author, the course, the day, or the reader's progress. No "as we learned today", no "remember that". Just the truth itself, stated plainly.`;
 
 export function getPersona(readingLevel: string): string {
@@ -109,54 +175,75 @@ export function getLanguageRules(language: string, opts: { json?: boolean } = {}
   }`;
 }
 
+/** One day of the plan, as the lesson writer receives it. Fields beyond the title are absent on courses planned before they existed. */
+export interface DayPlan {
+  dayNumber: number;
+  title: string;
+  coreConcept?: string;
+  learningObjective?: string;
+  keyIdeas?: string[];
+  bookConnection?: string;
+}
+
+/** What the lesson writer knows about the whole course. */
+export interface CourseContext {
+  title: string;
+  author: string;
+  readingLevel: string;
+  language: string;
+  thesis?: string;
+  frameworks?: string[];
+  /** All seven days, in order: the arc this day sits inside. */
+  arc: { title: string; coreConcept?: string }[];
+}
+
 /**
- * First call: the 7-day arc (titles + previews + key ideas) + Day 1 full
- * content.
+ * First call: the 7-day plan, and nothing else.
  *
- * The arc is planned in one shot, before any lesson is written, for the same
- * reason the summary outline is: every later day is generated against it, so
- * the days build on each other instead of each restating the book's premise.
- * The key ideas are the important part. They are the concrete anchors that get
- * handed back to buildDayMessages days later, and they are what keep day five
- * about the book's fifth movement rather than about the topic in general.
+ * This decides WHAT the course teaches, and it is decided once, before any
+ * lesson exists, so every day is written against the same plan and the days
+ * build on each other instead of each restating the book's premise. A course
+ * is a sequence of learning stages, not seven chapter summaries: the question
+ * each day answers is what the reader has to understand next. The key ideas
+ * are the concrete anchors handed back to buildDayMessages when a day is
+ * opened, and they are what keep day five about the book's own material rather
+ * than about the topic in general.
  */
 export function buildOutlineMessages(title: string, author: string, readingLevel: string, language: string) {
-  const system = `You are the course architect for Bookworm AI. You turn specific books into structured 7-day learning courses that are faithful to what those books actually say. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the course designer for Bookworm AI. You turn a specific book into a coherent 7-day instructional course that is faithful to what that book actually says. You ALWAYS return valid JSON matching the requested schema exactly, with no commentary and no markdown fences.
 
 ${FIDELITY_RULES}
 
+READER MODE: The mode below shapes only how the day titles and previews are worded. It never changes which ideas the course teaches.
 ${getPersona(readingLevel)}
 
 ${getLanguageRules(language)}
 
-${STYLE_RULES}
-
-${LESSON_RULES}
-
-${FLASHCARD_RULES}
-
-${AXIOM_RULES}`;
+${STYLE_RULES}`;
 
   const user = `Book: "${title}" by ${author || "Unknown Author"}
 
 First, identify:
-- "thesis": the book's central argument in 2 to 3 sentences, in the author's own terms.
+- "thesis": the book's central argument in 2 to 3 sentences, in the book's own terms.
 - "frameworks": the named models, laws, steps, stages, or rules this book is known for. Use the author's exact names. Empty array if the book genuinely has none.
-- "familiar": true only if you reliably know this specific book's actual content. False if you are working from general knowledge of the author or the topic.
+- "familiar": true only if you reliably know this specific book's actual content. False if you are working from general knowledge of the author or the topic. When false, plan only what you can stand behind.
 
-Then compress the WHOLE book into exactly 7 days.
+Then design the course by answering this question:
+"What seven learning stages would best help the reader understand and apply the most important knowledge in this book?"
 
-This is the most important instruction here: the seven days together must cover the book front to back, not just its opening premise. Map the days onto the book's own real progression — its actual parts, chapters, or movements — grouped so that each day carries a substantial piece of the argument. A reader who finishes day 7 should have met every major idea in the book. Do not spend four days circling the introduction, and do not invent a generic arc that ignores how this author actually built their case.
-
-Order the days so each one depends on the one before it, the way the book does.
+- Do not divide the book into seven chapter summaries. Each day is a learning stage: the one core concept the reader needs next, in an order where each day makes the following one possible. Foundations first, then how things work, then how to use them, ending with integration and application of the whole.
+- Across the seven days the reader must meet the book's most important ideas, including those from its later chapters. Do not spend the course circling the opening premise.
+- Every day's content comes from this book. Draw each day's key ideas from wherever in the book they live.
 
 For each of the 7 days give:
-- "title": 3 to 6 words, using the author's language where the book has a name for this part.
-- "previewText": one sentence, 15 to 20 words, on what this day covers.
-- "keyIdeas": 3 to 5 short strings naming the specific concepts, frameworks, studies, stories, or examples the author uses HERE. These are what the lesson gets written from later, so be concrete and specific to this book. Never generic.
+- "title": 3 to 6 words, using the book's language where it has a name for this idea.
+- "previewText": one sentence, 15 to 20 words, telling the reader what this day covers.
+- "coreConcept": the day's one central idea, in 1 to 2 sentences.
+- "learningObjective": one sentence stating what the reader will be able to understand or do after this day.
+- "keyIdeas": 3 to 6 short strings naming the specific concepts, frameworks, studies, stories, or examples from this book that the lesson must teach. Be concrete and specific to this book. Never generic.
+- "bookConnection": 1 to 2 sentences on how this stage connects to the book's overall argument and to the days around it.
 
-Then write the full "lesson", "flashcards", "chatSeed" and "closingAxiom" for DAY 1 ONLY. Do NOT write lessons for days 2 to 7.
-Day 1's lesson must begin its hook with a one-sentence roadmap naming what the 7 days cover.
+Do NOT write any lesson text.
 
 Return ONLY this JSON:
 {
@@ -164,27 +251,23 @@ Return ONLY this JSON:
   "thesis": "...",
   "frameworks": ["...", "..."],
   "days": [
-    { "dayNumber": 1, "title": "...", "previewText": "...", "keyIdeas": ["...", "...", "..."], "lesson": "800–1200 words", "flashcards": [{ "front": "...", "back": "..." }], "chatSeed": ["...", "...", "..."], "closingAxiom": "one sentence, 8–18 words" },
-    { "dayNumber": 2, "title": "...", "previewText": "...", "keyIdeas": ["...", "...", "..."] }
+    { "dayNumber": 1, "title": "...", "previewText": "...", "coreConcept": "...", "learningObjective": "...", "keyIdeas": ["...", "...", "..."], "bookConnection": "..." }
   ]
 }
 
-The "days" array must contain exactly 7 items (dayNumber 1–7). Day 1's "flashcards" and "chatSeed" must each contain exactly 3 items.`;
+The "days" array must contain exactly 7 items, dayNumber 1 to 7, each with every field above.`;
 
   return { system, user };
 }
 
 /**
- * Repair path: rebuild only the study aids for a day whose lesson we already
- * have. The outline call occasionally returns Day 1 with a good lesson but an
- * empty `flashcards` array, and Day 1 never re-fetches (its lesson already
- * exists), so the deck would otherwise stay empty forever. Deriving from the
- * stored lesson keeps the cards true to what the reader actually read — and
- * never rewrites that lesson.
+ * The study aids for one day, built from the lesson the reader actually got:
+ * three flashcards, three chat starters and the closing axiom.
  *
- * It also carries the closing axiom, which is what gives courses generated
- * before axioms existed one the next time a day is opened, rather than leaving
- * every day of them ending on nothing.
+ * Run right after every new lesson is written, and also as the repair path for
+ * a day whose lesson exists but whose deck, starters or axiom are missing.
+ * Deriving from the stored lesson keeps the cards true to what the reader read,
+ * and it never rewrites that lesson.
  */
 export function buildFlashcardsMessages(
   title: string,
@@ -195,7 +278,7 @@ export function buildFlashcardsMessages(
   dayTitle: string,
   lesson: string
 ) {
-  const system = `You are the course architect for Bookworm AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the course designer for Bookworm AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly, with no commentary and no markdown fences.
 
 ${getPersona(readingLevel)}
 
@@ -210,18 +293,18 @@ ${AXIOM_RULES}`;
   const user = `Book: "${title}" by ${author || "Unknown Author"}
 Day ${dayNumber}: "${dayTitle}"
 
-This is the lesson the reader has already been given for this day:
+This is the lesson the reader has been given for this day. It ends with its three 24-hour actions:
 """
 ${lesson}
 """
 
-Write exactly 3 flashcards drawn from the ideas in THAT lesson — do not introduce concepts it does not cover. Then write exactly 3 conversational starter questions a reader might ask about it, and one closing axiom drawn from that same lesson.
+Write exactly 3 flashcards testing the most important ideas in THAT lesson. Do not introduce concepts it does not cover. Then write exactly 3 conversational starter questions a reader might ask about it, and one closing axiom stating the principle behind its 24-hour actions.
 
 Return ONLY this JSON:
 {
   "flashcards": [{ "front": "...", "back": "..." }],
   "chatSeed": ["...", "...", "..."],
-  "closingAxiom": "one sentence, 8–18 words"
+  "closingAxiom": "one sentence, 8 to 18 words"
 }
 
 "flashcards" and "chatSeed" must each contain exactly 3 items.`;
@@ -234,10 +317,10 @@ Return ONLY this JSON:
  * written before axioms did.
  *
  * Separate from buildFlashcardsMessages, which can also produce one, because
- * that call regenerates a whole deck to get at a single sentence and takes
- * about a minute. This asks for one line and returns in seconds, which is the
- * difference between the axiom being there when the reader reaches the bottom
- * of the lesson and them deciding the feature is broken.
+ * that call regenerates a whole deck to get at a single sentence. This asks for
+ * one line and returns in seconds, which is the difference between the axiom
+ * being there when the reader reaches the bottom of the lesson and them
+ * deciding the feature is broken.
  */
 export function buildAxiomMessages(
   title: string,
@@ -247,7 +330,7 @@ export function buildAxiomMessages(
   dayTitle: string,
   lesson: string
 ) {
-  const system = `You write one closing line for one day of a 7-day course on a book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You write one closing line for one day of a 7-day course on a book. You ALWAYS return valid JSON matching the requested schema exactly, with no commentary and no markdown fences.
 
 ${getPersona(readingLevel)}
 
@@ -260,86 +343,128 @@ ${AXIOM_RULES}`;
   const user = `Book: "${title}" by ${author || "Unknown Author"}
 Day: "${dayTitle}"
 
-This is the lesson the reader has just finished:
+This is the lesson the reader has just finished. It ends with its 24-hour actions:
 """
 ${lesson}
 """
 
 Return ONLY this JSON:
-{ "closingAxiom": "one sentence, 8–18 words" }`;
+{ "closingAxiom": "one sentence, 8 to 18 words" }`;
+
+  return { system, user };
+}
+
+/** Everything the plan says about the whole course and this day, as prompt text. */
+function planBlock(ctx: CourseContext, day: DayPlan): string {
+  const arc = ctx.arc
+    .map((d, i) => `Day ${i + 1}: ${d.title}${d.coreConcept ? `. ${d.coreConcept}` : ""}`)
+    .join("\n");
+  const lines = [
+    `Book: "${ctx.title}" by ${ctx.author || "Unknown Author"}`,
+    ctx.thesis ? `\nThe book's central argument:\n${ctx.thesis}` : "",
+    ctx.frameworks?.length ? `\nThe book's named frameworks: ${ctx.frameworks.join(", ")}` : "",
+    `\nThe 7-day course plan, each day a learning stage:\n${arc}`,
+    `\nThis lesson is Day ${day.dayNumber}: "${day.title}".`,
+    day.coreConcept ? `Core concept: ${day.coreConcept}` : "",
+    day.learningObjective ? `Learning objective: ${day.learningObjective}` : "",
+    day.keyIdeas?.length ? `Teach these specific ideas from the book:\n${day.keyIdeas.map((k) => `- ${k}`).join("\n")}` : "",
+    day.bookConnection ? `How this day connects to the whole book: ${day.bookConnection}` : "",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+/**
+ * On demand: one day's full main lesson, for any day including Day 1, written
+ * by the full lesson model when the reader opens it.
+ *
+ * Everything the plan decided is passed back in (the thesis, the frameworks,
+ * the whole arc with each day's concept, and this day's objective and key
+ * ideas) so a day written five days after the plan still teaches the stage the
+ * plan gave it and picks up where the previous day left off. Returned as plain
+ * text: the study aids are built from it afterwards by the lite model.
+ */
+export function buildDayMessages(ctx: CourseContext, day: DayPlan) {
+  const system = `You are the lead instructor for Bookworm AI. You write one day's main lesson for a 7-day course on a specific book. You return ONLY the lesson text itself, with no JSON, no preamble, and no notes.
+
+${FIDELITY_RULES}
+
+${TEACHING_RULES}
+
+${getPersona(ctx.readingLevel)}
+
+${getLanguageRules(ctx.language, { json: false })}
+
+${STYLE_RULES}
+
+${LESSON_RULES}`;
+
+  const scope =
+    day.dayNumber === 1
+      ? "This is the first day. In its opening section, include one sentence that previews what the seven days will cover."
+      : day.dayNumber === ctx.arc.length
+        ? "This is the final day. Bring the whole course together and make clear how the reader puts the book's knowledge to work."
+        : "";
+
+  const user = `${planBlock(ctx, day)}
+
+Write the main lesson for Day ${day.dayNumber} now. Stay inside this day's stage. Assume the reader completed the earlier days: build on them without re-teaching them, and do not pre-empt the later ones. ${scope}
+
+Return only the lesson, starting with its first "## " heading and ending with the third 24-hour action.`;
 
   return { system, user };
 }
 
 /**
- * On-demand: one later day's full lesson + flashcards + chatSeed.
+ * Adds depth to a lesson that came back under the length floor, without
+ * rewriting it.
  *
- * Everything the outline learned about the book is passed back in — the thesis,
- * the named frameworks, the full arc, and this day's own key ideas — so a day
- * written five days later is still writing about the same book the outline
- * planned, and picks up where the previous day left off instead of starting
- * over from the premise.
+ * The lesson the model already wrote stays exactly as it is. The model only
+ * supplies new paragraphs, each tagged with the numbered section it belongs
+ * to, and they are placed at the end of those sections. Regenerating the whole
+ * lesson would throw away good teaching to fix a length problem, and asking
+ * for the whole lesson back invites a quiet rewrite of what the reader was
+ * about to get.
  */
-export function buildDayMessages(
-  title: string,
-  author: string,
-  readingLevel: string,
-  language: string,
-  dayNumber: number,
-  dayTitle: string,
-  allTitles: string[],
-  thesis = "",
-  frameworks: string[] = [],
-  keyIdeas: string[] = []
+export function buildExpansionMessages(
+  ctx: CourseContext,
+  day: DayPlan,
+  numberedLesson: string,
+  currentWords: number,
+  wordsNeeded: number
 ) {
-  const system = `You are the course architect for Bookworm AI. You write one day's lesson for a 7-day course on a specific book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
+  const system = `You are the lead instructor for Bookworm AI, deepening one day's lesson in a 7-day course on a specific book. You ALWAYS return valid JSON matching the requested schema exactly, with no commentary and no markdown fences.
 
 ${FIDELITY_RULES}
 
-${getPersona(readingLevel)}
+${TEACHING_RULES}
 
-${getLanguageRules(language)}
+${getPersona(ctx.readingLevel)}
 
-${STYLE_RULES}
+${getLanguageRules(ctx.language)}
 
-${LESSON_RULES}
+${STYLE_RULES}`;
 
-${FLASHCARD_RULES}
+  const user = `${planBlock(ctx, day)}
 
-${AXIOM_RULES}`;
+The lesson below was written for this day, but it has ${currentWords} words of instruction and the course requires at least 3,600. Each section is marked with its number in square brackets.
 
-  const arc = allTitles.map((t, i) => `Day ${i + 1}: ${t}`).join("\n");
+"""
+${numberedLesson}
+"""
 
-  const user = `Book: "${title}" by ${author || "Unknown Author"}
-${thesis ? `\nThe book's central argument:\n${thesis}\n` : ""}${
-    frameworks.length > 0 ? `\nThe book's named frameworks: ${frameworks.join(", ")}\n` : ""
-  }
-The full 7-day arc is:
-${arc}
+Add at least ${wordsNeeded} words of new instruction. Put them where the lesson is thinnest or where the reader would most benefit from: deeper explanation of mechanisms and reasoning, further examples or worked scenarios, sharper distinctions, practical application, tradeoffs and limits, connections between concepts, or clarification of common confusions.
 
-Write ONLY Day ${dayNumber}: "${dayTitle}".
-${
-  keyIdeas.length > 0
-    ? `\nBuild it around this book's actual material for this day:\n${keyIdeas
-        .map((k) => `- ${k}`)
-        .join("\n")}\n`
-    : ""
-}
-Stay inside this day's scope. Assume the reader has read the days before it, so do not re-explain them, and do not pre-empt the ones after it.${
-    dayNumber === 7
-      ? " As the closing day, land the book's argument and make clear what the author wants the reader to actually do."
-      : ""
-  }
+Rules for the additions:
+- Each addition is one or more new paragraphs that continue a numbered section. It will be placed at the end of that section, just before the next heading, so it must read as a natural continuation of it.
+- Teach something new in every paragraph. Never restate, summarize, or rephrase what the lesson already says, and never add filler or motivational padding.
+- Before writing, note the examples, analogies, and metaphors the lesson already uses. Do not use any of them again; bring new ones.
+- Do not add headings, bullet points, or numbered lines, and do not add to the final 24-hour actions section.
+- The same accuracy and source-integrity rules apply: nothing invented and attributed to the book.
 
 Return ONLY this JSON:
-{
-  "lesson": "800–1200 words following the formatting rules",
-  "flashcards": [{ "front": "...", "back": "..." }],
-  "chatSeed": ["...", "...", "..."],
-  "closingAxiom": "one sentence, 8–18 words"
-}
+{ "additions": [{ "section": 2, "text": "..." }] }
 
-"flashcards" and "chatSeed" must each contain exactly 3 items.`;
+"section" is the number of an existing section other than the last one.`;
 
   return { system, user };
 }

@@ -13,6 +13,7 @@ import { useBookwormContext, type Day } from "@/lib/BookwormContext";
 import { generateCourseDays, buildCourse } from "@/lib/generate-course";
 import { getStripeClient } from "@/lib/stripe/client";
 import { postAuthed } from "@/lib/api-client";
+import { aiFetch } from "@/lib/ai-fetch";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { DEFAULT_LANGUAGE } from "@/lib/languages";
 import { getUserProfile } from "@/lib/firebase/profile";
@@ -129,10 +130,66 @@ export default function PreviewPage() {
     };
   }, [user, currentBook, currentReadingLevel]);
 
+  /**
+   * Day 1's lesson, written while the reader looks over their course.
+   *
+   * The outline only plans the course now, so the free Day 1 is written right
+   * after it, through the generation ticket (the reader has no plan or saved
+   * course yet for the normal lesson route to accept). Held as a promise so a
+   * card entered before it finishes saves the lesson being written rather than
+   * paying to write it a second time on the dashboard.
+   */
+  type DayOneContent = Pick<Day, "lesson" | "flashcards" | "chatSeed" | "closingAxiom">;
+  const firstDayRef = useRef<Promise<DayOneContent | null> | null>(null);
+  const [firstDayStatus, setFirstDayStatus] = useState<"idle" | "writing" | "failed">("idle");
+  const [firstDayTries, setFirstDayTries] = useState(0);
+  const [finishing, setFinishing] = useState(false);
+
+  const startFirstDay = useCallback(() => {
+    const generationId = outline.generationId;
+    if (!generationId) return;
+    setFirstDayStatus("writing");
+    setFirstDayTries((n) => n + 1);
+    firstDayRef.current = (async () => {
+      try {
+        const res = await aiFetch("/api/course/first-day", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ generationId }),
+        });
+        const data = await res.json();
+        if (!res.ok || typeof data.lesson !== "string" || !data.lesson.trim()) {
+          throw new Error(data.error || "No lesson returned");
+        }
+        const dayOne: DayOneContent = {
+          lesson: data.lesson,
+          flashcards: Array.isArray(data.flashcards) ? data.flashcards : [],
+          chatSeed: Array.isArray(data.chatSeed) ? data.chatSeed : [],
+          closingAxiom: typeof data.closingAxiom === "string" ? data.closingAxiom : "",
+        };
+        setDays((prev) => prev?.map((d) => (d.dayNumber === 1 ? { ...d, ...dayOne } : d)) ?? prev);
+        setFirstDayStatus("idle");
+        return dayOne;
+      } catch (e) {
+        console.error("Day 1 preview failed:", e);
+        setFirstDayStatus("failed");
+        return null;
+      }
+    })();
+  }, [outline.generationId]);
+
+  // Only for readers deciding at the soft gate. Someone already paying goes
+  // straight to their course, which writes Day 1 when they open it.
+  useEffect(() => {
+    if (days && !days[0]?.lesson && subscribed === false && outline.generationId && !firstDayRef.current) {
+      startFirstDay();
+    }
+  }, [days, subscribed, outline.generationId, startFirstDay]);
+
   // The course is only ever saved once, whether that's the card form finishing
   // or the already-subscribed shortcut below firing first.
   const savedRef = useRef(false);
-  useEffect(() => { savedRef.current = false; setDays(null); }, [user?.uid]);
+  useEffect(() => { savedRef.current = false; firstDayRef.current = null; setDays(null); }, [user?.uid]);
 
   const saveCourse = useCallback(
     async (destination: string) => {
@@ -140,17 +197,24 @@ export default function PreviewPage() {
       if (!user || !currentBook || !currentReadingLevel || !days) return;
       savedRef.current = true;
 
+      let courseDays = days;
+      if (firstDayRef.current && !days[0]?.lesson) {
+        setFinishing(true);
+        const dayOne = await firstDayRef.current;
+        if (dayOne) courseDays = days.map((d) => (d.dayNumber === 1 ? { ...d, ...dayOne } : d));
+      }
+
       const newCourse = buildCourse(
         currentBook,
         currentReadingLevel,
         outline.language,
-        days,
+        courseDays,
         outline.thesis,
         outline.frameworks,
         outline.generationId
       );
       const saved = await postAuthed<{ error?: string }>("/api/course/save", { course: newCourse });
-      if (saved.error) { savedRef.current = false; setGenError(saved.error); return; }
+      if (saved.error) { savedRef.current = false; setFinishing(false); setGenError(saved.error); return; }
       if (auth.currentUser?.uid !== user.uid) return;
       setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
@@ -187,6 +251,8 @@ export default function PreviewPage() {
   }
 
   if (!days) return <GeneratingOverlay step={genStep} />;
+  // Card accepted while Day 1 was still being written: finish it, then go.
+  if (finishing) return <GeneratingOverlay step={2} />;
 
   return (
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
@@ -211,9 +277,9 @@ export default function PreviewPage() {
         <h1 className="mb-6 text-center text-2xl font-bold tracking-tight">Your 7-Day Course Is Ready</h1>
 
         {/* Day 1 is free to read, right here, before any card is asked for.
-            Its lesson is already written by this point (the outline call
-            produces it), so locking it gained nothing and made the reader
-            judge the course sight-unseen. */}
+            Locking it gained nothing and made the reader judge the course
+            sight-unseen. It is written just after the plan appears, so the
+            reader sees the whole course while it finishes. */}
         <div className="mb-5 w-full rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] px-4 py-4 shadow-[0_0_20px_rgba(0,212,255,0.12)]">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -236,7 +302,24 @@ export default function PreviewPage() {
               </div>
             </details>
           ) : (
-            <p className="text-sm text-white/60">{days[0]?.previewText}</p>
+            <>
+              <p className="text-sm text-white/60">{days[0]?.previewText}</p>
+              {firstDayStatus === "writing" && (
+                <p className="mt-2 animate-pulse text-xs font-semibold text-[#00D4FF]">
+                  Writing your Day 1 lesson now. A full lesson takes a couple of minutes, so have a look at the rest of your course while you wait.
+                </p>
+              )}
+              {firstDayStatus === "failed" && (
+                <div className="mt-2 text-xs text-white/50">
+                  <p>We couldn&apos;t finish Day 1 here. The error is on our end, and it will be written for you as soon as you open your course.</p>
+                  {firstDayTries < 2 && (
+                    <button onClick={startFirstDay} className="mt-2 font-bold text-[#00D4FF] hover:opacity-80">
+                      Try Day 1 again →
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 

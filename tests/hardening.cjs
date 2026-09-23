@@ -30,7 +30,7 @@ function database(seed = {}) {
 }
 module.exports = async function(load) {
   const plans = load('lib/plans.ts', {});
-  const valid = load('lib/course-validation.ts', {});
+  const valid = load('lib/course-validation.ts', {'./lesson': load('lib/lesson.ts', {})});
   assert.equal(valid.validOutline({days: [null]}), false);
   assert.equal(valid.validDeck([{front:'x',back:null}]), false);
   const db = database({'users/u': {accessOverride: {active:true,lifetimeGenerations:1,maxOpenBooks:1}, generationsThisMonth:0}});

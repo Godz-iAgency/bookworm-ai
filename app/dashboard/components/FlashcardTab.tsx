@@ -87,7 +87,11 @@ export default function FlashcardTab({
           </>
         ) : (
           <p className="text-white/60 max-w-md leading-relaxed">
-            Writing <strong>Day {day.dayNumber}</strong>&rsquo;s flashcards from the book&hellip; this takes a few seconds.
+            {day.lesson ? (
+              <>Writing <strong>Day {day.dayNumber}</strong>&rsquo;s flashcards from the book&hellip; this takes a few seconds.</>
+            ) : (
+              <>Writing <strong>Day {day.dayNumber}</strong>&rsquo;s lesson and flashcards&hellip; a full lesson takes a couple of minutes.</>
+            )}
           </p>
         )}
       </div>

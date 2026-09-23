@@ -11,26 +11,32 @@ import { providerSignal } from "./generation-budget";
  * Verified live against Groq's own /models endpoint and a real JSON-mode call
  * before picking this replacement, rather than guessing a name.
  */
+export function groqModelName(): string {
+  return process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+}
+
 export async function generateGroqContent(
   prompt: string,
   systemPrompt?: string,
   isJson: boolean = false,
-  maxOutputTokens?: number
+  maxOutputTokens?: number,
+  timeoutMs?: number
 ): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY || process.env.XAI_API_KEY;
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not configured.");
   }
 
-  const model = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+  const model = groqModelName();
 
   const messages: { role: string; content: string }[] = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
   messages.push({ role: "user", content: prompt });
 
-  // Groq's free tier caps requests at 12,000 tokens/minute (prompt + output).
-  // Clamp output so the fallback stays within the free limit. Our outline and
-  // per-day generations only need ~2,000 output tokens.
+  // This account's Groq free tier caps requests at 8,000 tokens/minute (prompt
+  // + output), measured live. Clamping output keeps short calls inside it; a
+  // full 3,600-word lesson does not fit, which is why lessons try Flash-Lite
+  // before ever reaching Groq.
   const GROQ_MAX_OUTPUT = 8000;
   const body: any = { model, messages };
   body.max_tokens = Math.min(maxOutputTokens ?? GROQ_MAX_OUTPUT, GROQ_MAX_OUTPUT);
@@ -38,7 +44,7 @@ export async function generateGroqContent(
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    signal: providerSignal(),
+    signal: providerSignal(timeoutMs),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
