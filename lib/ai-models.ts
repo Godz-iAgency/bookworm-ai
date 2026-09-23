@@ -2,19 +2,20 @@
  * Every model name and per-task model setting, in one place, so a model swap
  * is one edit here rather than a search through the routes.
  *
- * The split: the full lesson model decides HOW a day is taught (the deep,
- * long-form lesson itself). The lite model does everything around it,
- * including deciding WHAT each day teaches (the outline), which is cheap and
- * fast to produce but has to be right.
+ * Flash-Lite does everything, lessons included: at the ~2,500-word lesson
+ * length it writes in one pass, fast, for the lowest cost. 3.8 Flash is the
+ * lessons' backup when Flash-Lite is overloaded or out of quota, so a lesson
+ * gets two Gemini models before it ever reaches Groq.
  */
-export const LESSON_MODEL = "gemini-3.8-flash";
 export const LITE_MODEL = "gemini-3.5-flash-lite";
+export const FLASH_MODEL = "gemini-3.8-flash";
 
 /**
  * Gemini 3 models take a thinking level instead of the older token budget.
  * 3.8 Flash cannot go below "low" ("minimal" is rejected); Flash-Lite accepts
- * "minimal". Thinking tokens count against maxOutputTokens, so every task's
- * output ceiling has to leave room for them.
+ * "minimal". A task with 3.8 Flash as its backup must use "low" or above.
+ * Thinking tokens count against maxOutputTokens, so every task's output
+ * ceiling has to leave room for them.
  */
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high";
 
@@ -34,16 +35,16 @@ export interface AiTask {
   /**
    * A second Gemini model to try when the first is overloaded or out of quota,
    * before Groq. For lessons this matters: Groq cannot write a full-length
-   * lesson, and Flash-Lite can.
+   * lesson, and both Gemini models can.
    */
   fallbackModel?: string;
 }
 
 export const AI_TASKS = {
-  /** One day's full lesson, 3,000+ words. */
-  lesson: { name: "lesson", model: LESSON_MODEL, thinking: "low", callTimeoutMs: 170_000, geminiRetries: 3, fallbackModel: LITE_MODEL },
+  /** One day's full lesson, 2,200+ words. */
+  lesson: { name: "lesson", model: LITE_MODEL, thinking: "low", callTimeoutMs: 170_000, geminiRetries: 3, fallbackModel: FLASH_MODEL },
   /** Adds depth to a lesson that came back short, without rewriting it. */
-  lessonExpand: { name: "lesson-expand", model: LESSON_MODEL, thinking: "low", callTimeoutMs: 75_000, geminiRetries: 2, fallbackModel: LITE_MODEL },
+  lessonExpand: { name: "lesson-expand", model: LITE_MODEL, thinking: "low", callTimeoutMs: 75_000, geminiRetries: 2, fallbackModel: FLASH_MODEL },
   /** The 7-day plan: what each day teaches. Worth real thinking. */
   outline: { name: "outline", model: LITE_MODEL, thinking: "medium", callTimeoutMs: 80_000, geminiRetries: 2 },
   /** Flashcards, chat starters and the closing axiom, drawn from a lesson. */

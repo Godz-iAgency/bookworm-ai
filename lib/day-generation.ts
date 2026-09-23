@@ -129,10 +129,9 @@ function numberedLesson(lesson: string): string {
 }
 
 /**
- * One day, end to end: the main lesson on the full lesson model, expanded in
- * place if it comes back under the length floor, then the flashcards, chat
- * starters and closing axiom on the lite model, drawn from that finished
- * lesson.
+ * One day, end to end: the main lesson, expanded in place if it comes back
+ * under the length floor, then the flashcards, chat starters and closing
+ * axiom, drawn from that finished lesson.
  *
  * A lesson still under the floor after expansion is rejected, not delivered.
  * A day's lesson is written once and kept, so a short one would be short for
@@ -155,7 +154,7 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
     const remaining = Math.min(EXPANSION_ROUND_MS, deadline - Date.now() - STUDY_AIDS_BUDGET_MS);
     if (remaining < MIN_EXPANSION_ROUND_MS) break;
     // Models add less than they are asked for, so ask for a clear margin.
-    const wordsNeeded = Math.max(800, MIN_LESSON_WORDS - wordCount + 600);
+    const wordsNeeded = Math.max(400, MIN_LESSON_WORDS - wordCount + 400);
     const msgs = buildExpansionMessages(ctx, day, numberedLesson(lesson), wordCount, wordsNeeded);
     try {
       const added = await generateJson(AI_TASKS.lessonExpand, msgs.user, msgs.system, {

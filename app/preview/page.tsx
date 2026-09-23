@@ -306,7 +306,7 @@ export default function PreviewPage() {
               <p className="text-sm text-white/60">{days[0]?.previewText}</p>
               {firstDayStatus === "writing" && (
                 <p className="mt-2 animate-pulse text-xs font-semibold text-[#00D4FF]">
-                  Writing your Day 1 lesson now. A full lesson takes a couple of minutes, so have a look at the rest of your course while you wait.
+                  Writing your Day 1 lesson now. A full lesson can take a minute or two, so have a look at the rest of your course while you wait.
                 </p>
               )}
               {firstDayStatus === "failed" && (

@@ -3,13 +3,13 @@ import { languageFromId } from "./languages";
 /**
  * Shared prompt building for course generation.
  *
- * Architecture: the course is generated in pieces, each by the model suited to
- * it. `buildOutlineMessages` (lite model) decides WHAT each of the 7 days
+ * Architecture: the course is generated in pieces (models are chosen in
+ * lib/ai-models.ts). `buildOutlineMessages` decides WHAT each of the 7 days
  * teaches: a learning stage with a core concept, an objective and the book's
- * own material for it, and no lesson text at all. `buildDayMessages` (full
- * lesson model) decides HOW one day is taught, writing its long-form lesson
- * when the reader opens it. `buildFlashcardsMessages` (lite model) then builds
- * the study aids from the lesson that was actually written.
+ * own material for it, and no lesson text at all. `buildDayMessages` decides
+ * HOW one day is taught, writing its lesson when the reader opens it.
+ * `buildFlashcardsMessages` then builds the study aids from the lesson that
+ * was actually written.
  *
  * Three different jobs are being done in these prompts and they must not be
  * confused: FIDELITY_RULES govern WHAT is taught (this book's real content),
@@ -104,7 +104,7 @@ This controls HOW you write, never WHAT you teach.`,
  * long lesson worse than a short one.
  */
 const LESSON_RULES = `LESSON LENGTH:
-- The main lesson must contain at least 3,000 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 3,300 to 3,600 words, about fifteen minutes of focused reading; most sections will run 300 to 400 words.
+- The main lesson must contain at least 2,200 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 2,500 words, about ten minutes of focused reading; most sections will run 250 to 350 words.
 - Earn the length with depth: fuller explanation, more and better examples, sharper distinctions, context, practical application, connections between concepts, tradeoffs, and clarification of what readers commonly get wrong.
 - Never reach the length with filler, repetition, restating earlier sections, recaps, throat-clearing, or motivational padding. Every paragraph must teach something the reader did not have before it.
 
@@ -117,7 +117,7 @@ LESSON STRUCTURE (a natural progression, not a template to announce):
 Then move naturally into the final 24-hour actions section.
 
 LESSON FORMAT:
-- Organize the lesson into 8 to 12 sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 6 word title specific to its content, such as "## Why Small Changes Compound". Then a blank line, then that section's paragraphs. A stage above may span more than one section. Do not use the stage names themselves as headings.
+- Organize the lesson into 7 to 10 sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 6 word title specific to its content, such as "## Why Small Changes Compound". Then a blank line, then that section's paragraphs. A stage above may span more than one section. Do not use the stage names themselves as headings.
 - Use "## " ONLY for section headings. Do NOT use any other markdown, asterisks, bold markers, or bullet symbols anywhere.
 - Separate every heading and paragraph with a single blank line.
 - The FINAL section is the 24-hour actions. Its heading signals action within the next day. It contains exactly three lines starting with "1.", "2.", "3.", and nothing after them. Each action connects directly to this lesson, is specific and achievable, and is something the reader can begin within 24 hours. Never write vague actions such as "think about this", "reflect on", or "remember this".
@@ -167,6 +167,7 @@ export function getLanguageRules(language: string, opts: { json?: boolean } = {}
   return `OUTPUT LANGUAGE: Write the entire response in ${promptName}. Do not mix languages or leave English text in a non-English response.
 - Every heading, every sentence of the lesson, every flashcard front and back, every chat starter and the closing axiom must be in ${promptName}.
 - Write directly in ${promptName}. Do not draft in English and translate.
+- Spell correctly everywhere, headings and flashcards included: every accent and diacritic, and the language's own punctuation (in Spanish, the opening ¿ and ¡).
 - The voice and reading level described above apply WITHIN ${promptName}, judged as a native ${promptName} reader would judge them. Use that language's own vocabulary, idiom, sentence rhythm and everyday analogies. A reading level is not an English style to be carried across.
 - Proper nouns keep their original form: the book's title, the author's name, and any framework, law or term the author coined. Where a reader would need it, gloss the term in ${promptName} on first use.${
     json
@@ -375,7 +376,7 @@ function planBlock(ctx: CourseContext, day: DayPlan): string {
 
 /**
  * On demand: one day's full main lesson, for any day including Day 1, written
- * by the full lesson model when the reader opens it.
+ * when the reader opens it.
  *
  * Everything the plan decided is passed back in (the thesis, the frameworks,
  * the whole arc with each day's concept, and this day's objective and key
@@ -446,7 +447,7 @@ ${STYLE_RULES}`;
 
   const user = `${planBlock(ctx, day)}
 
-The lesson below was written for this day, but it has ${currentWords} words of instruction and the course requires at least 3,000. Each section is marked with its number in square brackets.
+The lesson below was written for this day, but it has ${currentWords} words of instruction and the course requires at least 2,200. Each section is marked with its number in square brackets.
 
 """
 ${numberedLesson}

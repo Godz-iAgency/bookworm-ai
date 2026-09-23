@@ -1,7 +1,7 @@
 /**
  * The part of a lesson Book Pal needs to answer one question.
  *
- * Sending the whole 3,000+ word lesson with every chat message made chat
+ * Sending the whole lesson with every chat message made chat
  * about a third of a course's AI cost, for replies capped at 25 words. This
  * keeps the lesson's map (its section headings), the sections that share the
  * question's words, and the 24-hour actions, which readers ask about most.

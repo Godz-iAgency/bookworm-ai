@@ -4,10 +4,11 @@ import { splitLesson } from "./lesson";
 
 /**
  * The floor for one day's main lesson, in instructional words. The prompt aims
- * for 3,300 to 3,600: about fifteen minutes at an adult's average non-fiction
- * reading speed (238 words a minute), a little longer at a study pace.
+ * for about 2,500: roughly ten minutes at an adult's average non-fiction
+ * reading speed (238 words a minute), about twelve at a study pace. At that
+ * length Flash-Lite writes a lesson in one pass rather than being padded out.
  */
-export const MIN_LESSON_WORDS = 3000;
+export const MIN_LESSON_WORDS = 2200;
 
 const text = (v: any): boolean => typeof v === "string" && v.trim().length > 0;
 

@@ -39,7 +39,7 @@ export interface Day {
   coreConcept?: string;
   learningObjective?: string;
   bookConnection?: string;
-  /** The day's main lesson, 3,000+ instructional words. Empty until opened. */
+  /** The day's main lesson, 2,200+ instructional words. Empty until opened. */
   lesson: string;
   /** Exactly 3 flashcards for this day. */
   flashcards: Flashcard[];

@@ -90,7 +90,7 @@ export default function FlashcardTab({
             {day.lesson ? (
               <>Writing <strong>Day {day.dayNumber}</strong>&rsquo;s flashcards from the book&hellip; this takes a few seconds.</>
             ) : (
-              <>Writing <strong>Day {day.dayNumber}</strong>&rsquo;s lesson and flashcards&hellip; a full lesson takes a couple of minutes.</>
+              <>Writing <strong>Day {day.dayNumber}</strong>&rsquo;s lesson and flashcards&hellip; a full lesson can take a minute or two.</>
             )}
           </p>
         )}

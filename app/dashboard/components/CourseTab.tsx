@@ -666,7 +666,7 @@ function CourseCompleteBanner({ course }: { course: Course }) {
 }
 
 // Friendly animated loader shown inline while a day's lesson is generated.
-// A full lesson takes a couple of minutes, so the cycling messages never claim
+// A full lesson can take a minute or two, so the cycling messages never claim
 // it is nearly done, and the line underneath says how long to expect.
 function DayLoader({ dayNumber }: { dayNumber: number }) {
   const messages = [
@@ -704,7 +704,7 @@ function DayLoader({ dayNumber }: { dayNumber: number }) {
       <p className="animate-pulse bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-lg font-bold text-transparent">
         {messages[i]}
       </p>
-      <p className="mt-2 text-sm text-white/50">A full lesson takes a couple of minutes to write.</p>
+      <p className="mt-2 text-sm text-white/50">A full lesson can take a minute or two to write.</p>
     </div>
   );
 }
