@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
-import { planFromId } from "@/lib/plans";
+import { planFromId, TRIAL_GENERATION_CAP } from "@/lib/plans";
 export async function POST(req: Request) {
   try {
     const uid = await getUidFromRequest(req);
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       const expiresAt = new Date(Date.parse(ticket.createdAt) + 8 * 86400000).toISOString();
       if (Date.parse(expiresAt) <= Date.now()) throw new Error("Preview expired.");
       if (!ticket.charged) {
-        const cap = p.accessOverride?.active ? p.accessOverride.lifetimeGenerations : trial ? 3 : planFromId(family ? "book_club" : p.plan).monthlyGenerations;
+        const cap = p.accessOverride?.active ? p.accessOverride.lifetimeGenerations : trial ? TRIAL_GENERATION_CAP : planFromId(family ? "book_club" : p.plan).monthlyGenerations;
         if (cap !== null && Number(p.generationsThisMonth ?? 0) >= cap) throw new Error("Generation limit reached.");
         tx.update(userRef, { generationsThisMonth: Number(p.generationsThisMonth ?? 0) + 1 });
       }

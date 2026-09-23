@@ -2,7 +2,7 @@
 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./firebase/config";
-import { PLANS, planFromId, type Plan } from "./plans";
+import { PLANS, planFromId, TRIAL_GENERATION_CAP, type Plan } from "./plans";
 import { activeOverride, type AccessOverride } from "./access";
 
 /**
@@ -42,8 +42,7 @@ export interface BillingProfile {
   bookClubDeleteAt: string | null;
 }
 
-/** The number of books a trial user may generate for the whole 7-day trial — flat, not tier-based. */
-export const TRIAL_GENERATION_CAP = 3;
+export { TRIAL_GENERATION_CAP };
 
 export async function getBillingProfile(uid: string): Promise<BillingProfile | null> {
   const snap = await getDoc(doc(db, "users", uid));

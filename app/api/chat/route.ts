@@ -4,6 +4,7 @@ import { AI_TASKS } from "@/lib/ai-models";
 import { generateContent } from "@/lib/gemini";
 import { stripEmDashes } from "@/lib/lesson";
 import { STYLE_RULES, getLanguageRules } from "@/lib/course-prompts";
+import { lessonExcerpt } from "@/lib/chat-context";
 
 export const maxDuration = 60;
 
@@ -15,10 +16,11 @@ export async function POST(req: Request) {
 
     const prompt = message;
 
-    // Ground BookPal in the exact lesson the reader just studied, when we have
-    // it. Falls back to general book knowledge if no lesson was passed.
-    const lessonContext = lesson
-      ? `\n\nThe reader is on Day ${dayNumber ?? "?"}${dayTitle ? ` ("${dayTitle}")` : ""}. Here is the exact lesson they just studied — ground your answer in THIS lesson first, then the wider book only if needed:\n"""\n${lesson}\n"""`
+    // Ground BookPal in the lesson the reader just studied, when we have it:
+    // the parts of it that bear on this question, not the whole lesson.
+    // Falls back to general book knowledge if no lesson was passed.
+    const lessonContext = typeof lesson === "string" && lesson.trim()
+      ? `\n\nThe reader is on Day ${dayNumber ?? "?"}${dayTitle ? ` ("${dayTitle}")` : ""}. Here are the parts of the lesson they just studied that relate to their question. Ground your answer in THIS lesson first, then the wider book only if needed:\n"""\n${lessonExcerpt(lesson, typeof message === "string" ? message : "")}\n"""`
       : "";
 
     // The reader's language comes from the course they are reading, not their

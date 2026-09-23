@@ -6,6 +6,12 @@
  * The 7-day free trial only ever runs on `page_turner` — Well-Read and Book
  * Club are paid-upgrade-only, never trial tiers (see lib/billing.ts).
  */
+/**
+ * Books a trial user may generate across the whole 7-day trial: flat, not
+ * tier-based. Read by the generation guard, the save check and Profile.
+ */
+export const TRIAL_GENERATION_CAP = 1;
+
 export interface Plan {
   id: "page_turner" | "well_read" | "book_club";
   name: string;

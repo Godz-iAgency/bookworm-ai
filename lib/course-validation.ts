@@ -2,8 +2,12 @@ import { splitLesson } from "./lesson";
 
 /** Validate provider output before any reader receives it. */
 
-/** The floor for one day's main lesson, in instructional words. */
-export const MIN_LESSON_WORDS = 3600;
+/**
+ * The floor for one day's main lesson, in instructional words. The prompt aims
+ * for 3,300 to 3,600: about fifteen minutes at an adult's average non-fiction
+ * reading speed (238 words a minute), a little longer at a study pace.
+ */
+export const MIN_LESSON_WORDS = 3000;
 
 const text = (v: any): boolean => typeof v === "string" && v.trim().length > 0;
 

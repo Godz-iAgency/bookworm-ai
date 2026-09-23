@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "./firebase/admin";
-import { planFromId } from "./plans";
+import { planFromId, TRIAL_GENERATION_CAP } from "./plans";
 
 const requestBodies = new WeakMap<Request, any>();
 export const aiAdmissions = new WeakMap<Request, boolean>();
@@ -70,7 +70,7 @@ export async function guardAI(req: Request, kind: "course" | "study" | "chat" | 
         const plan = planFromId(family ? "book_club" : p.plan);
         const max = override?.maxOpenBooks ?? plan.maxOpenBooks;
         if (shelf.docs.filter(d => !d.data().sharedFrom && Date.parse(d.data().expiresAt) > Date.now()).length >= max) throw new Error("Your library is full.");
-        const cap = override ? override.lifetimeGenerations : trial ? 3 : plan.monthlyGenerations;
+        const cap = override ? override.lifetimeGenerations : trial ? TRIAL_GENERATION_CAP : plan.monthlyGenerations;
         if (access) {
           if (cap !== null && Number(p.generationsThisMonth ?? 0) >= cap) throw new Error("Generation limit reached.");
           tx.update(ref, { generationsThisMonth: Number(p.generationsThisMonth ?? 0) + 1 });

@@ -104,7 +104,7 @@ This controls HOW you write, never WHAT you teach.`,
  * long lesson worse than a short one.
  */
 const LESSON_RULES = `LESSON LENGTH:
-- The main lesson must contain at least 3,600 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 3,800 to 4,500 words; most sections will run 300 to 500 words.
+- The main lesson must contain at least 3,000 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 3,300 to 3,600 words, about fifteen minutes of focused reading; most sections will run 300 to 400 words.
 - Earn the length with depth: fuller explanation, more and better examples, sharper distinctions, context, practical application, connections between concepts, tradeoffs, and clarification of what readers commonly get wrong.
 - Never reach the length with filler, repetition, restating earlier sections, recaps, throat-clearing, or motivational padding. Every paragraph must teach something the reader did not have before it.
 
@@ -446,7 +446,7 @@ ${STYLE_RULES}`;
 
   const user = `${planBlock(ctx, day)}
 
-The lesson below was written for this day, but it has ${currentWords} words of instruction and the course requires at least 3,600. Each section is marked with its number in square brackets.
+The lesson below was written for this day, but it has ${currentWords} words of instruction and the course requires at least 3,000. Each section is marked with its number in square brackets.
 
 """
 ${numberedLesson}

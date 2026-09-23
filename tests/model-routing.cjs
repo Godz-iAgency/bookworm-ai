@@ -107,8 +107,8 @@ module.exports = async function (load) {
   // The length floor: headings and 24-hour actions do not count.
   assert.equal(valid.instructionalWordCount(mkLesson(3000)), 3000);
   const aids = { flashcards: [1, 2, 3].map((i) => ({ front: `Q${i}`, back: `A${i}` })), chatSeed: ['a', 'b', 'c'], closingAxiom: 'Small steps compound.' };
-  assert.equal(valid.validLesson({ lesson: mkLesson(3599), ...aids }), false, '3,599 words is not a complete lesson');
-  assert.equal(valid.validLesson({ lesson: mkLesson(3600), ...aids }), true);
+  assert.equal(valid.validLesson({ lesson: mkLesson(2999), ...aids }), false, '2,999 words is not a complete lesson');
+  assert.equal(valid.validLesson({ lesson: mkLesson(3000), ...aids }), true);
   assert.match(valid.lessonStructureProblem(mkLesson(3600, { actions: 2 })), /2 closing actions/);
   assert.match(valid.lessonStructureProblem(mkLesson(3600, { sections: 3 })), /sections/);
 
@@ -130,7 +130,7 @@ module.exports = async function (load) {
   assert.match(systems[1], /SCHOLAR MODE/);
   assert.match(systems[2], /EXPERT MODE/);
   for (const s of systems) {
-    assert.match(s, /at least 3,600 words/);
+    assert.match(s, /at least 3,000 words/);
     assert.match(s, /TEACH, DON'T SUMMARIZE/);
     assert.match(s, /Never fabricate or misattribute/);
   }
@@ -167,23 +167,34 @@ module.exports = async function (load) {
   assert.equal(full.wordCount, 3700);
   assert.deepEqual({ ...full.generatedBy }, { lesson: 'gemini:gemini-3.8-flash', studyAids: 'gemini:gemini-3.5-flash-lite' });
 
-  lessonText = mkLesson(3000);
+  lessonText = mkLesson(2500);
   expansions = [{ additions: [{ section: 2, text: words(800, 'add') }, { section: 9, text: words(500, 'actions') }] }];
   ran.length = 0;
   const expanded = await dayGen.generateDayContent(ctx, day);
   assert.deepEqual(ran, ['lesson@gemini-3.8-flash', 'lesson-expand@gemini-3.8-flash', 'study-aids@gemini-3.5-flash-lite']);
-  assert.equal(expanded.wordCount, 3800, 'Additions to the actions section are ignored');
+  assert.equal(expanded.wordCount, 3300, 'Additions to the actions section are ignored');
   const at = (s) => expanded.lesson.indexOf(s);
   assert.ok(at('s2w0') < at('add0') && at('add0') < at('## Section 3'), 'Additions land at the end of their own section');
-  for (const p of mkLesson(3000).split('\n').filter(Boolean)) assert.ok(expanded.lesson.includes(p), 'Nothing already written is rewritten');
+  for (const p of mkLesson(2500).split('\n').filter(Boolean)) assert.ok(expanded.lesson.includes(p), 'Nothing already written is rewritten');
   assert.equal(lesson.splitLesson(expanded.lesson).actions.length, 3, 'The 24-hour actions stay last and intact');
   assert.ok(!expanded.lesson.includes('actions0'));
 
-  lessonText = mkLesson(3000);
+  lessonText = mkLesson(2500);
   expansions = [{ additions: [{ section: 1, text: words(100, 'a') }] }, { additions: [{ section: 1, text: words(100, 'b') }] }];
   ran.length = 0;
   await assert.rejects(dayGen.generateDayContent(ctx, day), /incomplete/, 'Still short after expansion is rejected');
   assert.ok(!ran.some((r) => r.startsWith('study-aids')), 'A rejected lesson gets no study aids');
+
+  // Book Pal gets the relevant part of the lesson, not all of it.
+  const { lessonExcerpt } = load('lib/chat-context.ts', {});
+  const chatLesson = ['## Compound Growth', '', `Tiny gains compound. ${words(600, 'g')}`, '', '## Identity Votes', '', `Every action is a vote. ${words(600, 'v')}`, '', '## Environment Design', '', `Make cues visible. ${words(600, 'e')}`, '', '## Your Next Day', '', '1. First action.', '2. Second action.', '3. Third action.'].join('\n');
+  const excerpt = lessonExcerpt(chatLesson, 'How do identity votes work?');
+  assert.ok(excerpt.includes('Every action is a vote.'), 'The matching section is sent');
+  assert.ok(!excerpt.includes('Tiny gains compound.') && !excerpt.includes('Make cues visible.'), 'Unrelated sections are left out');
+  assert.ok(excerpt.includes('3. Third action.') && excerpt.includes('Compound Growth | Identity Votes | Environment Design'), 'Actions and the section map always go');
+  const general = lessonExcerpt(chatLesson, 'Is this useful?');
+  assert.ok(general.includes('Tiny gains compound.') && general.includes('Make cues visible.'), 'A general question gets the opening concept and the takeaway');
+  assert.ok(excerpt.split(/\s+/).length < 800, 'The excerpt is a fraction of the lesson');
 
   // Request bodies: current shape, the previous build's shape, and junk.
   const legacy = dayGen.dayInputFromBody({ title: 'Book', dayNumber: 3, dayTitle: 'Three', allTitles: ['One', 'Two', 'Three'], keyIdeas: ['k'] });
@@ -193,5 +204,5 @@ module.exports = async function (load) {
   assert.equal(rich.ctx.arc[0].coreConcept, 'C1');
   assert.equal(rich.day.learningObjective, 'O1');
 
-  console.log('PASS: model routing, Gemini-before-Groq with honest provenance, no image fallback, key redaction, 3,600-word floor, outline stages, reader modes, in-place expansion, short-lesson rejection.');
+  console.log('PASS: model routing, Gemini-before-Groq with honest provenance, no image fallback, key redaction, 3,000-word floor, outline stages, reader modes, in-place expansion, short-lesson rejection.');
 };

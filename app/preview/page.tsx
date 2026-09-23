@@ -219,7 +219,7 @@ export default function PreviewPage() {
       setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
       // For a new trial, activate-trial already reset this to 0 server-side and
-      // this is the first of the 3 trial books. For an existing subscriber it
+      // this is the trial's one book. For an existing subscriber it
       // counts against their monthly quota the same as any other generation.
       router.push(destination);
     },

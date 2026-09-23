@@ -35,7 +35,7 @@ export async function generateGroqContent(
 
   // This account's Groq free tier caps requests at 8,000 tokens/minute (prompt
   // + output), measured live. Clamping output keeps short calls inside it; a
-  // full 3,600-word lesson does not fit, which is why lessons try Flash-Lite
+  // full 3,000-word lesson does not fit, which is why lessons try Flash-Lite
   // before ever reaching Groq.
   const GROQ_MAX_OUTPUT = 8000;
   const body: any = { model, messages };

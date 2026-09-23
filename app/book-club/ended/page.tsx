@@ -125,7 +125,7 @@ export default function BookClubEndedPage() {
             id: "trial" as const,
             name: "Start your free trial",
             price: "Free for 7 days",
-            blurb: "3 books to try it. No charge today, cancel any time before day 7.",
+            blurb: "1 book to try it. No charge today, cancel any time before day 7.",
           },
         ]
       : []),

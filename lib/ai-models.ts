@@ -40,7 +40,7 @@ export interface AiTask {
 }
 
 export const AI_TASKS = {
-  /** One day's full lesson, 3,600+ words. */
+  /** One day's full lesson, 3,000+ words. */
   lesson: { name: "lesson", model: LESSON_MODEL, thinking: "low", callTimeoutMs: 170_000, geminiRetries: 3, fallbackModel: LITE_MODEL },
   /** Adds depth to a lesson that came back short, without rewriting it. */
   lessonExpand: { name: "lesson-expand", model: LESSON_MODEL, thinking: "low", callTimeoutMs: 75_000, geminiRetries: 2, fallbackModel: LITE_MODEL },

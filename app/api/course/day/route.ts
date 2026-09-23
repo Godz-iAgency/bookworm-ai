@@ -2,7 +2,7 @@ import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { dayInputFromBody, generateDayContent } from "@/lib/day-generation";
 
-// A 3,600+ word lesson, a possible expansion pass and the study aids, one
+// A 3,000+ word lesson, a possible expansion pass and the study aids, one
 // after another. Needs Vercel Fluid Compute (300s on every plan).
 export const maxDuration = 300;
 
