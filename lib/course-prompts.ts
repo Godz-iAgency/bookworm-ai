@@ -107,6 +107,8 @@ const LESSON_RULES = `LESSON LENGTH:
 - The main lesson must contain at least 2,200 words of instruction. Section headings and the closing 24-hour actions do not count toward this. Aim for roughly 2,500 words, about ten minutes of focused reading; most sections will run 250 to 350 words.
 - Earn the length with depth: fuller explanation, more and better examples, sharper distinctions, context, practical application, connections between concepts, tradeoffs, and clarification of what readers commonly get wrong.
 - Never reach the length with filler, repetition, restating earlier sections, recaps, throat-clearing, or motivational padding. Every paragraph must teach something the reader did not have before it.
+- State each key fact, number, or claim once. If a section needs one that came earlier, refer back to it in a few words rather than explaining it again.
+- Every example or analogy must make a different point from the others. Never use two illustrations for the same idea (no second comparison for something already compared), and keep each one to a short paragraph.
 
 LESSON STRUCTURE (a natural progression, not a template to announce):
 1. CONCEPT: introduce the day's central idea and why it matters to the reader.
@@ -453,7 +455,7 @@ The lesson below was written for this day, but it has ${currentWords} words of i
 ${numberedLesson}
 """
 
-Add at least ${wordsNeeded} words of new instruction. Put them where the lesson is thinnest or where the reader would most benefit from: deeper explanation of mechanisms and reasoning, further examples or worked scenarios, sharper distinctions, practical application, tradeoffs and limits, connections between concepts, or clarification of common confusions.
+Add about ${wordsNeeded} words of new instruction, in short paragraphs of 80 to 150 words, listed in the order you want them read. Put them where the lesson is thinnest or where the reader would most benefit from: deeper explanation of mechanisms and reasoning, sharper distinctions, practical application, tradeoffs and limits, connections between concepts, or clarification of common confusions. Add a new example or analogy only if the lesson has fewer than two; otherwise deepen with explanation, not one more illustration of a point already illustrated. Do not restate any fact, number, or claim the lesson has already made.
 
 Rules for the additions:
 - Each addition is one or more new paragraphs that continue a numbered section. It will be placed at the end of that section, just before the next heading, so it must read as a natural continuation of it.

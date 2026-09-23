@@ -169,13 +169,14 @@ module.exports = async function (load) {
   assert.deepEqual({ ...full.generatedBy }, { lesson: 'gemini:gemini-3.5-flash-lite', studyAids: 'gemini:gemini-3.5-flash-lite' });
 
   lessonText = mkLesson(1800);
-  expansions = [{ additions: [{ section: 2, text: words(800, 'add') }, { section: 9, text: words(500, 'actions') }] }];
+  expansions = [{ additions: [{ section: 2, text: [words(150, 'a'), words(150, 'b'), words(150, 'c'), words(150, 'd'), words(150, 'e'), words(150, 'f')].join('\n\n') }, { section: 9, text: words(500, 'actions') }] }];
   ran.length = 0;
   const expanded = await dayGen.generateDayContent(ctx, day);
   assert.deepEqual(ran, ['lesson@gemini-3.5-flash-lite', 'lesson-expand@gemini-3.5-flash-lite', 'study-aids@gemini-3.5-flash-lite']);
-  assert.equal(expanded.wordCount, 2600, 'Additions to the actions section are ignored');
+  assert.ok(expanded.wordCount >= 2200 && expanded.wordCount <= 2500, 'A deepened lesson lands inside 2,200 to 2,500 (floor + 100-word margin + one paragraph): ' + expanded.wordCount);
+  assert.ok(!expanded.lesson.includes('e0') && !expanded.lesson.includes('f0') && expanded.lesson.includes('a0'), 'Paragraphs past the missing words are dropped');
   const at = (s) => expanded.lesson.indexOf(s);
-  assert.ok(at('s2w0') < at('add0') && at('add0') < at('## Section 3'), 'Additions land at the end of their own section');
+  assert.ok(at('s2w0') < at('a0') && at('a0') < at('## Section 3'), 'Additions land at the end of their own section');
   for (const p of mkLesson(1800).split('\n').filter(Boolean)) assert.ok(expanded.lesson.includes(p), 'Nothing already written is rewritten');
   assert.equal(lesson.splitLesson(expanded.lesson).actions.length, 3, 'The 24-hour actions stay last and intact');
   assert.ok(!expanded.lesson.includes('actions0'));

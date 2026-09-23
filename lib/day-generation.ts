@@ -105,19 +105,33 @@ function fromSections({ preamble, sections }: { preamble: string[]; sections: Se
  * Place the expansion's new paragraphs at the end of the sections they were
  * written for. The existing text is never touched, and nothing is ever added
  * to the final section, whose three numbered lines are the 24-hour actions.
+ *
+ * `wordsWanted` caps how much is taken. Paragraphs are added whole, in the
+ * order the model wrote them, until the missing words are covered, then the
+ * rest are dropped. That is what keeps a deepened lesson near the floor
+ * rather than sailing past it: the model always adds more than it is asked
+ * for, and every extra word is paid for.
  */
-export function mergeAdditions(lesson: string, additions: any[]): string {
+export function mergeAdditions(lesson: string, additions: any[], wordsWanted = Infinity): string {
   const doc = toSections(lesson);
   const lastTeachingSection = doc.sections.length - 1;
+  let remaining = wordsWanted;
   for (const a of additions) {
+    if (remaining <= 0) break;
     const n = Number(a?.section);
     if (!Number.isInteger(n) || n < 1 || n > lastTeachingSection || typeof a?.text !== "string") continue;
-    const text = a.text
+    const paragraphs = a.text
       .split(/\r?\n/)
-      .map((l: string) => l.replace(/^\s*#+\s*/, "").replace(/^\s*\d+[.)]\s+/, ""))
+      .map((l: string) => l.replace(/^\s*#+\s*/, "").replace(/^\s*\d+[.)]\s+/, "").trim())
       .join("\n")
-      .trim();
-    if (text) doc.sections[n - 1].body.push("", text);
+      .split(/\n\s*\n|\n/)
+      .map((p: string) => p.trim())
+      .filter(Boolean);
+    for (const p of paragraphs) {
+      if (remaining <= 0) break;
+      doc.sections[n - 1].body.push("", p);
+      remaining -= p.split(/\s+/).length;
+    }
   }
   return fromSections(doc);
 }
@@ -153,8 +167,11 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
   for (let round = 0; wordCount < MIN_LESSON_WORDS && round < MAX_EXPANSION_ROUNDS; round++) {
     const remaining = Math.min(EXPANSION_ROUND_MS, deadline - Date.now() - STUDY_AIDS_BUDGET_MS);
     if (remaining < MIN_EXPANSION_ROUND_MS) break;
-    // Models add less than they are asked for, so ask for a clear margin.
-    const wordsNeeded = Math.max(400, MIN_LESSON_WORDS - wordCount + 400);
+    // Ask for a little more than the gap, since a model can fall short of what
+    // it is asked for, but keep only the gap plus a small margin so the lesson
+    // lands just over the floor. That is the per-book cost ceiling.
+    const gap = MIN_LESSON_WORDS - wordCount;
+    const wordsNeeded = Math.max(300, gap + 250);
     const msgs = buildExpansionMessages(ctx, day, numberedLesson(lesson), wordCount, wordsNeeded);
     try {
       const added = await generateJson(AI_TASKS.lessonExpand, msgs.user, msgs.system, {
@@ -166,7 +183,7 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
             ? null
             : "Expansion returned no additions.",
       });
-      const merged = stripEmDashes(mergeAdditions(lesson, added.data.additions));
+      const merged = stripEmDashes(mergeAdditions(lesson, added.data.additions, gap + 100));
       // Merging must never break what made the lesson valid in the first place.
       if (lessonStructureProblem(merged)) break;
       lesson = merged;
