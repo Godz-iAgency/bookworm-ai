@@ -99,6 +99,17 @@ module.exports = async function(load) {
   const savedId=savedb.records.has('users/u/courses/a')?'a':'b';
   assert.equal((await save({json:async()=>({course:course(savedId)})})).status,200,'Retrying a save is idempotent');
 
+  // Output language is bound to the generation ticket the same way reading
+  // level is: a course cannot claim a language the generation was not run in.
+  const langdb=database({'users/u':{accessOverride:{active:true,lifetimeGenerations:null,maxOpenBooks:5},generationsThisMonth:0}});
+  langdb.records.set('users/u/generatedCourses/es1',{title:'Book',author:'Author',readingLevel:'scholar',language:'es',createdAt:new Date().toISOString(),charged:true});
+  langdb.records.set('users/u/generatedCourses/leg',{title:'Book',author:'Author',readingLevel:'scholar',createdAt:new Date().toISOString(),charged:true});
+  const {POST:saveLang}=load('app/api/course/save/route.ts',{'next/server':{NextResponse:json},'@/lib/firebase/admin':{getUidFromRequest:async()=> 'u',getAdminDb:()=>langdb},'@/lib/plans':plans});
+  const langCourse=(id,language)=>({id,book:{title:'Book',author:'Author'},readingLevel:'scholar',...(language?{language}:{}),days:Array(7).fill({}),expiresAt:'2099-01-01'});
+  assert.equal((await saveLang({json:async()=>({course:langCourse('es1','fr')})})).status,400,'A course cannot claim a language its generation did not use');
+  assert.equal((await saveLang({json:async()=>({course:langCourse('es1','es')})})).status,200,'The generated language saves');
+  assert.equal((await saveLang({json:async()=>({course:langCourse('leg')})})).status,200,'A ticket predating languages still saves as English');
+
   const clubdb=database({'users/u':{familyId:'f'},'families/f':{status:'active',ownerId:'u',memberIds:['u']},'families/f/sharedBooks/u_c':{sharedByUid:'u',sharedByName:'Reader',sourceCourseId:'c',sharedAt:'2020-01-01'},'users/u/courses/c':{book:{title:'Book',author:'Author'},readingLevel:'scholar',days:[{dayNumber:1,lesson:'L1'}],expiresAt:'2099-01-01'}});
   const clubHelpers={requireClub:async()=>({familyId:'f',memberIds:['u']}),clubError:(status,message)=>Object.assign(Error(message),{httpStatus:status}),statusOf:e=>e.httpStatus??500};
   const clubMocks={'next/server':{NextResponse:json},'@/lib/firebase/admin':{getUidFromRequest:async()=> 'u',getAdminDb:()=>clubdb},'@/lib/family-server':clubHelpers};
@@ -143,6 +154,6 @@ module.exports = async function(load) {
   await persistBackfill('u',{booksFinished:0,badges:[],streakCount:0,lastActivityDate:null});
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Stale backfill never lowers the finished count');
   console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice.');
-  console.log('PASS: atomic shelf cap/idempotent save, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
+  console.log('PASS: atomic shelf cap/idempotent save, output language bound to its generation ticket, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
   console.log('PASS: concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
 };

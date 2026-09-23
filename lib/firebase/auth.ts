@@ -141,6 +141,7 @@ export async function ensureUserDocument(
     authProvider: user.providerData[0]?.providerId ?? "password",
     createdAt: serverTimestamp(),
     readingLevel: null, // set during onboarding: 'explorer' | 'scholar' | 'architect'
+    preferredLanguage: "en", // 'en' | 'es' | 'fr' — independent of readingLevel
     genrePreferences: [],
     plan: "free", // 'free' | 'page_turner' | 'well_read' | 'book_club'
     // Billing (see lib/billing.ts). trialStatus is absent/null until the

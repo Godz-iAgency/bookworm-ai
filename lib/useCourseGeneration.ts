@@ -16,6 +16,8 @@ import {
 } from "@/lib/billing";
 import { postAuthed } from "@/lib/api-client";
 import { personalCourses } from "@/lib/book-club";
+import { getUserProfile } from "@/lib/firebase/profile";
+import { DEFAULT_LANGUAGE } from "@/lib/languages";
 
 export const GENERATION_STEPS = [
   "Reading the book's core ideas...",
@@ -105,11 +107,18 @@ export function useCourseGeneration() {
         }
       }
 
+      // The profile setting is the default for a NEW course only. Once it is
+      // on the course it is fixed, so changing the setting later never
+      // rewrites a book the reader is part-way through. A failed read falls
+      // back to English rather than blocking the generation.
+      const langProfile = await getUserProfile(user.uid).catch(() => null);
+      const language = langProfile?.preferredLanguage ?? DEFAULT_LANGUAGE;
+
       setIsGenerating(true);
       setGenStep(0);
 
       // Kick off the real generation and the step animation in parallel.
-      const genTask = generateCourseDays(book.title, book.author, readingLevel);
+      const genTask = generateCourseDays(book.title, book.author, readingLevel, language);
 
       for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
         setGenStep(i);
@@ -131,6 +140,7 @@ export function useCourseGeneration() {
       const newCourse = buildCourse(
         book,
         readingLevel,
+        language,
         result.days,
         result.thesis,
         result.frameworks,

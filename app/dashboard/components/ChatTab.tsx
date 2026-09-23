@@ -80,7 +80,8 @@ export default function ChatTab({
           message: text,
           lesson: day.lesson,
           dayTitle: day.title,
-          dayNumber: day.dayNumber
+          dayNumber: day.dayNumber,
+          language: course.language ?? "en"
         })
       });
       const data = await res.json();

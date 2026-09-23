@@ -115,6 +115,11 @@ async function courseCases() {
     },
     '@/lib/api-client': { postAuthed: async () => ({ success: true }) },
     '@/lib/book-club': { personalCourses: (courses) => courses.filter((c) => !c.sharedFrom) },
+    // Output language is read from the profile at generation time and fixed
+    // onto the course. Throwing here proves a failed read falls back to
+    // English rather than blocking the book.
+    '@/lib/firebase/profile': { getUserProfile: async () => { throw Error('offline profile'); } },
+    '@/lib/languages': { DEFAULT_LANGUAGE: 'en' },
   }, { setTimeout: (callback) => { callback(); return 0; } });
   const hook = useCourseGeneration();
   const pending = hook.start({ title: 'Book', author: 'Author' }, 'scholar');

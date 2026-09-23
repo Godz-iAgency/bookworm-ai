@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   try {
     const denied = await guardAI(req, "study");
     if (denied) return denied;
-    const { title, author, readingLevel, dayNumber, dayTitle, lesson } = await req.json();
+    const { title, author, readingLevel, language, dayNumber, dayTitle, lesson } = await req.json();
     if (!title || !dayNumber || !lesson) {
       return NextResponse.json({ error: "Missing day details." }, { status: 400 });
     }
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       title,
       author,
       readingLevel,
+      language,
       dayNumber,
       dayTitle ?? `Day ${dayNumber}`,
       lesson

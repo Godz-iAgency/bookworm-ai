@@ -90,7 +90,9 @@ export function useDayContent(
         const res = await aiFetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...body, courseId: course.id }),
+          // The course's own language, not the reader's current setting: a book
+          // started in English stays English even after they switch.
+          body: JSON.stringify({ ...body, courseId: course.id, language: course.language ?? "en" }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       if ((await tx.get(ref)).exists) return;
       const ticketRef = userRef.collection("generatedCourses").doc(course.id);
       const ticket = (await tx.get(ticketRef)).data();
-      if (!ticket || ticket.consumed || ticket.title !== course.book?.title || ticket.author !== course.book?.author || ticket.readingLevel !== course.readingLevel) throw new Error("Generation not found.");
+      if (!ticket || ticket.consumed || ticket.title !== course.book?.title || ticket.author !== course.book?.author || ticket.readingLevel !== course.readingLevel || (ticket.language ?? "en") !== (course.language ?? "en")) throw new Error("Generation not found.");
       const shelf = await tx.get(userRef.collection("courses"));
       const max = p.accessOverride?.active ? p.accessOverride.maxOpenBooks : planFromId(family ? "book_club" : p.plan).maxOpenBooks;
       if (shelf.docs.filter(d => !d.data().sharedFrom && Date.parse(d.data().expiresAt) > Date.now()).length >= max) throw new Error("Your library is full.");

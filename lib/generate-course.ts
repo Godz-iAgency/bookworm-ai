@@ -21,12 +21,13 @@ export async function generateCourseDays(
   title: string,
   author: string,
   readingLevel: string,
+  language: string,
 ): Promise<GeneratedCourse | { error: string }> {
   try {
     const res = await aiFetch("/api/course/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, author, readingLevel }),
+      body: JSON.stringify({ title, author, readingLevel, language }),
     });
     const data = await res.json();
 
@@ -66,6 +67,7 @@ export async function generateCourseDays(
 export function buildCourse(
   book: Book,
   readingLevel: string,
+  language: string,
   days: Day[],
   thesis = "",
   frameworks: string[] = [],
@@ -77,6 +79,9 @@ export function buildCourse(
     id: generationId ?? crypto.randomUUID(),
     book,
     readingLevel,
+    // Fixed here, for the life of the course. Later days read this, never the
+    // reader's current profile setting.
+    language,
     status: "active",
     days,
     expiresAt: expiresAt.toISOString(),

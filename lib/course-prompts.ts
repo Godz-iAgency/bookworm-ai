@@ -1,3 +1,5 @@
+import { languageFromId } from "./languages";
+
 /**
  * Shared prompt building for course generation.
  *
@@ -79,6 +81,35 @@ export function getPersona(readingLevel: string): string {
 }
 
 /**
+ * The output-language contract, attached to every generating call.
+ *
+ * Independent of the persona above, and it has to say so. Three things a bare
+ * "write in Spanish" gets wrong:
+ *
+ *   - The reading level would be read as an English style to be translated,
+ *     rather than a level of difficulty measured inside the target language.
+ *     Explorer in Spanish is simple Spanish, not simplified English in
+ *     Spanish words.
+ *   - The JSON keys would be translated along with everything else, and the
+ *     response would stop parsing.
+ *   - The model would draft in English and translate, which reads like a
+ *     translation and doubles the number of places the output can go wrong.
+ */
+export function getLanguageRules(language: string, opts: { json?: boolean } = {}): string {
+  const { json = true } = opts;
+  const { promptName } = languageFromId(language);
+  return `OUTPUT LANGUAGE: Write the entire response in ${promptName}. Do not mix languages or leave English text in a non-English response.
+- Every heading, every sentence of the lesson, every flashcard front and back, every chat starter and the closing axiom must be in ${promptName}.
+- Write directly in ${promptName}. Do not draft in English and translate.
+- The voice and reading level described above apply WITHIN ${promptName}, judged as a native ${promptName} reader would judge them. Use that language's own vocabulary, idiom, sentence rhythm and everyday analogies. A reading level is not an English style to be carried across.
+- Proper nouns keep their original form: the book's title, the author's name, and any framework, law or term the author coined. Where a reader would need it, gloss the term in ${promptName} on first use.${
+    json
+      ? `\n- The JSON keys in the schema below stay exactly as written, in English. Only the values are written in ${promptName}.`
+      : ""
+  }`;
+}
+
+/**
  * First call: the 7-day arc (titles + previews + key ideas) + Day 1 full
  * content.
  *
@@ -89,12 +120,14 @@ export function getPersona(readingLevel: string): string {
  * handed back to buildDayMessages days later, and they are what keep day five
  * about the book's fifth movement rather than about the topic in general.
  */
-export function buildOutlineMessages(title: string, author: string, readingLevel: string) {
+export function buildOutlineMessages(title: string, author: string, readingLevel: string, language: string) {
   const system = `You are the course architect for Bookworm AI. You turn specific books into structured 7-day learning courses that are faithful to what those books actually say. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${FIDELITY_RULES}
 
 ${getPersona(readingLevel)}
+
+${getLanguageRules(language)}
 
 ${STYLE_RULES}
 
@@ -157,6 +190,7 @@ export function buildFlashcardsMessages(
   title: string,
   author: string,
   readingLevel: string,
+  language: string,
   dayNumber: number,
   dayTitle: string,
   lesson: string
@@ -164,6 +198,8 @@ export function buildFlashcardsMessages(
   const system = `You are the course architect for Bookworm AI. You write study aids for one day of a 7-day course. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${getPersona(readingLevel)}
+
+${getLanguageRules(language)}
 
 ${STYLE_RULES}
 
@@ -207,12 +243,15 @@ export function buildAxiomMessages(
   title: string,
   author: string,
   readingLevel: string,
+  language: string,
   dayTitle: string,
   lesson: string
 ) {
   const system = `You write one closing line for one day of a 7-day course on a book. You ALWAYS return valid JSON matching the requested schema exactly — no commentary, no markdown fences.
 
 ${getPersona(readingLevel)}
+
+${getLanguageRules(language)}
 
 ${STYLE_RULES}
 
@@ -245,6 +284,7 @@ export function buildDayMessages(
   title: string,
   author: string,
   readingLevel: string,
+  language: string,
   dayNumber: number,
   dayTitle: string,
   allTitles: string[],
@@ -257,6 +297,8 @@ export function buildDayMessages(
 ${FIDELITY_RULES}
 
 ${getPersona(readingLevel)}
+
+${getLanguageRules(language)}
 
 ${STYLE_RULES}
 

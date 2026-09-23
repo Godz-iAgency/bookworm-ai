@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   try {
     const denied = await guardAI(req, "study");
     if (denied) return denied;
-    const { title, author, readingLevel, dayTitle, lesson } = await req.json();
+    const { title, author, readingLevel, language, dayTitle, lesson } = await req.json();
     if (!title || !lesson) {
       return NextResponse.json({ error: "Missing lesson." }, { status: 400 });
     }
@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       title,
       author,
       readingLevel,
+      language,
       dayTitle ?? "",
       lesson
     );

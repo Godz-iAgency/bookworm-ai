@@ -6,13 +6,14 @@ import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "@/lib/firebase/config";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, ShieldCheck, Languages } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
 import { CHRISTOPHER_READER_UID } from "@/lib/admin";
 import { getUserProfile, updateUserProfile } from "@/lib/firebase/profile";
 import { fileToAvatarDataUrl } from "@/lib/image";
 import { READING_LEVELS } from "@/lib/reading-levels";
+import { LANGUAGES, DEFAULT_LANGUAGE, languageFromId } from "@/lib/languages";
 import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, knownGenres, GENRE_PICK_COUNT } from "@/lib/genres";
 import { planFromId } from "@/lib/plans";
@@ -40,6 +41,9 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [readingLevel, setReadingLevel] = useState<string | null>(null);
   const [levelOpen, setLevelOpen] = useState(false);
+  const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
+  const [langOpen, setLangOpen] = useState(false);
+  const [savingLang, setSavingLang] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [savingLevel, setSavingLevel] = useState<string | null>(null);
@@ -94,6 +98,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         // Fall back to the Firebase Auth photo (e.g. Google) if the doc has none.
         setPhotoURL(profile?.photoURL ?? user.photoURL ?? null);
         setReadingLevel(profile?.readingLevel ?? null);
+        setLanguage(profile?.preferredLanguage ?? DEFAULT_LANGUAGE);
         setGenres(knownGenres(profile?.genrePreferences ?? []));
         setLastBook(profile?.lastBookRead ?? "");
         setPlan(profile?.plan ?? null);
@@ -162,6 +167,33 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
       setError("Couldn't save your reading level. Please try again.");
     } finally {
       setSavingLevel(null);
+    }
+  };
+
+  /**
+   * Same optimistic write + rollback as the reading level above, and entirely
+   * independent of it: this only sets the language NEW books are written in.
+   * Nothing already on the shelf is touched or retranslated.
+   */
+  const handleSelectLanguage = async (id: string) => {
+    if (!user) return;
+    if (id === language) {
+      setLangOpen(false);
+      return;
+    }
+    setSavingLang(id);
+    setError(null);
+    const previous = language;
+    setLanguage(id); // optimistic
+    setLangOpen(false);
+    try {
+      await updateUserProfile(user.uid, { preferredLanguage: id });
+    } catch (err) {
+      console.error("Failed to save language:", err);
+      setLanguage(previous); // roll back on failure
+      setError("Couldn't save your language. Please try again.");
+    } finally {
+      setSavingLang(null);
     }
   };
 
@@ -260,6 +292,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
 
   const initial = (user?.email?.[0] ?? "?").toUpperCase();
   const currentLevel = READING_LEVELS.find((l) => l.id === readingLevel);
+  const currentLanguage = languageFromId(language);
   // Book Club members inherit the tier from their family, so the effective
   // plan (not the raw `plan` field) is what the card should describe.
   const currentPlan = planFromId(billing ? getEffectivePlanId(billing) : plan);
@@ -367,6 +400,50 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           </div>
         )}
         {loading && <p className="mt-2 text-xs text-white/30">Loading your settings…</p>}
+      </div>
+
+      {/* Settings: output language. Independent of the reading level above —
+          level is how hard the writing is, this is which language it is hard
+          in. Explorer in Spanish means simple Spanish, not translated English. */}
+      <div className="mb-6">
+        <button
+          onClick={() => setLangOpen((o) => !o)}
+          aria-expanded={langOpen}
+          style={gradientBorder}
+          className="flex w-full items-center gap-3 rounded-2xl p-3.5 text-left transition-transform hover:scale-[1.01]"
+        >
+          <Languages className="h-7 w-7 shrink-0 text-[#00D4FF]" strokeWidth={1.75} />
+          <div className="flex-1 min-w-0">
+            <span className="block text-base font-bold text-white">{currentLanguage.label}</span>
+            <span className="block text-xs font-semibold text-[#00D4FF]">Tap to change language</span>
+          </div>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-white/50 transition-transform duration-300 ${langOpen ? "rotate-180" : ""}`}
+            strokeWidth={2}
+          />
+        </button>
+
+        {langOpen && (
+          <div className="mt-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            {LANGUAGES.filter((l) => l.id !== language).map((l) => (
+              <button
+                key={l.id}
+                onClick={() => handleSelectLanguage(l.id)}
+                disabled={!!savingLang}
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-3.5 text-left transition-all duration-300 hover:border-[#FF006E]/60 hover:shadow-[0_0_16px_rgba(255,0,110,0.28)] disabled:opacity-70"
+              >
+                <Languages className="h-7 w-7 shrink-0 text-white/70" strokeWidth={1.75} />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-white">{l.label}</h4>
+                  <p className="text-[13px] leading-snug text-white/70">{l.native}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="mt-2 text-xs text-white/40">
+          New books are written in this language. Books already on your shelf stay as they are.
+        </p>
       </div>
 
       {/* How lessons are displayed — text size and scroll vs. page turns. */}

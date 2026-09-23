@@ -14,12 +14,12 @@ export async function POST(req: Request) {
   try {
     const denied = await guardAI(req, "course");
     if (denied) return denied;
-    const { title, author, readingLevel } = await req.json();
+    const { title, author, readingLevel, language } = await req.json();
     if (!title) {
       return NextResponse.json({ error: "Missing book title." }, { status: 400 });
     }
 
-    const { system, user } = buildOutlineMessages(title, author, readingLevel);
+    const { system, user } = buildOutlineMessages(title, author, readingLevel, language);
 
     // A course is seven days or it is not a course. Checked inside the retry so
     // a short outline is regenerated rather than saved to someone's shelf.
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const ref = db.collection("users").doc(uid);
       const profile = (await tx.get(ref)).data();
       if (!profile || profile.accessOverride?.active === false || profile.deletionPending) throw new Error("Access revoked.");
-      tx.create(ref.collection("generatedCourses").doc(generationId), { title, author: author ?? "", readingLevel: readingLevel ?? "", createdAt: new Date().toISOString(), consumed: false, charged: aiAdmissions.get(req) === true });
+      tx.create(ref.collection("generatedCourses").doc(generationId), { title, author: author ?? "", readingLevel: readingLevel ?? "", language: language ?? "en", createdAt: new Date().toISOString(), consumed: false, charged: aiAdmissions.get(req) === true });
     });
     return NextResponse.json({
       generationId,

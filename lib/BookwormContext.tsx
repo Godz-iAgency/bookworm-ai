@@ -56,6 +56,14 @@ export interface Course {
   id: string;
   book: Book;
   readingLevel: string;
+  /**
+   * The language this course was generated in, fixed when it was created.
+   * Days 2-7 are written from this rather than from the reader's current
+   * profile setting, so changing that setting later never leaves one course
+   * half in two languages. Undefined on courses generated before languages
+   * existed, which are English — see lib/languages.ts.
+   */
+  language?: string;
   status: 'active' | 'expired' | 'completed';
   days: Day[];
   expiresAt: string;

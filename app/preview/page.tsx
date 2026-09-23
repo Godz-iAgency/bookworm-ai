@@ -14,6 +14,8 @@ import { generateCourseDays, buildCourse } from "@/lib/generate-course";
 import { getStripeClient } from "@/lib/stripe/client";
 import { postAuthed } from "@/lib/api-client";
 import { READING_LEVELS } from "@/lib/reading-levels";
+import { DEFAULT_LANGUAGE } from "@/lib/languages";
+import { getUserProfile } from "@/lib/firebase/profile";
 import { parseLesson } from "@/lib/lesson";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
 import { getBillingProfile, hasActiveAccess, isBillingEnabled } from "@/lib/billing";
@@ -40,9 +42,13 @@ export default function PreviewPage() {
    * does. Without it, a reader's very first book would be the one course whose
    * later days had nothing to write from.
    */
-  const [outline, setOutline] = useState<{ thesis: string; frameworks: string[]; generationId?: string }>({
+  const [outline, setOutline] = useState<{ thesis: string; frameworks: string[]; generationId?: string; language: string }>({
     thesis: "",
     frameworks: [],
+    // Captured at generation time and reused when the course is saved. The
+    // save route checks it against the generation ticket, so reading the
+    // profile again here could fail the save if the setting changed meanwhile.
+    language: DEFAULT_LANGUAGE,
   });
   const [genError, setGenError] = useState<string | null>(null);
   const [genStep, setGenStep] = useState(0);
@@ -95,7 +101,10 @@ export default function PreviewPage() {
     // still and then jumps straight to the finished course — the actual
     // generation call runs the whole time underneath this, in parallel.
     (async () => {
-      const genTask = generateCourseDays(currentBook.title, currentBook.author, currentReadingLevel);
+      const langProfile = await getUserProfile(user.uid).catch(() => null);
+      if (cancelled) return;
+      const language = langProfile?.preferredLanguage ?? DEFAULT_LANGUAGE;
+      const genTask = generateCourseDays(currentBook.title, currentBook.author, currentReadingLevel, language);
 
       for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
         if (cancelled) return;
@@ -111,7 +120,7 @@ export default function PreviewPage() {
         setGenError(result.error);
       } else {
         setDays(result.days);
-        setOutline({ thesis: result.thesis, frameworks: result.frameworks, generationId: result.generationId });
+        setOutline({ thesis: result.thesis, frameworks: result.frameworks, generationId: result.generationId, language });
       }
     })();
 
@@ -134,6 +143,7 @@ export default function PreviewPage() {
       const newCourse = buildCourse(
         currentBook,
         currentReadingLevel,
+        outline.language,
         days,
         outline.thesis,
         outline.frameworks,

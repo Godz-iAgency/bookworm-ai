@@ -2,13 +2,13 @@ import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { generateGeminiContent } from "@/lib/gemini";
 import { stripEmDashes } from "@/lib/lesson";
-import { STYLE_RULES } from "@/lib/course-prompts";
+import { STYLE_RULES, getLanguageRules } from "@/lib/course-prompts";
 
 export async function POST(req: Request) {
   try {
     const denied = await guardAI(req, "chat");
     if (denied) return denied;
-    const { title, author, message, lesson, dayTitle, dayNumber } = await req.json();
+    const { title, author, message, lesson, dayTitle, dayNumber, language } = await req.json();
 
     const prompt = message;
 
@@ -18,7 +18,10 @@ export async function POST(req: Request) {
       ? `\n\nThe reader is on Day ${dayNumber ?? "?"}${dayTitle ? ` ("${dayTitle}")` : ""}. Here is the exact lesson they just studied — ground your answer in THIS lesson first, then the wider book only if needed:\n"""\n${lesson}\n"""`
       : "";
 
-    const systemPrompt = `You are BookPal, a warm and sharp reading tutor for the book '${title}' by '${author}'. Answer using the book's principles, lessons, and concepts. Be engaging, clear, and educational.${lessonContext}\n\nLimit every response to a maximum of 25 words. Be concise, direct, and on-topic.\n\n${STYLE_RULES}`;
+    // The reader's language comes from the course they are reading, not their
+    // current profile setting, so chat about a Spanish course stays Spanish
+    // even after they switch the setting for future books.
+    const systemPrompt = `You are BookPal, a warm and sharp reading tutor for the book '${title}' by '${author}'. Answer using the book's principles, lessons, and concepts. Be engaging, clear, and educational.${lessonContext}\n\nLimit every response to a maximum of 25 words. Be concise, direct, and on-topic.\n\n${getLanguageRules(language, { json: false })}\n\n${STYLE_RULES}`;
 
     const response = await generateGeminiContent(prompt, systemPrompt, false);
 

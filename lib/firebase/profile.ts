@@ -12,6 +12,12 @@ export interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   readingLevel: string | null;
+  /**
+   * Language new generations are written in — see lib/languages.ts. Separate
+   * from readingLevel: one sets difficulty, the other sets the language that
+   * difficulty is expressed in.
+   */
+  preferredLanguage: string | null;
   genrePreferences: string[];
   lastBookRead: string | null;
   plan: string | null;
@@ -30,6 +36,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     displayName: typeof d.displayName === "string" ? d.displayName : null,
     photoURL: typeof d.photoURL === "string" ? d.photoURL : null,
     readingLevel: typeof d.readingLevel === "string" ? d.readingLevel : null,
+    preferredLanguage: typeof d.preferredLanguage === "string" ? d.preferredLanguage : null,
     genrePreferences: Array.isArray(d.genrePreferences) ? d.genrePreferences.filter((v: unknown) => typeof v === "string") : [],
     lastBookRead: typeof d.lastBookRead === "string" ? d.lastBookRead : null,
     plan: typeof d.plan === "string" ? d.plan : null,
