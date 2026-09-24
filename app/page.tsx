@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Entropy } from "@/components/ui/entropy"
 import { Logo } from "@/components/logo"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
+import { VslVideo } from "@/components/vsl-video"
 import { CalendarDays, MessageCircle, Layers } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -120,6 +121,9 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
+        {/* Explainer video: below the hero so "Start Learning" stays above the fold. */}
+        <VslVideo />
 
         {/* Features — tap any card to flip it for more detail */}
         <div id="features" className="mt-20 grid w-full max-w-5xl scroll-mt-24 gap-8 md:grid-cols-3">
