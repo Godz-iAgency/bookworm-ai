@@ -9,10 +9,9 @@ import { Play, X } from "lucide-react"
  * Two ways to watch it, both real YouTube iframes on the privacy-enhanced
  * youtube-nocookie domain (no tracking cookies until the visitor presses
  * play):
- *   - VslLink: a visible "See how it works" link right under the hero's
- *     Start Learning button. Tapping it opens the video in a pop-up that
- *     starts playing. The iframe exists only while the pop-up is open, so
- *     closing it stops the video.
+ *   - VslLink: the "How It Works" button in the top navigation. Tapping it
+ *     opens the video in a pop-up that starts playing. The iframe exists only
+ *     while the pop-up is open, so closing it stops the video.
  *   - VslVideo: the same video in a phone-shaped frame further down the page,
  *     lazy-loaded and never autoplaying.
  */
@@ -23,30 +22,17 @@ const IFRAME_ALLOW = "accelerometer; autoplay; encrypted-media; gyroscope; pictu
 const embedUrl = (autoplay: boolean) =>
   `https://www.youtube-nocookie.com/embed/${VIDEO_ID}?rel=0&playsinline=1&modestbranding=1${autoplay ? "&autoplay=1" : ""}`
 
-const TRIGGERS = {
-  // Under the hero's Start Learning button.
-  hero: {
-    label: "See how it works",
-    className:
-      "mt-4 inline-flex items-center gap-2 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-5 py-2 text-sm font-semibold text-[#00D4FF] transition-colors hover:bg-[#00D4FF]/20",
-  },
-  // In the top navigation, where it replaces the old Explore Benefits button.
-  // Kept as short as that button so the header does not look crowded.
-  header: {
-    label: "How It Works",
-    className:
-      "inline-flex items-center gap-1.5 rounded-full border border-[#00D4FF]/40 bg-white/5 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10",
-  },
-} as const
-
-export function VslLink({ variant = "hero" }: { variant?: keyof typeof TRIGGERS }) {
-  const { label, className } = TRIGGERS[variant]
+/** The header's "How It Works" button, kept short so the header is not crowded. */
+export function VslLink() {
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
-        <button type="button" className={className}>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#00D4FF]/40 bg-white/5 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10"
+        >
           <Play className="h-3.5 w-3.5 fill-current text-[#00D4FF]" aria-hidden="true" />
-          {label}
+          How It Works
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>

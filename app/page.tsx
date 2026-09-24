@@ -7,7 +7,7 @@ import { Entropy } from "@/components/ui/entropy"
 import { Logo } from "@/components/logo"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
 import { VslLink, VslVideo } from "@/components/vsl-video"
-import { CalendarDays, MessageCircle, Layers } from "lucide-react"
+import { CalendarDays, MessageCircle, Layers, ChevronDown } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export default function LandingPage() {
@@ -40,6 +40,10 @@ export default function LandingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
+  const scrollToBenefits = () => {
+    document.getElementById("features")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   // dvh, not vh, throughout the hero: on a phone `100vh` measures the viewport
   // as if the URL bar and nav bar weren't there, so the hero was sized ~150px
   // taller than the screen actually shows, pushing the CTA under the fold.
@@ -47,10 +51,9 @@ export default function LandingPage() {
     <div className="relative min-h-dvh w-full overflow-hidden bg-black">
 
       {/* Top navigation */}
-      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-5">
-        {/* Left — opens the explainer video, playing. The feature cards below
-            the fold stay reachable by scrolling. */}
-        <VslLink variant="header" />
+      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-4 py-5 sm:px-5">
+        {/* Left — opens the explainer video, playing. */}
+        <VslLink />
         {/* Right — returning users log in here */}
         <Link
           href="/login"
@@ -61,7 +64,7 @@ export default function LandingPage() {
       </header>
 
       {/* Content overlay */}
-      <div className="relative z-10 flex min-h-dvh flex-col items-center px-6 pb-10 pt-16 sm:pt-20">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center px-5 pb-10 pt-16 sm:px-6 sm:pt-20">
         {/* The entropy field is anchored to the logo rather than to the page.
             It used to be `absolute inset-0` on a container as tall as the
             whole scrollable page, which centred it far below the fold. */}
@@ -86,7 +89,7 @@ export default function LandingPage() {
         </div>
 
         {/* Hero text */}
-        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 p-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl word-float">
+        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 px-5 py-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl word-float">
           <p className="mb-6 text-base sm:text-lg leading-relaxed text-white/90">
             Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.
             Turn any book into a 7-day learning journey.
@@ -102,8 +105,14 @@ export default function LandingPage() {
                 Start Learning
               </Link>
             </Button>
-            {/* Visible without scrolling: the video itself sits further down. */}
-            <VslLink />
+            <button
+              type="button"
+              onClick={scrollToBenefits}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-5 py-2 text-sm font-semibold text-[#00D4FF] transition-colors hover:bg-[#00D4FF]/20"
+            >
+              Explore Benefits
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
           
           <div className="mt-5 text-center text-xs space-y-2 font-mono text-white/50 w-full flex flex-col items-center">
