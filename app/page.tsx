@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Entropy } from "@/components/ui/entropy"
 import { Logo } from "@/components/logo"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
-import { VslVideo } from "@/components/vsl-video"
+import { VslLink, VslVideo } from "@/components/vsl-video"
 import { CalendarDays, MessageCircle, Layers } from "lucide-react"
 import { useEffect, useState } from "react"
 
@@ -36,11 +36,6 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  const scrollToBenefits = () => {
-    // Scroll all the way to the bottom so every feature card is reachable.
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
-  }
-
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -53,14 +48,9 @@ export default function LandingPage() {
 
       {/* Top navigation */}
       <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-5">
-        {/* Left — jumps down to the feature cards (so mobile users don't have to discover the scroll) */}
-        <button
-          type="button"
-          onClick={scrollToBenefits}
-          className="rounded-full border border-[#00D4FF]/40 bg-white/5 px-4 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10"
-        >
-          Explore Benefits ↓
-        </button>
+        {/* Left — opens the explainer video, playing. The feature cards below
+            the fold stay reachable by scrolling. */}
+        <VslLink variant="header" />
         {/* Right — returning users log in here */}
         <Link
           href="/login"
@@ -112,6 +102,8 @@ export default function LandingPage() {
                 Start Learning
               </Link>
             </Button>
+            {/* Visible without scrolling: the video itself sits further down. */}
+            <VslLink />
           </div>
           
           <div className="mt-5 text-center text-xs space-y-2 font-mono text-white/50 w-full flex flex-col items-center">
