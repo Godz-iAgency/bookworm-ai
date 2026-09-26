@@ -23,7 +23,7 @@ const CONTACT_EMAIL = "christopher@godz-iagency.com";
 const GOVERNING_LAW_STATE = "Texas";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Bookworm AI",
+  title: "Terms of Service | Bookworm AI",
   description: "The terms that apply when you use Bookworm AI, including subscriptions, trials and cancellation.",
 };
 
@@ -136,16 +136,35 @@ export default function TermsPage() {
 
         <Section title="Content and ownership">
           <p>
-            Book titles, authors and cover art belong to their respective publishers and authors and
-            are used here only to identify the book you chose. The lesson text, flashcards and chat
-            replies Bookworm AI generates for your account are yours to read and use personally for
-            as long as your course remains on your shelf; we do not claim ownership over what you do
-            with your own notes or takeaways from them.
+            Bookworm AI does not copy, scan, or access the text of any book. Lessons, flashcards and
+            chat replies are written by AI models in their own words, from their general knowledge of
+            a book&apos;s ideas. They are original study material, not the book itself, and they are
+            not a substitute for reading it.
           </p>
           <p>
-            When a course finishes, we may show a link to buy the physical book on Amazon. These are
-            Amazon Associates affiliate links: we may earn a commission if you buy through one, at no
-            extra cost to you. See the Privacy Policy for more on this.
+            Bookworm AI is independent and is not affiliated with, endorsed by, or sponsored by the
+            authors or publishers of the books it covers. Book titles, author names and cover images
+            belong to their respective owners and are used only to identify the book.
+          </p>
+          <p>
+            We want you to read the original. At the end of every course, we link to buy the book on
+            Amazon, so readers who want the full story can go straight to it. These are Amazon
+            Associates affiliate links: we may earn a commission if you buy through one, at no extra
+            cost to you. See the Privacy Policy for more on this.
+          </p>
+          <p>
+            The lessons generated for your account are yours to read and use personally for as long
+            as your course remains on your shelf.
+          </p>
+          <p>
+            If you are an author or publisher with a concern about how your book is covered, email{" "}
+            <a
+              href={`mailto:${CONTACT_EMAIL}?subject=Rights%20holder%20concern`}
+              className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>
+            .
           </p>
         </Section>
 
@@ -193,7 +212,7 @@ export default function TermsPage() {
 
         <Section title="Contact">
           <p>
-            {OPERATOR} — questions about these terms:{" "}
+            {OPERATOR}, questions about these terms:{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}?subject=Terms%20question`}
               className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline"

@@ -637,8 +637,12 @@ function CourseCompleteBanner({ course }: { course: Course }) {
         </span>
         !
       </h3>
-      <p className="mx-auto mb-6 max-w-md text-white/60">
+      <p className="mx-auto mb-3 max-w-md text-white/60">
         All 7 days done. Want to keep the full book on your shelf? Grab a copy and go deeper.
+      </p>
+      {/* Bookworm is a study aid, not the book: say so where the book is offered. */}
+      <p className="mx-auto mb-6 max-w-md text-[11px] leading-relaxed text-white/40">
+        Bookworm AI is an independent study aid and is not affiliated with the author.
       </p>
       <div className="flex flex-col items-center gap-3 md:flex-row md:justify-center">
         <a
