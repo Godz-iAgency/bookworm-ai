@@ -19,12 +19,8 @@ import Link from "next/link";
 const LAST_UPDATED = "September 26, 2026";
 const OPERATOR = "GODZ-i LLC";
 const CONTACT_EMAIL = "christopher@godz-iagency.com";
-/**
- * Delaware is the default assumption for a US LLC's governing law and has not
- * been confirmed against GODZ-i LLC's actual state of formation. Confirm this
- * against the LLC's formation documents before relying on this clause.
- */
-const GOVERNING_LAW_STATE = "Delaware";
+/** GODZ-i LLC is registered in Texas (formed 06/30/2026, per its business profile). */
+const GOVERNING_LAW_STATE = "Texas";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Bookworm AI",
