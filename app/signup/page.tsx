@@ -2,6 +2,7 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from "react"
 import type React from "react"
 import { Logo } from "@/components/logo";
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signUpWithEmail, signInWithGoogle, friendlyAuthError } from "@/lib/firebase/auth"
 import { useAuth } from "@/context/AuthContext"
@@ -135,6 +136,18 @@ export default function SignUpPage() {
           googleLogin="Sign up with Google"
           onGoogleClick={handleGoogle}
         />
+
+        <p className="mt-6 max-w-[280px] text-center text-[11px] leading-relaxed text-white/40">
+          By continuing, you agree to Bookworm AI&apos;s{" "}
+          <Link href="/terms" className="underline decoration-white/20 hover:text-white/60">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline decoration-white/20 hover:text-white/60">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </section>
   )

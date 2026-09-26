@@ -155,6 +155,9 @@ export default function LandingPage() {
             privacy policy; it does not also need to sit in this footer. */}
         <footer className="mt-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-14 text-xs text-white/40">
           <span>&copy; {new Date().getFullYear()} Bookworm AI</span>
+          <Link href="/terms" className="transition-colors hover:text-white/70">
+            Terms
+          </Link>
           <Link href="/privacy" className="transition-colors hover:text-white/70">
             Privacy
           </Link>
