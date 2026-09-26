@@ -52,6 +52,8 @@ export const AI_TASKS = {
   // Even a one-word Flash-Lite reply was measured anywhere from 1 to 30 seconds
   // under load, so these small tasks still get a generous ceiling.
   axiom: { name: "axiom", model: LITE_MODEL, thinking: "minimal", callTimeoutMs: 45_000, geminiRetries: 1 },
+  /** Restores a word that slipped into another alphabet mid-generation. */
+  textRepair: { name: "text-repair", model: LITE_MODEL, thinking: "minimal", callTimeoutMs: 30_000, geminiRetries: 1 },
   chat: { name: "chat", model: LITE_MODEL, thinking: "minimal", callTimeoutMs: 45_000, geminiRetries: 1 },
   coverScan: { name: "cover-scan", model: LITE_MODEL, thinking: "minimal", callTimeoutMs: 45_000, geminiRetries: 1 },
 } satisfies Record<string, AiTask>;

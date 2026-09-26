@@ -154,6 +154,11 @@ module.exports = async function (load) {
         if (!next) throw new Error('No expansion available.');
         return { data: next, provider: 'gemini', model: task.model };
       }
+      if (task.name === 'text-repair') {
+        // Only the corrupted half, as the live model once answered: the
+        // pipeline must still produce the whole word.
+        return { data: { fixes: [{ original: 'well-ведении', replacement: 'being' }] }, provider: 'gemini', model: task.model };
+      }
       return { data: aids, provider: 'gemini', model: task.model };
     },
   };
@@ -197,6 +202,29 @@ module.exports = async function (load) {
   const general = lessonExcerpt(chatLesson, 'Is this useful?');
   assert.ok(general.includes('Tiny gains compound.') && general.includes('Make cues visible.'), 'A general question gets the opening concept and the takeaway');
   assert.ok(excerpt.split(/\s+/).length < 800, 'The excerpt is a fraction of the lesson');
+
+  // A word that slipped into another alphabet is restored, not shipped.
+  assert.deepEqual([...lesson.scriptGlitches('True emotional well-ведении and resilience.')], ['well-ведении']);
+  assert.equal(lesson.scriptGlitches('Ikigai (生き甲斐) and café au lait, niño, ¿Cómo?').length, 0, 'Whole foreign words and accents are not glitches');
+  assert.equal(lesson.stripScriptGlitches('emotional well-ведении and'), 'emotional well and', 'Fallback keeps only the Latin letters');
+  assert.ok(!lesson.parseLesson('## A\n\nTrue well-ведении here.').some((b) => /[а-я]/.test(b.text)), 'Stored lessons are cleaned when shown');
+  assert.equal(valid.validStudyAids({ ...aids, closingAxiom: 'Care for well-ведении daily.' }), false, 'Study aids with a glitch are regenerated');
+  lessonText = mkLesson(2300).replace('s2w5', 'well-ведении');
+  ran.length = 0;
+  const repaired = await dayGen.generateDayContent(ctx, day);
+  assert.ok(repaired.lesson.includes('well-being') && !repaired.lesson.includes('ведении'), 'The intended word is restored');
+  assert.ok(ran.includes('text-repair@gemini-3.5-flash-lite'), 'Repair runs on Flash-Lite');
+
+  // The actions heading travels with the actions, and never reads as a count.
+  const withHeading = lesson.splitLesson(mkLesson(2200));
+  assert.equal(withHeading.actionsHeading, 'Your Next Day');
+  assert.ok(!withHeading.blocks.some((b) => b.text === 'Your Next Day'), 'It is not left at the end of the prose');
+  assert.equal(lesson.cleanActionsHeading('24 Actions for Day Five'), 'Actions for Day Five');
+  assert.equal(lesson.cleanActionsHeading('24 Hours to Act'), '24 Hours to Act');
+  assert.equal(lesson.cleanActionsHeading('Your Next 24 Hours'), 'Your Next 24 Hours');
+  assert.equal(lesson.cleanActionsHeading('24 horas para actuar'), '24 horas para actuar');
+  assert.equal(valid.lessonStructureProblem(mkLesson(2200, { sections: 4 })), null, 'The actions heading still counts as a section');
+  assert.match(prompts.buildDayMessages(ctx, { dayNumber: 1, title: 'One' }).system, /Never start that heading with a number/);
 
   // Request bodies: current shape, the previous build's shape, and junk.
   const legacy = dayGen.dayInputFromBody({ title: 'Book', dayNumber: 3, dayTitle: 'Three', allTitles: ['One', 'Two', 'Three'], keyIdeas: ['k'] });

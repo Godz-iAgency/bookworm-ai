@@ -3,12 +3,13 @@ import {
   buildDayMessages,
   buildExpansionMessages,
   buildFlashcardsMessages,
+  buildScriptRepairMessages,
   type CourseContext,
   type DayPlan,
 } from "./course-prompts";
 import { MIN_LESSON_WORDS, instructionalWordCount, lessonStructureProblem, validLesson, validStudyAids } from "./course-validation";
 import { generateJson, generateText, type Generated } from "./generate";
-import { stripEmDashes } from "./lesson";
+import { scriptGlitches, stripEmDashes, stripScriptGlitches } from "./lesson";
 
 /** Everything one day needs, and which model produced each part. */
 export interface DayContent {
@@ -136,6 +137,49 @@ export function mergeAdditions(lesson: string, additions: any[], wordsWanted = I
   return fromSections(doc);
 }
 
+/**
+ * Restore words that slipped into another alphabet mid-generation. One small
+ * call asks for the intended word, judged from its sentence; any word it
+ * cannot restore is stripped to its Latin letters instead.
+ */
+export async function repairScriptGlitches(value: string, language: string): Promise<string> {
+  const words = scriptGlitches(value);
+  if (!words.length) return value;
+  const sentences = value.split(/(?<=[.!?])\s+/);
+  const items = words.slice(0, 20).map((word) => ({
+    word,
+    sentence: (sentences.find((s) => s.includes(word)) ?? word).slice(0, 400),
+  }));
+  let out = value;
+  try {
+    const { system, user } = buildScriptRepairMessages(language, items);
+    const fixed = await generateJson(AI_TASKS.textRepair, user, system, {
+      maxOutputTokens: 1024,
+      budgetMs: 35_000,
+      attempts: 2,
+      validate: (p) => (Array.isArray(p?.fixes) ? null : "Repair returned no fixes."),
+    });
+    for (const f of fixed.data.fixes) {
+      const original = typeof f?.original === "string" ? f.original : "";
+      const replacement = typeof f?.replacement === "string" ? f.replacement.trim() : "";
+      if (!words.includes(original) || !replacement || replacement.length > 60) continue;
+      if (/[^\P{L}\p{Script=Latin}]/u.test(replacement)) continue;
+      // The word's uncorrupted Latin start ("well-" in "well-ведении") must
+      // survive: a model asked for the intended word sometimes returns only
+      // the part that was corrupted ("being").
+      const start = original.match(/^[\p{Script=Latin}'’-]+/u)?.[0] ?? "";
+      const core = start.replace(/[-'’]+$/, "").toLowerCase();
+      const whole = core && !replacement.toLowerCase().startsWith(core) ? start + replacement : replacement;
+      out = out.split(original).join(whole);
+    }
+  } catch (err: any) {
+    console.warn("[ai] alphabet repair failed:", err?.message);
+  }
+  out = stripScriptGlitches(out);
+  console.info(`[ai] repaired ${words.length} word(s) that slipped into another alphabet.`);
+  return out;
+}
+
 function numberedLesson(lesson: string): string {
   const { preamble, sections } = toSections(lesson);
   const pre = preamble.join("\n").trim();
@@ -195,6 +239,10 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
       break;
     }
   }
+
+  // After expansion, so paragraphs it added are checked too.
+  lesson = await repairScriptGlitches(lesson, ctx.language);
+  wordCount = instructionalWordCount(lesson);
 
   if (wordCount < MIN_LESSON_WORDS) {
     console.error(`[ai] day ${day.dayNumber}: lesson short after expansion (${wordCount}/${MIN_LESSON_WORDS} words, lesson via ${label(written)}).`);

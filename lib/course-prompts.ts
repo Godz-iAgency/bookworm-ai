@@ -122,7 +122,7 @@ LESSON FORMAT:
 - Organize the lesson into 7 to 10 sections. Each section BEGINS with its own heading on its own line, written as "## " (exactly two hash marks and one space) followed by a 2 to 6 word title specific to its content, such as "## Why Small Changes Compound". Then a blank line, then that section's paragraphs. A stage above may span more than one section. Do not use the stage names themselves as headings.
 - Use "## " ONLY for section headings. Do NOT use any other markdown, asterisks, bold markers, or bullet symbols anywhere.
 - Separate every heading and paragraph with a single blank line.
-- The FINAL section is the 24-hour actions. Its heading signals action within the next day. It contains exactly three lines starting with "1.", "2.", "3.", and nothing after them. Each action connects directly to this lesson, is specific and achievable, and is something the reader can begin within 24 hours. Never write vague actions such as "think about this", "reflect on", or "remember this".
+- The FINAL section is the 24-hour actions. Its heading is a short title about acting on this lesson in the next day, such as "Your Next 24 Hours" or "Put It Into Practice". Never start that heading with a number and never state how many actions there are. The section contains exactly three lines starting with "1.", "2.", "3.", and nothing after them. Each action connects directly to this lesson, is specific and achievable, and is something the reader can begin within 24 hours. Never write vague actions such as "think about this", "reflect on", or "remember this".
 - Lines starting with a number and a period appear only in that final section.`;
 
 const FLASHCARD_RULES = `FLASHCARD RULES: exactly 3. Each tests one of the most important concepts the lesson teaches, an idea the reader must understand to apply the day, never trivia such as names, dates, or numbers for their own sake. Front = an open-ended question (what / how / why), 5 to 10 words, never yes/no. Back = a concise answer, 10 to 15 words. Use the book's own terms where it has them.`;
@@ -468,6 +468,25 @@ Return ONLY this JSON:
 { "additions": [{ "section": 2, "text": "..." }] }
 
 "section" is the number of an existing section other than the last one.`;
+
+  return { system, user };
+}
+
+/**
+ * Restores words that slipped into another alphabet partway through, like
+ * "well-ведении" for "well-being". Each corrupted word goes with the sentence
+ * it sits in, since the context is what says which word was meant.
+ */
+export function buildScriptRepairMessages(language: string, items: { word: string; sentence: string }[]) {
+  const { promptName } = languageFromId(language);
+  const system = `You fix text corruption. Some words in a ${promptName} text were corrupted: partway through, the letters switched to a different alphabet. You ALWAYS return valid JSON matching the requested schema exactly, with no commentary and no markdown fences.`;
+
+  const user = `For each corrupted word, give the complete ${promptName} word or words that were clearly intended, judged from the sentence it appears in. The replacement stands in for the WHOLE corrupted word, including its uncorrupted start: for the corrupted word "well-ведении" in "True emotional well-ведении and resilience", the replacement is "well-being", not "being". Use only ${promptName} spelling, and keep any hyphen or capital letter the intended word would have.
+
+${items.map((it, i) => `${i + 1}. Corrupted word: "${it.word}"\n   Sentence: "${it.sentence}"`).join("\n")}
+
+Return ONLY this JSON:
+{ "fixes": [{ "original": "the corrupted word exactly as given", "replacement": "the intended word" }] }`;
 
   return { system, user };
 }

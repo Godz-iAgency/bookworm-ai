@@ -2,7 +2,7 @@ import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
 import { generateContent } from "@/lib/gemini";
-import { stripEmDashes } from "@/lib/lesson";
+import { stripEmDashes, stripScriptGlitches } from "@/lib/lesson";
 import { STYLE_RULES, getLanguageRules } from "@/lib/course-prompts";
 import { lessonExcerpt } from "@/lib/chat-context";
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     const revoked = await guardAI(req, "chat", false);
     if (revoked) return revoked;
-    return NextResponse.json({ reply: stripEmDashes(text) });
+    return NextResponse.json({ reply: stripScriptGlitches(stripEmDashes(text)) });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

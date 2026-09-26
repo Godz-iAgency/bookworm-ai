@@ -1,4 +1,4 @@
-import { splitLesson } from "./lesson";
+import { scriptGlitches, splitLesson } from "./lesson";
 
 /** Validate provider output before any reader receives it. */
 
@@ -30,23 +30,26 @@ export function instructionalWordCount(lesson: string): number {
  */
 export function lessonStructureProblem(lesson: string): string | null {
   if (!text(lesson)) return "Lesson is empty.";
-  const { blocks, actions } = splitLesson(lesson);
-  if (blocks.filter((b) => b.type === "heading").length < 5) return "Lesson is missing its sections.";
+  const { blocks, actions, actionsHeading } = splitLesson(lesson);
+  const headings = blocks.filter((b) => b.type === "heading").length + (actionsHeading ? 1 : 0);
+  if (headings < 5) return "Lesson is missing its sections.";
   if (actions.length !== 3) return `Lesson has ${actions.length} closing actions, not 3.`;
   return null;
 }
 
+const clean = (v: any) => text(v) && scriptGlitches(v).length === 0;
+
 export function validDeck(value: any): boolean {
-  return Array.isArray(value) && value.length === 3 && value.every(c => c && text(c.front) && text(c.back));
+  return Array.isArray(value) && value.length === 3 && value.every(c => c && clean(c.front) && clean(c.back));
 }
 
 export function validStudyAids(value: any): boolean {
-  return !!value && validDeck(value.flashcards) && text(value.closingAxiom) && Array.isArray(value.chatSeed) && value.chatSeed.length === 3 && value.chatSeed.every(text);
+  return !!value && validDeck(value.flashcards) && clean(value.closingAxiom) && Array.isArray(value.chatSeed) && value.chatSeed.length === 3 && value.chatSeed.every(clean);
 }
 
 /** A complete day: a full-length, well-formed lesson and everything built from it. */
 export function validLesson(value: any): boolean {
-  return !!value && text(value.lesson) && !lessonStructureProblem(value.lesson) && instructionalWordCount(value.lesson) >= MIN_LESSON_WORDS && validStudyAids(value);
+  return !!value && clean(value.lesson) && !lessonStructureProblem(value.lesson) && instructionalWordCount(value.lesson) >= MIN_LESSON_WORDS && validStudyAids(value);
 }
 
 /** One day of the plan: what it teaches, before any lesson exists. */

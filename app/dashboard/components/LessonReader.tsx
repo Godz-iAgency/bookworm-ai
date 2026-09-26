@@ -100,7 +100,7 @@ export default function LessonReader({
 
   // The closing actions are lifted out of the prose and rendered as a
   // commitment the reader makes, so they must not also appear as text above it.
-  const { blocks, actions } = useMemo(() => splitLesson(lesson), [lesson]);
+  const { blocks, actions, actionsHeading } = useMemo(() => splitLesson(lesson), [lesson]);
   const committed = committedActions ?? [];
 
   const reader = usePagedReader({
@@ -176,6 +176,16 @@ export default function LessonReader({
           next one is far better than being clipped by it. */}
       {actions.length > 0 && (
         <div style={{ breakBefore: "column" }}>
+          {/* The lesson's own heading for its actions opens this page, above
+              them, instead of being stranded at the foot of the page before. */}
+          {actionsHeading && (
+            <h4
+              className="font-bold text-white"
+              style={{ fontSize: scale.heading, lineHeight: 1.35, marginBottom: "0.6em" }}
+            >
+              {actionsHeading}
+            </h4>
+          )}
           <CommitmentBlock
             actions={actions}
             committed={committed}

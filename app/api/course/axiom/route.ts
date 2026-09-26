@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
 import { buildAxiomMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
-import { stripEmDashes } from "@/lib/lesson";
+import { scriptGlitches, stripEmDashes } from "@/lib/lesson";
 
 // One sentence. The flashcard repair route can also produce an axiom, but it
 // regenerates a whole deck on the way and takes about a minute; this exists so
@@ -33,7 +33,11 @@ export async function POST(req: Request) {
       budgetMs: 55_000,
       attempts: 2,
       validate: (p) =>
-        typeof p?.closingAxiom === "string" && p.closingAxiom.trim() ? null : "Axiom generation returned nothing.",
+        typeof p?.closingAxiom !== "string" || !p.closingAxiom.trim()
+          ? "Axiom generation returned nothing."
+          : scriptGlitches(p.closingAxiom).length
+            ? "Axiom has a word in the wrong alphabet."
+            : null,
     });
 
     const revoked = await guardAI(req, "study", false);
