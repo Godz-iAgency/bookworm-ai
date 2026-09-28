@@ -22,7 +22,7 @@ import Link from "next/link";
  * Bumped by hand, never generated. A "last updated" date that moved on every
  * deploy would tell a reader nothing about whether the terms had changed.
  */
-const LAST_UPDATED = "August 31, 2026";
+const LAST_UPDATED = "September 27, 2026";
 const OPERATOR = "GODZ-i LLC";
 const CONTACT_EMAIL = "christopher@godz-iagency.com";
 
@@ -96,6 +96,13 @@ export default function PrivacyPage() {
             <span className="font-bold text-white">Basic usage.</span> Aggregate page views through
             Vercel Web Analytics, which we use to understand which parts of the app get used. It
             does not build an advertising profile of you.
+          </p>
+          <p>
+            <span className="font-bold text-white">How you found us, and your early milestones.</span>{" "}
+            If you arrive through a creator&apos;s or affiliate&apos;s link, the code in that link. When
+            you first start reading Day 1 of a course, and when your first payment succeeds. We use
+            this to see which parts of getting started are working, not to build an advertising
+            profile of you.
           </p>
         </Section>
 
