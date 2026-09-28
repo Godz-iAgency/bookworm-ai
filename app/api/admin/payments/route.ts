@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminDb, getAuthedUser } from "@/lib/firebase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { isAdminEmail } from "@/lib/admin";
+import { markFirstPaymentRefunded } from "@/lib/analytics-server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -78,6 +79,15 @@ export async function POST(req: Request) {
         reason: "requested_by_customer",
         metadata: { refundedBy: caller.email ?? "admin" },
       }, { idempotencyKey: `bookworm-full-refund-${chargeId}` });
+
+      // If this was the reader's first payment, their trial conversion no
+      // longer counts. The charge.refunded webhook does the same for refunds
+      // made in Stripe itself; whichever arrives first wins, once.
+      try {
+        await markFirstPaymentRefunded(getAdminDb(), owners.docs[0].id, { payment_intent: charge.payment_intent, refunded: true });
+      } catch (e) {
+        console.error("Could not record refund for analytics:", e);
+      }
 
       return NextResponse.json({
         success: true,

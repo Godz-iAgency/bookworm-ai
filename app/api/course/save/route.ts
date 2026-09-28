@@ -33,7 +33,7 @@ export async function POST(req: Request) {
         tx.update(userRef, { generationsThisMonth: Number(p.generationsThisMonth ?? 0) + 1 });
       }
       tx.create(ref, { ...course, expiresAt });
-      tx.update(ticketRef, { consumed: true });
+      tx.update(ticketRef, { consumed: true, consumedAt: new Date().toISOString() });
     });
     return NextResponse.json({ success: true });
   } catch (e: any) { return NextResponse.json({ error: e.message || "Could not save course." }, { status: 400 }); }

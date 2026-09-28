@@ -20,6 +20,7 @@ import { getUserProfile } from "@/lib/firebase/profile";
 import { parseLesson } from "@/lib/lesson";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
 import { getBillingProfile, hasActiveAccess, isBillingEnabled } from "@/lib/billing";
+import { useDay1Activation } from "@/lib/useDay1Activation";
 import { auth, db } from "@/lib/firebase/config";
 import { doc, updateDoc, increment } from "firebase/firestore";
 
@@ -142,6 +143,9 @@ export default function PreviewPage() {
   type DayOneContent = Pick<Day, "lesson" | "flashcards" | "chatSeed" | "closingAxiom">;
   const firstDayRef = useRef<Promise<DayOneContent | null> | null>(null);
   const [firstDayStatus, setFirstDayStatus] = useState<"idle" | "writing" | "failed">("idle");
+  // Whether the free Day 1 is open on screen: the funnel's "Day 1 activated".
+  const [dayOneOpen, setDayOneOpen] = useState(false);
+  useDay1Activation(outline.generationId, dayOneOpen && !!days?.[0]?.lesson);
   const [firstDayTries, setFirstDayTries] = useState(0);
   const [finishing, setFinishing] = useState(false);
 
@@ -292,7 +296,7 @@ export default function PreviewPage() {
           </div>
 
           {days[0]?.lesson ? (
-            <details className="group">
+            <details className="group" onToggle={(e) => setDayOneOpen(e.currentTarget.open)}>
               <summary className="cursor-pointer list-none text-sm font-bold text-[#00D4FF] transition-opacity hover:opacity-80">
                 <span className="group-open:hidden">Read Day 1 now →</span>
                 <span className="hidden group-open:inline">Hide Day 1</span>

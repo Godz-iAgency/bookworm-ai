@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { signInWithCustomToken } from "firebase/auth";
 import {
   Loader2, Users, TrendingUp, BookOpen, Flame, AlertTriangle, Link2, Copy, LogOut, RefreshCw,
-  CreditCard, ExternalLink, Undo2, BookOpenCheck,
+  CreditCard, ExternalLink, Undo2, BookOpenCheck, ChevronRight,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +14,10 @@ import { auth } from "@/lib/firebase/config";
 import { isAdminEmail } from "@/lib/admin";
 import type { AccessLink } from "@/lib/access";
 import type { AdminCharge } from "@/app/api/admin/payments/route";
+import type { FunnelUser, OmtmKey } from "@/lib/funnel";
+import { CoreFunnel } from "./components/CoreFunnel";
+import { DetailDialog, type Detail } from "./components/DetailDialog";
+import { buildDetails } from "./components/details";
 
 interface Payments {
   charges: AdminCharge[];
@@ -23,7 +27,24 @@ interface Payments {
 const money = (cents: number, currency = "usd") =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 
-interface Metrics {
+export interface AccountRow {
+  email: string | null; createdAt: string; lastSeenAt: string | null; plan: string;
+  payingTier: string | null; clubOwner: boolean;
+  trialStatus: string | null; trialStartedAt: string | null; trialEndsAt: string | null;
+  cancelAt: string | null; paymentFailed: boolean;
+  booksThisMonth: number; booksEver: number; finished: number; streak: number; streakAlive: boolean;
+  onboarded: boolean; complimentary: boolean;
+}
+
+export interface CourseRow { title: string; author: string; email: string | null; daysDone: number; expiresAt: string | null; shared: boolean }
+
+export interface Metrics {
+  funnelUsers: FunnelUser[];
+  omtm: OmtmKey;
+  ticketsReadable: boolean;
+  accountRows: AccountRow[];
+  courseRows: CourseRow[];
+  clubRows: { owner: string | null; members: string[] }[];
   totals: {
     accounts: number; newToday: number; newThisWeek: number; newThisMonth: number;
     activeToday: number; activeThisWeek: number; activeThisMonth: number;
@@ -81,6 +102,7 @@ export default function AdminPage() {
   const [refunding, setRefunding] = useState<string | null>(null);
   const [refundNote, setRefundNote] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
+  const [detail, setDetail] = useState<Detail | null>(null);
 
   const isAdmin = isAdminEmail(user?.email);
 
@@ -147,6 +169,19 @@ export default function AdminPage() {
     router.replace("/dashboard");
   };
 
+  // Saved server-side so it is the same on every device. Shown immediately;
+  // put back if the save fails.
+  const changeOmtm = async (key: OmtmKey) => {
+    if (!metrics) return;
+    const previous = metrics.omtm;
+    setMetrics({ ...metrics, omtm: key });
+    const res = await postAuthed<{ omtm?: OmtmKey; error?: string }>("/api/admin/omtm", { omtm: key });
+    if (res.error) {
+      setMetrics((cur) => (cur ? { ...cur, omtm: previous } : cur));
+      setError(res.error);
+    }
+  };
+
   const toggleLink = async (token: string, active: boolean) => {
     setBusyToken(token);
     const res = await postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", {
@@ -177,6 +212,7 @@ export default function AdminPage() {
 
   const m = metrics;
   const peakSignups = m ? Math.max(1, ...m.signupsByDay.map((d) => d.count)) : 1;
+  const details = m ? buildDetails(m) : null;
 
   return (
     <div className="min-h-dvh w-full bg-[#0a0a0a] text-white">
@@ -231,13 +267,13 @@ export default function AdminPage() {
             {/* Headline numbers */}
             <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat icon={TrendingUp} label="Monthly revenue" value={`$${m.subscriptions.mrr.toFixed(2)}`}
-                sub={`$${m.subscriptions.arr.toFixed(0)} a year at this rate`} accent />
+                sub={`$${m.subscriptions.arr.toFixed(0)} a year at this rate`} accent onClick={() => setDetail(details!.revenue())} />
               <Stat icon={Users} label="Accounts" value={m.totals.accounts}
-                sub={`+${m.totals.newThisWeek} this week · +${m.totals.newToday} today`} />
+                sub={`+${m.totals.newThisWeek} this week · +${m.totals.newToday} today`} onClick={() => setDetail(details!.accounts())} />
               <Stat icon={Flame} label="Active readers" value={m.totals.activeThisWeek}
-                sub={`${m.totals.activeToday} today · ${m.engagement.streaksActive} on a streak`} />
+                sub={`${m.totals.activeToday} today · ${m.engagement.streaksActive} on a streak`} onClick={() => setDetail(details!.active())} />
               <Stat icon={BookOpen} label="Books generated" value={m.engagement.booksThisMonth}
-                sub={`${m.engagement.coursesActive} on shelves now`} />
+                sub={`${m.engagement.coursesActive} on shelves now`} onClick={() => setDetail(details!.books())} />
             </div>
 
             {/* Anything that wants attention today */}
@@ -252,6 +288,13 @@ export default function AdminPage() {
                 {m.totals.pendingDeletion > 0 && (
                   <Alert text={`${m.totals.pendingDeletion} account${m.totals.pendingDeletion === 1 ? "" : "s"} pending deletion`} />
                 )}
+              </div>
+            )}
+
+            <CoreFunnel users={m.funnelUsers} omtm={m.omtm} onOmtmChange={(k) => void changeOmtm(k)} onOpen={setDetail} />
+            {!m.ticketsReadable && (
+              <div className="-mt-3 mb-6 rounded-lg border border-[#FFB020]/40 bg-[#FFB020]/10 px-4 py-2.5 text-xs text-[#FFB020]">
+                Book records could not be read, so first and second books show as zero. The server log has the Firestore error.
               </div>
             )}
 
@@ -280,7 +323,7 @@ export default function AdminPage() {
             </div>
 
             <div className="mb-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <Panel title="Subscriptions">
+              <Panel title="Subscriptions" onClick={() => setDetail(details!.subscriptions())}>
                 <Row label="Page Turner · $9.99" value={m.subscriptions.pageTurner} />
                 <Row label="Well-Read · $19.99" value={m.subscriptions.wellRead} />
                 <Row label="Book Clubs · $34.99" value={m.subscriptions.bookClubs} />
@@ -289,7 +332,7 @@ export default function AdminPage() {
                 <Row label="Complimentary accounts" value={m.totals.comped} />
               </Panel>
 
-              <Panel title="Trials">
+              <Panel title="Trials" onClick={() => setDetail(details!.trials())}>
                 <Row label="Running now" value={m.trials.active} />
                 <Row label="Converted to paid" value={m.trials.converted} />
                 <Row label="Lapsed" value={m.trials.lapsed} />
@@ -297,7 +340,7 @@ export default function AdminPage() {
                   value={m.trials.conversionRate === null ? "—" : `${m.trials.conversionRate}%`} />
               </Panel>
 
-              <Panel title="Reading">
+              <Panel title="Reading" onClick={() => setDetail(details!.reading())}>
                 <Row label="Courses on shelves" value={m.engagement.coursesActive} />
                 <Row label="Finished (all 7 days)" value={m.engagement.coursesComplete} />
                 <Row label="Completion rate" value={`${m.engagement.completionRate}%`} />
@@ -309,12 +352,12 @@ export default function AdminPage() {
 
             {/* Funnel */}
             <div className="mb-6 rounded-2xl border border-white/10 bg-[#111] p-5">
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-white/60">Funnel</h2>
+              <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-white/60">Account funnel</h2>
               <div className="grid gap-3 sm:grid-cols-4">
-                <FunnelStep label="Signed up" value={m.funnel.signedUp} of={m.funnel.signedUp} />
-                <FunnelStep label="Finished onboarding" value={m.funnel.onboarded} of={m.funnel.signedUp} />
-                <FunnelStep label="Generated a book" value={m.funnel.generated} of={m.funnel.signedUp} />
-                <FunnelStep label="Finished a book" value={m.funnel.finished} of={m.funnel.signedUp} />
+                <FunnelStep label="Signed up" value={m.funnel.signedUp} of={m.funnel.signedUp} onClick={() => setDetail(details!.step("signedUp"))} />
+                <FunnelStep label="Finished onboarding" value={m.funnel.onboarded} of={m.funnel.signedUp} onClick={() => setDetail(details!.step("onboarded"))} />
+                <FunnelStep label="Generated a book" value={m.funnel.generated} of={m.funnel.signedUp} onClick={() => setDetail(details!.step("generated"))} />
+                <FunnelStep label="Finished a book" value={m.funnel.finished} of={m.funnel.signedUp} onClick={() => setDetail(details!.step("finished"))} />
               </div>
             </div>
 
@@ -563,16 +606,19 @@ export default function AdminPage() {
           </>
         )}
       </div>
+      <DetailDialog detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value, sub, accent }: {
-  icon: typeof Users; label: string; value: string | number; sub?: string; accent?: boolean;
+function Stat({ icon: Icon, label, value, sub, accent, onClick }: {
+  icon: typeof Users; label: string; value: string | number; sub?: string; accent?: boolean; onClick?: () => void;
 }) {
   return (
-    <div
-      className="rounded-2xl p-4"
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-2xl p-4 text-left transition-transform hover:scale-[1.01]"
       style={accent ? {
         border: "1.5px solid transparent",
         background: "linear-gradient(#111,#111) padding-box, linear-gradient(135deg,#00D4FF,#FF006E) border-box",
@@ -581,10 +627,11 @@ function Stat({ icon: Icon, label, value, sub, accent }: {
       <div className="mb-1.5 flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5 text-[#00D4FF]" strokeWidth={2} />
         <span className="text-[10px] font-bold uppercase tracking-wide text-white/45">{label}</span>
+        <ChevronRight className="ml-auto h-3.5 w-3.5 text-white/25 transition-colors group-hover:text-[#00D4FF]" />
       </div>
       <p className="text-2xl font-black tabular-nums">{value}</p>
       {sub && <p className="mt-0.5 text-[11px] text-white/45">{sub}</p>}
-    </div>
+    </button>
   );
 }
 
@@ -597,12 +644,26 @@ function Alert({ text }: { text: string }) {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#111] p-5">
-      <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/60">{title}</h2>
+function Panel({ title, children, onClick }: { title: string; children: React.ReactNode; onClick?: () => void }) {
+  const inner = (
+    <>
+      <h2 className="mb-3 flex items-center justify-between text-sm font-bold uppercase tracking-wider text-white/60">
+        {title}
+        {onClick && <ChevronRight className="h-4 w-4 text-white/25 transition-colors group-hover:text-[#00D4FF]" />}
+      </h2>
       <div className="space-y-2">{children}</div>
-    </div>
+    </>
+  );
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-2xl border border-white/10 bg-[#111] p-5 text-left transition-colors hover:border-[#00D4FF]/40"
+    >
+      {inner}
+    </button>
+  ) : (
+    <div className="rounded-2xl border border-white/10 bg-[#111] p-5">{inner}</div>
   );
 }
 
@@ -615,16 +676,23 @@ function Row({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function FunnelStep({ label, value, of }: { label: string; value: number; of: number }) {
+function FunnelStep({ label, value, of, onClick }: { label: string; value: number; of: number; onClick?: () => void }) {
   const pct = of > 0 ? Math.round((value / of) * 100) : 0;
   return (
-    <div className="rounded-xl border border-white/10 bg-black/30 p-3.5">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-white/45">{label}</p>
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-xl border border-white/10 bg-black/30 p-3.5 text-left transition-colors hover:border-[#00D4FF]/40"
+    >
+      <p className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-white/45">
+        {label}
+        <ChevronRight className="h-3.5 w-3.5 text-white/25 transition-colors group-hover:text-[#00D4FF]" />
+      </p>
       <p className="mt-1 text-xl font-black tabular-nums">{value}</p>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black">
         <div className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E]" style={{ width: `${pct}%` }} />
       </div>
       <p className="mt-1 text-[11px] text-white/40">{pct}% of sign-ups</p>
-    </div>
+    </button>
   );
 }

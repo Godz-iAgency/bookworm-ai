@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { GeistMono } from "geist/font/mono"
 import { Caveat, Nunito, Lora } from "next/font/google"
 import { PrivateAnalytics } from "@/components/private-analytics"
+import { AttributionCapture } from "@/components/attribution-capture"
 
 // Warm handwritten display font, used only for the personal Home greeting.
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", weight: ["500", "600", "700"] })
@@ -59,6 +60,7 @@ export default function RootLayout({
             <Suspense fallback={<div>Loading...</div>}>
             {children}
             <PrivateAnalytics />
+            <AttributionCapture />
           </Suspense>
           <ServiceWorkerRegister />
           </BookwormProvider>

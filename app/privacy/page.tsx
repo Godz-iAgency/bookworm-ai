@@ -27,7 +27,7 @@ const OPERATOR = "GODZ-i LLC";
 const CONTACT_EMAIL = "christopher@godz-iagency.com";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Bookworm AI",
+  title: "Privacy Policy | Bookworm AI",
   description:
     "What Bookworm AI collects, why, who it is shared with, and how to get your data deleted.",
 };
@@ -250,7 +250,7 @@ export default function PrivacyPage() {
 
         <Section title="Contact">
           <p>
-            {OPERATOR} — questions, privacy requests or complaints:{" "}
+            {OPERATOR}, questions, privacy requests or complaints:{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}?subject=Privacy%20question`}
               className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline"

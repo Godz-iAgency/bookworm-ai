@@ -4,12 +4,16 @@ import Stripe from "stripe";
 import { getStripe, planForPriceId } from "@/lib/stripe/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { dissolveClub } from "@/lib/family-server";
+import { analyticsRef, firstPaidFields, markFirstPaymentRefunded, paymentIntentOfInvoice } from "@/lib/analytics-server";
 export const runtime = "nodejs";
 
 /** Verify the event, then reconcile its subscription against Stripe's current
  * state. Invoice renewal is applied once per period, never per delivery.
  * Failed renewal keeps the existing grace policy; incomplete/unpaid does not
  * create new access. Old subscriptions cannot change a replacement's account.
+ *
+ * Also records, once, the account's first real payment (the funnel's "paid
+ * after the trial"), and a full refund of that payment (charge.refunded).
  */
 export async function POST(req: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -18,6 +22,19 @@ export async function POST(req: Request) {
   const stripe = getStripe();
   try { event = stripe.webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret); }
   catch { return NextResponse.json({ error: "Invalid signature." }, { status: 400 }); }
+  if (event.type === "charge.refunded") {
+    try {
+      const charge = event.data.object as Stripe.Charge;
+      const customerId = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+      if (!customerId) return NextResponse.json({ received: true });
+      const users = await getAdminDb().collection("users").where("stripeCustomerId", "==", customerId).limit(2).get();
+      if (users.size === 1) await markFirstPaymentRefunded(getAdminDb(), users.docs[0].id, charge, new Date(event.created * 1000));
+      return NextResponse.json({ received: true });
+    } catch (e) {
+      console.error("Refund reconciliation failed:", event.id, e);
+      return NextResponse.json({ error: "Refund reconciliation failed." }, { status: 500 });
+    }
+  }
   if (!["customer.subscription.updated", "customer.subscription.deleted", "customer.subscription.trial_will_end", "invoice.payment_succeeded", "invoice.payment_failed"].includes(event.type)) return NextResponse.json({ received: true });
   try {
     const object: any = event.data.object;
@@ -30,6 +47,17 @@ export async function POST(req: Request) {
     const users = await db.collection("users").where("stripeCustomerId", "==", customerId).limit(2).get();
     if (users.size !== 1) return NextResponse.json({ received: true });
     const ref = users.docs[0].ref;
+    // The payment behind a real (non-zero) payment, so a later full refund of
+    // it can be matched. Looked up outside the transaction; a failure here
+    // only loses refund matching, never the billing update.
+    let paidIntent: string | null = null;
+    if (event.type === "invoice.payment_succeeded" && object.status === "paid" && Number(object.amount_paid) > 0) {
+      paidIntent = paymentIntentOfInvoice(object);
+      if (!paidIntent) {
+        try { paidIntent = paymentIntentOfInvoice(await stripe.invoices.retrieve(object.id, { expand: ["payments"] })); }
+        catch (e) { console.error("Could not read invoice payments:", object.id, e); }
+      }
+    }
     return await withAccountLock(ref.id, async () => {
     const sub = await stripe.subscriptions.retrieve(subId);
     const plan = planForPriceId(sub.items.data[0]?.price.id ?? "");
@@ -44,6 +72,7 @@ export async function POST(req: Request) {
       if (p.stripeSubscriptionId !== subId) return;
       const receipt = db.collection("stripeEvents").doc(event.id);
       if ((await tx.get(receipt)).exists) return;
+      const analytics = event.type === "invoice.payment_succeeded" ? await tx.get(analyticsRef(db, ref.id)) : null;
       const memberDocs = [];
       if (p.isFamilyOwner && p.familyId && active && plan === "book_club") {
         const family = (await tx.get(db.collection("families").doc(p.familyId))).data();
@@ -75,6 +104,8 @@ export async function POST(req: Request) {
         updates.paymentFailureCount = Number(p.paymentFailureCount ?? 0) + 1;
       }
       tx.update(ref, updates);
+      const paid = analytics ? firstPaidFields(analytics.data(), object, paidIntent, event.created) : null;
+      if (paid) tx.set(analyticsRef(db, ref.id), paid, { merge: true });
       tx.create(receipt, { created: event.created, type: event.type });
     });
     return NextResponse.json({ received: true });

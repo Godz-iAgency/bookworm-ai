@@ -30,6 +30,7 @@ function database(seed = {}) {
 }
 module.exports = async function(load) {
   const plans = load('lib/plans.ts', {});
+  const analyticsLib = load('lib/analytics-server.ts', {'./funnel': load('lib/funnel.ts', {})});
   const valid = load('lib/course-validation.ts', {'./lesson': load('lib/lesson.ts', {})});
   assert.equal(valid.validOutline({days: [null]}), false);
   assert.equal(valid.validDeck([{front:'x',back:null}]), false);
@@ -77,7 +78,7 @@ module.exports = async function(load) {
 
   let refunds=[];let caller={uid:'admin',email:'admin'};
   const paydb=database({'users/u':{stripeCustomerId:'cus_ours'}});
-  const {POST:payments}=load('app/api/admin/payments/route.ts', {'next/server':{NextResponse:json},'@/lib/firebase/admin':{getAuthedUser:async()=>caller,getAdminDb:()=>paydb},'@/lib/admin':{isAdminEmail:e=>e==='admin'},'@/lib/stripe/server':{getStripe:()=>({charges:{retrieve:async id=>({id,customer:id==='foreign'?'cus_foreign':'cus_ours',status:'succeeded',amount:100,amount_refunded:0})},refunds:{create:async(body,opts)=>{refunds.push(opts.idempotencyKey);return {id:'re_1',amount:100,currency:'usd'};}}})}});
+  const {POST:payments}=load('app/api/admin/payments/route.ts', {'next/server':{NextResponse:json},'@/lib/firebase/admin':{getAuthedUser:async()=>caller,getAdminDb:()=>paydb},'@/lib/admin':{isAdminEmail:e=>e==='admin'},'@/lib/analytics-server':analyticsLib,'@/lib/stripe/server':{getStripe:()=>({charges:{retrieve:async id=>({id,customer:id==='foreign'?'cus_foreign':'cus_ours',status:'succeeded',amount:100,amount_refunded:0})},refunds:{create:async(body,opts)=>{refunds.push(opts.idempotencyKey);return {id:'re_1',amount:100,currency:'usd'};}}})}});
   const refund=id=>({json:async()=>({action:'refund',chargeId:id})});
   assert.equal((await payments(refund('foreign'))).status,400);
   await Promise.all([payments(refund('ch_ours')),payments(refund('ch_ours'))]);
@@ -130,7 +131,7 @@ module.exports = async function(load) {
 
   let event={id:'evt_1',created:100,type:'invoice.payment_succeeded',data:{object:{id:'in_1',parent:{subscription_details:{subscription:'sub_1'}},status:'paid',billing_reason:'subscription_cycle',lines:{data:[{period:{end:200}}]}}}};
   const webhookdb=database({'users/u':{stripeCustomerId:'cus_1',stripeSubscriptionId:'sub_1',generationsThisMonth:8}});
-  const {POST:webhook}=load('app/api/stripe/webhook/route.ts',{'next/server':{NextResponse:json},'stripe':{},'@/lib/account-lock':{withAccountLock:async(_uid,fn)=>fn()},'@/lib/firebase/admin':{getAdminDb:()=>webhookdb},'@/lib/family-server':{dissolveClub:async()=>{}},'@/lib/stripe/server':{planForPriceId:()=> 'page_turner',getStripe:()=>({webhooks:{constructEvent:()=>event},subscriptions:{retrieve:async()=>({id:'sub_1',customer:'cus_1',status:'active',items:{data:[{price:{id:'price_1'},current_period_end:200}]}})}})}},{process:{env:{STRIPE_WEBHOOK_SECRET:'test'}}});
+  const {POST:webhook}=load('app/api/stripe/webhook/route.ts',{'next/server':{NextResponse:json},'stripe':{},'@/lib/account-lock':{withAccountLock:async(_uid,fn)=>fn()},'@/lib/firebase/admin':{getAdminDb:()=>webhookdb},'@/lib/family-server':{dissolveClub:async()=>{}},'@/lib/analytics-server':analyticsLib,'@/lib/stripe/server':{planForPriceId:()=> 'page_turner',getStripe:()=>({webhooks:{constructEvent:()=>event},invoices:{retrieve:async()=>({payments:{data:[{status:'paid',payment:{type:'payment_intent',payment_intent:'pi_first'}}]}})},subscriptions:{retrieve:async()=>({id:'sub_1',customer:'cus_1',status:'active',items:{data:[{price:{id:'price_1'},current_period_end:200}]}})}})}},{process:{env:{STRIPE_WEBHOOK_SECRET:'test'}}});
   const eventReq={text:async()=>'',headers:{get:()=>''}};
   assert.equal((await webhook(eventReq)).status,200);
   assert.equal(webhookdb.records.get('users/u').generationsThisMonth,0);
@@ -142,6 +143,21 @@ module.exports = async function(load) {
   event={...event,id:'evt_old_period',data:{object:{...event.data.object,lines:{data:[{period:{end:150}}]}}}};
   await webhook(eventReq);
   assert.equal(webhookdb.records.get('users/u').generationsThisMonth,2,'An old invoice cannot reset the current period');
+  assert.equal(webhookdb.records.has('analyticsUsers/u'),false,'A $0 invoice is not a paid conversion');
+
+  // Funnel: the first real payment is recorded once, whatever Stripe resends.
+  event={id:'evt_paid',created:300,type:'invoice.payment_succeeded',data:{object:{id:'in_paid',parent:{subscription_details:{subscription:'sub_1'}},status:'paid',amount_paid:999,status_transitions:{paid_at:310},billing_reason:'subscription_cycle',lines:{data:[{period:{end:400}}]}}}};
+  assert.equal((await webhook(eventReq)).status,200);
+  const firstPaid={...webhookdb.records.get('analyticsUsers/u')};
+  assert.equal(firstPaid.firstPaidAt,new Date(310000).toISOString());
+  assert.equal(firstPaid.firstPaidPaymentIntent,'pi_first');
+  await webhook(eventReq);
+  event={...event,id:'evt_renewal',created:500,data:{object:{...event.data.object,id:'in_renewal',status_transitions:{paid_at:510},lines:{data:[{period:{end:600}}]}}}};
+  await webhook(eventReq);
+  assert.deepEqual(webhookdb.records.get('analyticsUsers/u'),firstPaid,'Duplicate deliveries and renewals never move the first payment');
+  event={id:'evt_refund',created:700,type:'charge.refunded',data:{object:{customer:'cus_1',payment_intent:'pi_first',refunded:true,amount:999,amount_refunded:999}}};
+  assert.equal((await webhook(eventReq)).status,200);
+  assert.equal(webhookdb.records.get('analyticsUsers/u').paidRefundedAt,new Date(700000).toISOString(),'A full refund of the first payment undoes the conversion');
   deldb.records.set('users/u',{bookClubDeleteAt:'2000-01-01',accessOverride:{active:false}});
   assert.equal(await deleteAccount('u',true),false,'Even a disabled complimentary account is protected from automatic deletion');
   deldb.records.set('users/u',{bookClubDeleteAt:'2000-01-01',familyId:'new_club'});
@@ -153,7 +169,7 @@ module.exports = async function(load) {
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Two completion paths count the book only once');
   await persistBackfill('u',{booksFinished:0,badges:[],streakCount:0,lastActivityDate:null});
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Stale backfill never lowers the finished count');
-  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice.');
+  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice, first payment recorded once, refund undoes conversion.');
   console.log('PASS: atomic shelf cap/idempotent save, output language bound to its generation ticket, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
   console.log('PASS: concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
 };

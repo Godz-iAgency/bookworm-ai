@@ -8,6 +8,7 @@ import { useBookwormContext, type Book, type Course, type Day } from "@/lib/Book
 import { Button } from "@/components/ui/button";
 import { buildAmazonLink } from "@/lib/amazon";
 import LessonReader from "./LessonReader";
+import { useDay1Activation } from "@/lib/useDay1Activation";
 
 export default function CourseTab({
   course,
@@ -289,6 +290,9 @@ export default function CourseTab({
   // screen on tablets and forced a cramped measure on phones; the reader owns
   // the full area and handles its own scrolling or paging.
   const readingDay = openDay !== null ? course.days.find((d) => d.dayNumber === openDay) : undefined;
+  // Day 1 open in the reader counts as "Day 1 activated" (once per account;
+  // a book someone shared with the club never does).
+  useDay1Activation(course.sharedFrom ? null : course.id, readingDay?.dayNumber === 1 && !!readingDay.lesson);
   if (readingDay?.lesson) {
     const nextDay = course.days.find((d) => d.dayNumber === readingDay.dayNumber + 1);
     return (
