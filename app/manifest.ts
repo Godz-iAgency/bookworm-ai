@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
 
     // standalone is what makes this packageable as an Android app rather than
-    // a browser shortcut — no URL bar, own entry in the task switcher.
+    // a browser shortcut - no URL bar, own entry in the task switcher.
     display: "standalone",
     orientation: "portrait",
 
@@ -45,7 +45,7 @@ export default function manifest(): MetadataRoute.Manifest {
       /**
        * Android crops launcher icons to a circle or squircle depending on the
        * device. Only the inner 80%-diameter circle is guaranteed to survive,
-       * so these carry extra padding — without them the mark would be clipped.
+       * so these carry extra padding - without them the mark would be clipped.
        */
       {
         src: "/icons/icon-maskable-192.png",

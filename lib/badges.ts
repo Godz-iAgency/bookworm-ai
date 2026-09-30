@@ -9,9 +9,9 @@ export interface BadgeDef {
   id: string;
   label: string;
   Icon: LucideIcon;
-  /** Shown on tap for a LOCKED badge — how to earn it. */
+  /** Shown on tap for a LOCKED badge - how to earn it. */
   hint: string;
-  /** Shown on tap for an EARNED badge — a 7-word congratulation. */
+  /** Shown on tap for an EARNED badge - a 7-word congratulation. */
   message: string;
 }
 

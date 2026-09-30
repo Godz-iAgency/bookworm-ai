@@ -50,7 +50,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   const [error, setError] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
 
-  // Reading preferences (genres + last book) — set at onboarding, edited here.
+  // Reading preferences (genres + last book) - set at onboarding, edited here.
   const [genres, setGenres] = useState<string[]>([]);
   const [lastBook, setLastBook] = useState("");
   const [prefsEditing, setPrefsEditing] = useState(false);
@@ -233,7 +233,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
     router.push("/login");
   };
 
-  // Only ever offered on this one account (see CHRISTOPHER_READER_UID) —
+  // Only ever offered on this one account (see CHRISTOPHER_READER_UID) -
   // the server independently re-checks the caller's uid before minting
   // anything, this is just what decides whether the button appears.
   const switchToAdmin = async () => {
@@ -314,7 +314,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
-      {/* Identity — laid out as a row rather than a stack. Centred, the avatar
+      {/* Identity - laid out as a row rather than a stack. Centred, the avatar
           and email alone ate a third of a phone screen before any setting the
           reader actually came here to change was visible. */}
       <div className="mb-5 flex items-center gap-4">
@@ -359,7 +359,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
 
       {/* Settings: default reading level (collapsible row → dropdown) */}
       <div className="mb-6">
-        {/* Closed row — current level + a "tap to change" cue, all inside the pill. */}
+        {/* Closed row - current level + a "tap to change" cue, all inside the pill. */}
         <button
           onClick={() => setLevelOpen((o) => !o)}
           aria-expanded={levelOpen}
@@ -379,7 +379,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           />
         </button>
 
-        {/* Open dropdown — only the levels you're NOT currently on, so you never
+        {/* Open dropdown - only the levels you're NOT currently on, so you never
             see your own level offered back as a choice. */}
         {levelOpen && (
           <div className="mt-2 flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -402,7 +402,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         {loading && <p className="mt-2 text-xs text-white/30">Loading your settings…</p>}
       </div>
 
-      {/* Settings: output language. Independent of the reading level above —
+      {/* Settings: output language. Independent of the reading level above -
           level is how hard the writing is, this is which language it is hard
           in. Explorer in Spanish means simple Spanish, not translated English. */}
       <div className="mb-6">
@@ -446,7 +446,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         </p>
       </div>
 
-      {/* How lessons are displayed — text size and scroll vs. page turns. */}
+      {/* How lessons are displayed - text size and scroll vs. page turns. */}
       <div className="mb-6">
         <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Reading Display</h3>
         <div className="rounded-2xl p-3.5" style={gradientBorder}>
@@ -515,7 +515,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         </div>
       </div>
 
-      {/* Reading preferences — genres + last book, feeds recommendations. */}
+      {/* Reading preferences - genres + last book, feeds recommendations. */}
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-bold uppercase tracking-wider text-white/50">Reading Preferences</h3>
@@ -543,7 +543,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-white/40">No topics picked yet — tap Edit to add them.</p>
+              <p className="text-sm text-white/40">No topics picked yet. Tap Edit to add them.</p>
             )}
             {lastBook && (
               <p className="mt-3 text-xs text-white/50">
@@ -591,7 +591,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         )}
       </div>
 
-      {/* Your Plan — tier, this month's usage, and a way to change tiers. */}
+      {/* Your Plan - tier, this month's usage, and a way to change tiers. */}
       <div className="mb-6">
         <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Your Plan</h3>
         <div
@@ -642,7 +642,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           )}
 
           {/* A Book Club member's plan question is almost always about the club
-              — who's in it, who has a seat — so that goes straight there, and
+              - who's in it, who has a seat - so that goes straight there, and
               changing tiers stays one tap further on, inside it.
               A comped account is shown neither: there is no subscription to
               change, and offering one to a child's tablet only invites a
@@ -741,7 +741,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           red card on the main Profile screen: it is the one action here that
           destroys the books, the plan and the sign-in at once, and a route that
           obvious invites the accidental tap far more often than the intended
-          one. Reaching it is deliberately four steps — open, tap the link, type
+          one. Reaching it is deliberately four steps - open, tap the link, type
           DELETE, confirm. */}
       <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
         <button
@@ -817,7 +817,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
         )}
       </div>
 
-      {/* Log out — pinned to the bottom of the screen */}
+      {/* Log out - pinned to the bottom of the screen */}
       <div className="mt-auto pt-6">
         {user?.uid === CHRISTOPHER_READER_UID && (
           <button

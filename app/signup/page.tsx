@@ -23,7 +23,7 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Mobile Google sign-up returns here after a full page reload — see the
+  // Mobile Google sign-up returns here after a full page reload - see the
   // matching effect in app/login/page.tsx.
   useEffect(() => {
     if (!redirectCompleted || !user) return

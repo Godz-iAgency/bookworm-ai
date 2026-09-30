@@ -8,7 +8,7 @@
  * they want to get better at negotiating, say, doesn't have to already know
  * which book to search for.
  *
- * These pillar names are also the topics a reader picks from at onboarding —
+ * These pillar names are also the topics a reader picks from at onboarding -
  * lib/genres.ts derives that list from this one, so the two can never drift
  * and a saved preference always resolves to a real shelf.
  */

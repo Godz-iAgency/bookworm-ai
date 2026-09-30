@@ -8,13 +8,13 @@ import { BOOK_CLUB_MAX_MEMBERS, type ClubOverview, type SharedBookSummary } from
  * (for the owner) how many seats are left.
  *
  * This is also the entitlement list. A shared book the reader can still see
- * locally but that isn't in this response is one they have lost access to —
+ * locally but that isn't in this response is one they have lost access to -
  * because the sharer withdrew it, because it expired, or because they were
- * removed from the club — and the client prunes on that basis. Answering
+ * removed from the club - and the client prunes on that basis. Answering
  * `inClub: false` is therefore a meaningful answer, not an error.
  *
  * A share is a pointer, not a copy, so every card here is read fresh off the
- * sharer's actual course each time this loads — title, cover, expiry, whether
+ * sharer's actual course each time this loads - title, cover, expiry, whether
  * it even still exists. Nothing shown is ever a moment old.
  */
 export async function POST(req: Request) {
@@ -44,13 +44,13 @@ export async function POST(req: Request) {
 
     // A share's book lives in the sharer's own collection, so its current
     // state (still exists, still unexpired, current title/cover) has to be
-    // read from there — there is no snapshot of it sitting on the pointer.
+    // read from there - there is no snapshot of it sitting on the pointer.
     const shares = sharesSnap.docs.map((doc) => ({ shareId: doc.id, data: doc.data() }));
     const courseSnaps = shares.length > 0
       ? await db.getAll(...shares.map(({ data }) => db.collection("users").doc(data.sharedByUid).collection("courses").doc(data.sourceCourseId)))
       : [];
 
-    // Book Club gets no lifecycle of its own — it inherits the book's, so a
+    // Book Club gets no lifecycle of its own - it inherits the book's, so a
     // share dies when the course does (deleted or expired). Swept here, on
     // the docs already in hand. No scheduler, no extra query.
     const now = Date.now();

@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
  *
  * The tap target is deliberately larger than the circle you can see. This sits
  * in the top-left corner of the screen, which is the hardest place on a tablet
- * to hit accurately — a thumb reaching that far lands wide, and a 40px circle
+ * to hit accurately - a thumb reaching that far lands wide, and a 40px circle
  * flush against the page padding missed often enough to feel broken. The
  * invisible ::before extends the target to ~68px, out to the screen edge on the
  * left, without moving the circle or taking room from what sits beside it.

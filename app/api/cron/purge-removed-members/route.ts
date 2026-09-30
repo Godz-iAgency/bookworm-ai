@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * plan. Runs from vercel.json's cron schedule.
  *
  * This is the app's only scheduled job, and it exists because the alternative
- * doesn't work. Everywhere else — expired courses most of all — cleanup is
+ * doesn't work. Everywhere else - expired courses most of all - cleanup is
  * done lazily on the reader's next visit, which is fine when the worst case is
  * a stale row nobody can see. Here the worst case is an account we promised to
  * delete still existing months later because its owner never came back, which
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    console.error("purge-removed-members: CRON_SECRET is not set — refusing to run.");
+    console.error("purge-removed-members: CRON_SECRET is not set. Refusing to run.");
     return NextResponse.json({ error: "Not configured." }, { status: 500 });
   }
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {

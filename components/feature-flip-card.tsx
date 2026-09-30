@@ -59,7 +59,7 @@ export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCa
             : { type: "spring", bounce: 0.2, duration: 0.45 }
         }
       >
-        {/* Front — gradient border + glow, matching the in-app cards. */}
+        {/* Front - gradient border + glow, matching the in-app cards. */}
         <div
           className="absolute inset-0 flex flex-col rounded-2xl p-6 shadow-[0_0_22px_rgba(0,212,255,0.15)] transition-shadow duration-300 group-hover:shadow-[0_0_36px_rgba(0,212,255,0.32)]"
           style={{
@@ -73,7 +73,7 @@ export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCa
           {background && (
             <>
               {/* Anchored right because every one of these illustrations puts
-                  its subject on the right and leaves the left in shadow —
+                  its subject on the right and leaves the left in shadow -
                   which is exactly where the icon and title sit. A plain <img>
                   rather than next/image: the file is already a hand-sized
                   WebP, and the card's width barely varies, so a srcset would
@@ -86,7 +86,7 @@ export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCa
                 aria-hidden="true"
                 // Deliberately not loading="lazy". The card is a 3D context
                 // (preserve-3d, backface-visibility: hidden) and the browser's
-                // lazy-load intersection check never fires inside it — the
+                // lazy-load intersection check never fires inside it - the
                 // images simply never requested. All three together are 34KB,
                 // so eager costs nothing to be correct.
                 decoding="async"
@@ -102,7 +102,7 @@ export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCa
           )}
 
           {/* Positioned, so it paints above the absolutely-positioned artwork
-              — a static child would be painted under it regardless of order. */}
+              - a static child would be painted under it regardless of order. */}
           <div className="relative flex flex-1 flex-col">
             <div className="mb-4 text-4xl">{icon}</div>
             <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>
@@ -110,7 +110,7 @@ export function FeatureFlipCard({ icon, title, back, background }: FeatureFlipCa
           </div>
         </div>
 
-        {/* Back — same gradient border, with a subtly tinted dark fill. */}
+        {/* Back - same gradient border, with a subtly tinted dark fill. */}
         <div
           className="absolute inset-0 flex flex-col justify-center rounded-2xl p-6 shadow-[0_0_22px_rgba(255,0,110,0.18)] transition-shadow duration-300 group-hover:shadow-[0_0_36px_rgba(255,0,110,0.34)]"
           style={{

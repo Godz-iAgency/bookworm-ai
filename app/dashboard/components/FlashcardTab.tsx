@@ -20,7 +20,7 @@ export default function FlashcardTab({
   onRetryContent?: () => void;
 }) {
   // Cards come straight from the day's AI-generated content (3 per day), tuned
-  // to that lesson's takeaways — no separate generic API call.
+  // to that lesson's takeaways - no separate generic API call.
   const cards = day.flashcards ?? [];
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -59,7 +59,7 @@ export default function FlashcardTab({
   };
 
   // No cards yet. The deck no longer depends on the reader having opened the
-  // lesson — the dashboard generates this day's content on demand — so this is
+  // lesson - the dashboard generates this day's content on demand - so this is
   // either "being written right now" or "generation failed, try again".
   if (cards.length === 0) {
     const failed = contentStatus === "error";
@@ -159,7 +159,7 @@ export default function FlashcardTab({
             {/* Front of card.
                 The face is artwork: it already draws the border, the QUESTION
                 label, the logo and the "Click to flip" caption. The DOM copies
-                of those are kept as sr-only rather than deleted — they carried
+                of those are kept as sr-only rather than deleted - they carried
                 the only machine-readable "this is the question side", and a
                 background image is invisible to a screen reader. */}
             <div
@@ -181,7 +181,7 @@ export default function FlashcardTab({
               {/* Positioned against the artwork rather than the box: the design
                   leaves the band under the logo clear, and percentages of
                   height track it at every card size. */}
-              {/* The mask only bites when the text is taller than the band —
+              {/* The mask only bites when the text is taller than the band -
                   normal cards are centred and never reach the edges. The
                   generator asks for 5–10 word fronts and 10–15 word backs, so
                   overflow means a model overshot its brief; this makes that
@@ -209,7 +209,7 @@ export default function FlashcardTab({
                 className="pointer-events-none absolute inset-0 h-full w-full object-cover"
               />
               <span className="sr-only">Answer</span>
-              {/* The mask only bites when the text is taller than the band —
+              {/* The mask only bites when the text is taller than the band -
                   normal cards are centred and never reach the edges. The
                   generator asks for 5–10 word fronts and 10–15 word backs, so
                   overflow means a model overshot its brief; this makes that
@@ -225,7 +225,7 @@ export default function FlashcardTab({
           </motion.div>
         </div>
 
-        {/* Controls — the arrows are shrink-0 and the middle pair flexes, so
+        {/* Controls - the arrows are shrink-0 and the middle pair flexes, so
             the "next" arrow can't be pushed off a 370px-wide phone screen. */}
         <div className="mt-8 flex w-full max-w-lg items-center gap-2 sm:gap-4">
           <Button
@@ -239,7 +239,7 @@ export default function FlashcardTab({
 
           {/* overflow-hidden is load-bearing, not decorative: "Review Again" at
               text-sm measured a 2px-wider box than its own text on a 360px
-              preview — a margin real device font rendering can and did erase,
+              preview - a margin real device font rendering can and did erase,
               which let the bold text bleed past the pill's rounded border
               instead of wrapping or shrinking (whitespace-nowrap, no clip).
               text-xs buys real margin back on phones; overflow-hidden means

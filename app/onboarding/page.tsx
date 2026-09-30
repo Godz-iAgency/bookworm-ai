@@ -14,7 +14,7 @@ import { destinationAfterOnboarding } from "@/lib/pending-invite";
  * First-run onboarding, shown once right after a new account is created (email
  * OR Google). Two steps: topics to grow in, then reading level. Both are
  * preferences about the reader rather than about any one book, so they are
- * settled here — that way choosing a first book on /search leads straight into
+ * settled here - that way choosing a first book on /search leads straight into
  * a generated course instead of another form. Existing users never see this;
  * they edit the same settings from Profile.
  */

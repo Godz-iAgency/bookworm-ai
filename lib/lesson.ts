@@ -18,11 +18,11 @@ export function stripEmDashes(text: string): string {
     text
       // Numeric ranges ("10–15 minutes") mean "to", not a clause break, so they
       // become a plain hyphen rather than a comma.
-      .replace(/(\d)\s*[—–]\s*(\d)/g, "$1-$2")
+      .replace(/(\d)\s*[\u2014\u2013]\s*(\d)/g, "$1-$2")
       // Everywhere else a comma preserves the clause boundary without inventing
       // a sentence break the author didn't write.
-      .replace(/\s*[—–]\s*/g, ", ")
-      // "a, — b" would otherwise leave a doubled separator behind.
+      .replace(/\s*[\u2014\u2013]\s*/g, ", ")
+      // "a, - b" would otherwise leave a doubled separator behind.
       .replace(/,\s*,/g, ",")
   );
 }
@@ -123,7 +123,7 @@ export function cleanActionsHeading(heading: string): string {
  * Separate the day's closing actions from the lesson that argues for them.
  *
  * The lesson prompt asks for a final section of exactly three numbered lines,
- * and parseLesson already classifies those as `item` blocks — so the actions
+ * and parseLesson already classifies those as `item` blocks - so the actions
  * are the trailing run of items. Only the trailing run: a numbered aside in the
  * middle of a lesson is prose the reader is meant to read, not a commitment
  * they are meant to make.

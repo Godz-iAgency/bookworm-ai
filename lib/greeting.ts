@@ -1,6 +1,6 @@
 /**
  * A warm, time-of-day greeting for the Home header. Static (no AI) so it's
- * instant and free — a curated pool per time bucket, one picked at random each
+ * instant and free - a curated pool per time bucket, one picked at random each
  * visit, exactly like the greetings on claude.ai.
  */
 export type TimeBucket = "morning" | "afternoon" | "evening" | "night";

@@ -6,7 +6,7 @@ import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 /**
  * Soft-gate step 2: called after the browser confirms the SetupIntent (card
  * saved). Sets the card as default, starts a 7-day-trial subscription on
- * Page Turner — the only tier the trial ever runs on — and writes the trial
+ * Page Turner - the only tier the trial ever runs on - and writes the trial
  * fields to Firestore via the Admin SDK (never the client SDK; see
  * lib/firebase/admin.ts for why).
  */
@@ -32,11 +32,11 @@ async function handle(req: Request) {
     if (user.accessOverride) return NextResponse.json({ error: "This account has complimentary access." }, { status: 403 });
     const customerId = user.stripeCustomerId;
     if (!customerId) {
-      return NextResponse.json({ error: "No Stripe customer on file — start card setup first." }, { status: 400 });
+      return NextResponse.json({ error: "No Stripe customer on file. Start card setup first." }, { status: 400 });
     }
 
     // Idempotency guard: a retry (or a double-submitted soft gate) must never
-    // create a second subscription — that would bill the customer twice.
+    // create a second subscription - that would bill the customer twice.
     if (user.stripeSubscriptionId) {
       return NextResponse.json({
         success: true,
@@ -79,7 +79,7 @@ async function handle(req: Request) {
       generationsThisMonth: 0,
       showTrialEndWarning: false,
       // Choosing a plan calls off any pending Book Club deletion. Harmless for
-      // everyone else — they never had one set.
+      // everyone else - they never had one set.
       bookClubRemovedAt: null,
       bookClubDeleteAt: null,
     });

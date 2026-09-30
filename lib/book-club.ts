@@ -4,12 +4,12 @@ import { planFromId } from "./plans";
 /**
  * Book Club: the shared shelf sitting beside each member's personal one.
  *
- * The club itself already existed before any of this — /families/{id} holds
+ * The club itself already existed before any of this - /families/{id} holds
  * the roster, membership grants the tier (see getEffectivePlanId), and invites
  * are redeemed by /api/family/join. What's here is the sharing layer built on
  * top: a member deliberately puts one of their books on the club's shelf, and
- * the other members read it live — whatever the sharer has generated so far,
- * updating the moment they generate more — without spending a generation of
+ * the other members read it live - whatever the sharer has generated so far,
+ * updating the moment they generate more - without spending a generation of
  * their own, and without ever being able to change a word of it.
  *
  * Where the data lives, and why:
@@ -17,19 +17,19 @@ import { planFromId } from "./plans";
  *   /families/{familyId}/sharedBooks/{shareId}
  *     A pointer, not a copy: {sharedByUid, sourceCourseId, sharedAt}. Admin
  *     SDK only (firestore.rules denies clients outright), so a stranger who
- *     guesses a familyId still reads nothing — every route below checks the
+ *     guesses a familyId still reads nothing - every route below checks the
  *     caller is actually on the roster first. Its existence is also what
  *     firestore.rules checks (isSharedWithReader) to let a fellow member read
- *     the sharer's course document directly — see /users/{uid}/courses below.
+ *     the sharer's course document directly - see /users/{uid}/courses below.
  *
  *   /users/{sharerUid}/courses/{courseId}
  *     The sharer's own book, unmodified. A fellow member reads this SAME
- *     document live — no copy, no lag — the instant a share pointer exists
+ *     document live - no copy, no lag - the instant a share pointer exists
  *     for it and both accounts are in the same family. Never a target for a
  *     member's writes: firestore.rules' courses match grants read only.
  *
  *   /users/{uid}/sharedProgress/{shareId}
- *     Each reader's OWN reading progress on a shared book — which days they
+ *     Each reader's OWN reading progress on a shared book - which days they
  *     have unlocked/completed, their own commitments. Ordinary per-user
  *     ownership; nothing here is ever visible to anyone but that one reader.
  */
@@ -58,14 +58,14 @@ export interface SharedBookSummary {
   readingLevel: string;
   sharedByUid: string;
   sharedByName: string;
-  /** The sharer's own course id — what a reader's live listener subscribes to. */
+  /** The sharer's own course id - what a reader's live listener subscribes to. */
   sourceCourseId: string;
   expiresAt: string;
   /** True when the signed-in reader is the one who shared it. */
   isMine: boolean;
 }
 
-/** A reader's own progress on a book someone else shared — never anyone else's. */
+/** A reader's own progress on a book someone else shared - never anyone else's. */
 export interface SharedProgress {
   /** Day numbers (1-7) this reader has personally marked complete. */
   completedDays: number[];
@@ -80,7 +80,7 @@ export interface SharedProgress {
  *
  * Capped twice: by what the sharer has actually generated (a day with no
  * lesson yet does not exist for anyone but them), and by this reader's own
- * pace through it (day 1, or the day after one they have completed) — the
+ * pace through it (day 1, or the day after one they have completed) - the
  * same "unlock as you finish" rhythm as a personal book, just never able to
  * outrun the sharer's own generation.
  */
@@ -108,7 +108,7 @@ export const BOOK_CLUB_MAX_MEMBERS = planFromId("book_club").maxMembers ?? 4;
 export const CONVERSION_WINDOW_DAYS = 7;
 
 /**
- * The reader's own books — everything the plan's open-book cap counts.
+ * The reader's own books - everything the plan's open-book cap counts.
  *
  * A shared book deliberately does not count: it cost the reader neither a
  * generation nor a slot, so letting it fill one would mean a club of four
@@ -118,7 +118,7 @@ export function personalCourses(courses: Course[]): Course[] {
   return courses.filter((c) => !c.sharedFrom);
 }
 
-/** Live views of books other members put on the club's shelf — never copies. */
+/** Live views of books other members put on the club's shelf - never copies. */
 export function sharedCourses(courses: Course[]): Course[] {
   return courses.filter((c) => !!c.sharedFrom);
 }
@@ -126,7 +126,7 @@ export function sharedCourses(courses: Course[]): Course[] {
 /**
  * The id a share gets: one reader, one of their courses.
  *
- * Derived rather than random so both ends can work it out without a lookup —
+ * Derived rather than random so both ends can work it out without a lookup -
  * the detail screen asking "is this book already shared?", and the share route
  * making re-sharing the same book a harmless overwrite instead of a duplicate.
  * It is also the id a reader's live view is held under locally, and the doc id
@@ -138,14 +138,14 @@ export function shareIdFor(uid: string, courseId: string): string {
 
 /**
  * Build the Course-shaped object the existing reading UI already knows how to
- * render, entirely in memory — this is never written back to Firestore as
+ * render, entirely in memory - this is never written back to Firestore as
  * this shape (see BookwormContext's autosave, which skips anything carrying
  * `sharedFrom`).
  *
  * Content (lesson, flashcards, chatSeed, closingAxiom, book, thesis...) comes
  * straight from the sharer's own course, live. Progress (which days are
  * unlocked/completed, committed actions, which day is active) comes entirely
- * from this reader's own, private sharedProgress doc — the two are stitched
+ * from this reader's own, private sharedProgress doc - the two are stitched
  * together fresh on every change to either source.
  */
 export function buildSharedCourseView(

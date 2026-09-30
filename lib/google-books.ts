@@ -24,7 +24,7 @@ async function fetchOnce(url: string): Promise<Response> {
  * Google Books occasionally hiccups (a transient 5xx, a rate-limit 429, a
  * timed-out connection) on a single call. Readers were seeing "An error
  * occurred while searching" on the first try and getting a good result by
- * hitting Search again themselves — this is that same retry, done here
+ * hitting Search again themselves - this is that same retry, done here
  * instead of asking them to notice and do it manually. A short backoff
  * between attempts gives a rate limit a moment to clear.
  */
@@ -34,7 +34,7 @@ export async function fetchWithRetry(url: string): Promise<Response> {
     try {
       const res = await fetchOnce(url);
       if (res.ok) return res;
-      // 404 (no matches) isn't transient — retrying won't change it.
+      // 404 (no matches) isn't transient - retrying won't change it.
       if (res.status === 404) return res;
       lastErr = new Error(`Google Books returned ${res.status}`);
     } catch (err) {

@@ -64,7 +64,7 @@ export default function LoginPage() {
     try {
       const { user, isNew } = await signInWithGoogle()
       // The popup path returns a user here. The redirect fallback returns
-      // none — it resumes through AuthContext after the reload instead (see
+      // none - it resumes through AuthContext after the reload instead (see
       // the redirectCompleted effect above).
       if (user) router.push(destinationAfterAuth(isNew, user.email))
     } catch (err) {

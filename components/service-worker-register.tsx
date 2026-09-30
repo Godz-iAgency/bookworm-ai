@@ -6,7 +6,7 @@ import { useEffect } from "react";
  * Registers /sw.js once the page has settled.
  *
  * Production only. In dev, a service worker sits between Turbopack and the
- * browser and makes hot reload behave unpredictably — you end up debugging the
+ * browser and makes hot reload behave unpredictably - you end up debugging the
  * worker instead of the app. Test it with `next build && next start`.
  *
  * Registration is deferred to the load event so it never competes with the

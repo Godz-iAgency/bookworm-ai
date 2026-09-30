@@ -166,7 +166,7 @@ export default function ChatTab({
         )}
       </div>
 
-      {/* Composer — sits flush against the bottom nav. The old pb-20 here was
+      {/* Composer - sits flush against the bottom nav. The old pb-20 here was
           left over from when the nav overlapped the content; the nav is a
           sibling now, so that padding was just a dead band above the tabs. */}
       <div className="shrink-0 border-t border-white/10 bg-[#0a0a0a] p-3 z-20">

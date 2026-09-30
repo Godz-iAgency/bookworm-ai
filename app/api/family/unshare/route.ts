@@ -9,7 +9,7 @@ import { clubError, requireClub, statusOf } from "@/lib/family-server";
  * the revocation: firestore.rules' isSharedWithReader requires an active share
  * record to exist, so the moment it's gone, every other member's live read of
  * that course fails on their very next request. The sharer's own book is
- * untouched — this withdraws the share, it does not delete anyone's course.
+ * untouched - this withdraws the share, it does not delete anyone's course.
  */
 export async function POST(req: Request) {
   try {

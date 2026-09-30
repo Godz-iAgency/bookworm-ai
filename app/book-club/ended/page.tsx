@@ -21,7 +21,7 @@ type Choice = "trial" | "page_turner" | "well_read";
  * The honest version of this screen is not a paywall. Their account, their
  * books and their streak are all still here; what has gone is the
  * subscription someone else was paying for. So it says plainly what happened,
- * how long they have, and what the ways forward are — including deleting
+ * how long they have, and what the ways forward are - including deleting
  * everything now, which belongs here as much as the paid options do.
  *
  * The trial is offered only to someone who has never had one. Everyone who
@@ -71,7 +71,7 @@ export default function BookClubEndedPage() {
         return res.error ?? null;
       }
       // A card entered here is only saved, never charged, until the plan
-      // itself is started — /api/stripe/upgrade is what actually bills.
+      // itself is started - /api/stripe/upgrade is what actually bills.
       if (paymentMethodId) {
         const attach = await postAuthed("/api/stripe/attach-card", { paymentMethodId });
         if (attach.error) return attach.error;
@@ -240,7 +240,7 @@ export default function BookClubEndedPage() {
           })}
         </div>
 
-        {/* Deleting now is a real choice, not a punishment — quiet, but not
+        {/* Deleting now is a real choice, not a punishment - quiet, but not
             hidden, and never a single tap. */}
         <div className="mt-8 w-full border-t border-white/10 pt-5 text-center">
           {confirmDelete ? (
@@ -281,7 +281,7 @@ export default function BookClubEndedPage() {
 }
 
 /**
- * Card entry for readers who have never given us one — which is everyone who
+ * Card entry for readers who have never given us one - which is everyone who
  * only ever read on someone else's Book Club subscription.
  */
 function CardStep({
@@ -313,7 +313,7 @@ function CardStep({
 
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) {
-        setError("Card form isn't ready yet — try again in a moment.");
+        setError("Card form isn't ready yet. Try again in a moment.");
         return;
       }
 

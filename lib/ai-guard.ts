@@ -43,7 +43,7 @@ export async function guardAI(req: Request, kind: "course" | "study" | "chat" | 
       if (kind === "study" || kind === "chat") {
         if (typeof body.courseId !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(body.courseId)) throw new Error("Missing course.");
         let course = (await tx.get(ref.collection("courses").doc(body.courseId))).data();
-        // Not this reader's own course — could be a live view of a book a
+        // Not this reader's own course - could be a live view of a book a
         // fellow Book Club member shared. A share id is exactly the doc id
         // under families/{familyId}/sharedBooks, so this is a direct lookup,
         // never a guess: no pointer, no course, no access.
@@ -56,7 +56,7 @@ export async function guardAI(req: Request, kind: "course" | "study" | "chat" | 
           }
         }
         if (!course || !(Date.parse(course.expiresAt) > Date.now()) || course.book?.title !== body.title || course.book?.author !== body.author) throw new Error("Course unavailable.");
-        // Chat is fine — it never touches the book. Only actual generation
+        // Chat is fine - it never touches the book. Only actual generation
         // (a missing lesson/flashcards/axiom) is a member's to never trigger:
         // the sharer's book is read-only to everyone but them.
         if (isSharedView && kind === "study") throw new Error("Shared snapshots cannot be regenerated.");

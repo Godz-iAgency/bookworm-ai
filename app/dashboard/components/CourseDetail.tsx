@@ -11,7 +11,7 @@ interface CourseDetailProps {
   currentTime: Date;
   onRead: () => void;
   onRemove: () => Promise<void> | void;
-  /** True when the reader is in a Book Club — enables sharing this book. */
+  /** True when the reader is in a Book Club - enables sharing this book. */
   inBookClub: boolean;
   /** True until we know what the club has already been given. */
   clubLoading: boolean;
@@ -113,7 +113,7 @@ export default function CourseDetail({
         Continue Reading
       </button>
 
-      {/* Share with the club — only the reader's own books, and only when they
+      {/* Share with the club - only the reader's own books, and only when they
           are in one. Sharing costs nobody a generation or a shelf slot, so it
           needs no confirmation; withdrawing it is a tap away in the same spot.
           Shown disabled rather than hidden while the club's shelf is still
@@ -155,7 +155,7 @@ export default function CourseDetail({
         </div>
       )}
 
-      {/* Remove — irreversible, so it confirms inline first. */}
+      {/* Remove - irreversible, so it confirms inline first. */}
       <div className="mt-4">
         {!confirming ? (
           <button
@@ -173,7 +173,7 @@ export default function CourseDetail({
                 This removes <span className="font-bold">{course.book.title}</span> and all your progress on it. This can&rsquo;t be undone.
                 {isSharedCopy && " You can start it again from Book Club, from day one."}
                 {sharedToClub &&
-                  " It stays on your Book Club's shelf — remove it there too if you don't want that."}
+                  " It stays on your Book Club's shelf. Remove it there too if you don't want that."}
               </p>
             </div>
             <div className="flex gap-3">

@@ -25,7 +25,7 @@ export interface AdminCharge {
 }
 
 /**
- * Money, as Stripe actually has it — and the one button that gives it back.
+ * Money, as Stripe actually has it - and the one button that gives it back.
  *
  * Deliberately read from Stripe rather than from Firestore. Firestore records
  * what the app believes about a subscription; Stripe records what was charged,

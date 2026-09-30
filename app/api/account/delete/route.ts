@@ -7,7 +7,7 @@ export const maxDuration = 60;
 /**
  * The reader deleting their own account. The work itself lives in
  * lib/account-delete.ts, shared with the daily sweep that clears out removed
- * Book Club members who let their 7 days run out — one implementation, so
+ * Book Club members who let their 7 days run out - one implementation, so
  * "deleted" means the same thing however it was reached.
  */
 export async function POST(req: Request) {

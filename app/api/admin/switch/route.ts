@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Swaps the caller between the founder's admin login and his own reading
- * account — never anyone else's, in either direction.
+ * account - never anyone else's, in either direction.
  *
  * This mints a custom token for a fixed target uid, decided entirely from the
  * caller's own verified identity, never from anything the client sends:

@@ -26,7 +26,7 @@ export const DEFAULT_PROGRESS: UserProgress = {
   badges: [],
 };
 
-/** Local "YYYY-MM-DD" for a date (not UTC — the streak follows the user's day). */
+/** Local "YYYY-MM-DD" for a date (not UTC - the streak follows the user's day). */
 export function localDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -43,7 +43,7 @@ function previousDateStr(today: string): string {
 
 /**
  * The streak as it stands *right now*. The stored streakCount is only rewritten
- * on completion, so a streak that has since lapsed would read stale — this
+ * on completion, so a streak that has since lapsed would read stale - this
  * returns 0 once the last activity is older than yesterday.
  */
 export function currentStreak(progress: UserProgress, now: Date): number {
@@ -70,7 +70,7 @@ export async function getUserProgress(uid: string): Promise<UserProgress> {
   return readProgress(snap.exists() ? snap.data() : undefined);
 }
 
-/** The shape computeBackfill needs from a course — a subset of Course. */
+/** The shape computeBackfill needs from a course - a subset of Course. */
 interface BackfillCourse {
   id?: string;
   days: { dayNumber: number; isCompleted: boolean }[];
@@ -81,7 +81,7 @@ interface BackfillCourse {
  * progress that predates this feature (or completions made before it shipped)
  * isn't lost. Streak can't be reconstructed (we never stored per-day dates), so
  * it's left untouched. Returns updated progress if anything changed, else null.
- * Only ever adds badges / raises booksFinished — never removes or lowers.
+ * Only ever adds badges / raises booksFinished - never removes or lowers.
  */
 export function computeBackfill(progress: UserProgress, courses: BackfillCourse[]): UserProgress | null {
   const badges = new Set(progress.badges);
@@ -124,7 +124,7 @@ export async function persistBackfill(uid: string, progress: UserProgress, cours
  * awards any newly-earned badges, and (if the book is now finished) increments
  * the finished-books count. Returns the new progress for the UI to display.
  *
- * Only ever touches /users/{uid} — never the course itself. CourseTab already
+ * Only ever touches /users/{uid} - never the course itself. CourseTab already
  * persists the day's own isCompleted/isUnlocked (via BookwormContext's
  * autosave for a personal book, or the shared-progress effect for a book
  * someone else shared), so re-deriving `finishedBook` from a second read of
@@ -164,7 +164,7 @@ export async function recordDayCompletion(
     const finishedCourseIds: string[] = Array.isArray(snap.data()?.finishedCourseIds) ? snap.data()!.finishedCourseIds : [];
     const booksFinished = prev.booksFinished + (finishedBook && !finishedCourseIds.includes(opts.courseId) ? 1 : 0);
 
-    // Badges — earned once, never removed.
+    // Badges - earned once, never removed.
     const badges = new Set(prev.badges);
     badges.add("first_steps"); // any completion means Day 1 is done
     if (opts.dayLevel >= 4) badges.add("halfway");

@@ -10,7 +10,7 @@ import { shareIdFor } from "@/lib/book-club";
  * the request body: the body is the one thing the caller controls, and a
  * shared book is content other people will read.
  *
- * Nothing is copied. This creates a pointer only — firestore.rules'
+ * Nothing is copied. This creates a pointer only - firestore.rules'
  * isSharedWithReader is what actually lets the rest of the club read the
  * sharer's course document directly, live, for as long as the pointer exists.
  * Sharing costs no generation, and never regenerates anything: whatever the

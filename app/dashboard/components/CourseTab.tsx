@@ -27,7 +27,7 @@ export default function CourseTab({
   // one is coming rather than looking at a gap.
   const [axiomPendingDay, setAxiomPendingDay] = useState<number | null>(null);
   // Which day's next-day card is mid "Start Day N" (generating), and which
-  // one's last attempt failed — both keyed by the day being finished, since
+  // one's last attempt failed - both keyed by the day being finished, since
   // that is whichever card is actually on screen.
   const [continuingFrom, setContinuingFrom] = useState<number | null>(null);
   const [continueError, setContinueError] = useState<number | null>(null);
@@ -39,7 +39,7 @@ export default function CourseTab({
   const topRef = useRef<HTMLDivElement>(null);
 
   // Pin Flashcards + Chat to whichever day the reader just opened. This is the
-  // single source of truth those tabs follow — they stay on this day until the
+  // single source of truth those tabs follow - they stay on this day until the
   // reader opens a different one.
   const setActiveDay = (dayNumber: number) => {
     setCourses((prev) =>
@@ -53,7 +53,7 @@ export default function CourseTab({
    *
    * Days generated before axioms existed would otherwise end on nothing, and
    * the dashboard's repair path (useDayContent) deliberately only runs on the
-   * Chat and Flashcards tabs — so a reader who only ever reads lessons would
+   * Chat and Flashcards tabs - so a reader who only ever reads lessons would
    * never trigger it. Deliberately not awaited: the lesson opens instantly, and
    * a line that belongs at the very bottom has a thousand words of head start.
    */
@@ -182,7 +182,7 @@ export default function CourseTab({
 
   /**
    * Marks a day complete in the shared course state and unlocks the next one.
-   * Pure state + the streak/badge callback — no scrolling, no touching
+   * Pure state + the streak/badge callback - no scrolling, no touching
    * `openDay`. Split out of handleMarkComplete so handleContinueToNextDay
    * below can complete the day the reader just finished without closing the
    * lesson first, since it is about to open the next one in its place.
@@ -215,7 +215,7 @@ export default function CourseTab({
     // Apply the completion AND collapse the open lesson synchronously via
     // flushSync. Marking complete closes the expanded lesson (which can be
     // ~2000px tall); if we let React batch that collapse asynchronously, the
-    // browser re-clamps the scroll position the moment the DOM shrinks — that's
+    // browser re-clamps the scroll position the moment the DOM shrinks - that's
     // the "jumps back to the top" bug. Flushing first means the layout is fully
     // settled before we run our own scrollIntoView, so ours is the last word.
     flushSync(() => {
@@ -223,7 +223,7 @@ export default function CourseTab({
       setOpenDay(null);
     });
 
-    // Day 7 has no "next day" to unlock — scroll up to reveal the completion
+    // Day 7 has no "next day" to unlock - scroll up to reveal the completion
     // banner. scrollIntoView (not window.scrollTo) because the dashboard's
     // scroll container is an inner div, not the window.
     if (dayLevel === 7) {
@@ -243,7 +243,7 @@ export default function CourseTab({
    *
    * Generation happens BEFORE completion is recorded on purpose. If it fails,
    * the reader is still sitting on the day they actually finished, not on a
-   * day marked complete with nothing to show for the day after it — same
+   * day marked complete with nothing to show for the day after it - same
    * failure mode as the list's own "Read Lesson" retry, just reachable from
    * here too.
    */
@@ -260,7 +260,7 @@ export default function CourseTab({
    * Commit to one of the day's closing actions, or take it back.
    *
    * Written into the course like any other reading state, which persists it to
-   * Firestore — a promise the reader made that vanished when they closed the
+   * Firestore - a promise the reader made that vanished when they closed the
    * lesson would be no promise at all.
    */
   const toggleCommitment = (dayNumber: number, index: number) => {
@@ -299,7 +299,7 @@ export default function CourseTab({
       <LessonReader
         // Keyed by day: "Start Day N" swaps openDay straight from one lesson
         // to the next without ever unmounting the reader, and without a key
-        // React reuses the same instance — carrying over the old day's
+        // React reuses the same instance - carrying over the old day's
         // scroll position and settings-panel state onto the new one instead
         // of starting the new lesson at the top.
         key={readingDay.dayNumber}
@@ -473,7 +473,7 @@ export default function CourseTab({
 
 // Shown at the top of Day 1's lesson: names the exact date the course
 // disappears, framed to encourage finishing all 7 days consistently. The 8-day
-// window is the whole point of Bookworm — surfacing it early drives daily habit.
+// window is the whole point of Bookworm - surfacing it early drives daily habit.
 /**
  * When this course clears, shown on the course screen above the seven days.
  *
@@ -520,7 +520,7 @@ function CourseExpiryNote({ expiresAt }: { expiresAt: string }) {
  * whole lesson, so a tap here offers to finish today and start tomorrow in
  * one motion instead of sending them back to the dashboard list first.
  *
- * A tap doesn't fire the request straight away — it reveals Start/Not yet in
+ * A tap doesn't fire the request straight away - it reveals Start/Not yet in
  * place, so an idle tap while scrolling can't spend a generation by
  * accident. `confirming` is local and unowned by the parent on purpose:
  * this card remounts fresh (LessonReader is keyed by day) every time the
@@ -621,7 +621,7 @@ function LastDayCard({ book }: { book: Book }) {
   );
 }
 
-// Shown once all 7 days are completed — celebrates the finish and prompts the
+// Shown once all 7 days are completed - celebrates the finish and prompts the
 // reader to buy the full book (Amazon affiliate) or start their next course.
 function CourseCompleteBanner({ course }: { course: Course }) {
   return (

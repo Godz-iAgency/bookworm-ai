@@ -3,7 +3,7 @@ import Stripe from "stripe";
 /**
  * Server-only Stripe client. Throws lazily (on first use, not at import
  * time) when STRIPE_SECRET_KEY isn't configured, so the app still builds
- * and boots before billing is wired up — same "inert until configured"
+ * and boots before billing is wired up - same "inert until configured"
  * posture as the rest of the Stripe routes.
  */
 let _stripe: Stripe | null = null;
@@ -25,7 +25,7 @@ export type PlanId = "page_turner" | "well_read" | "book_club";
  *
  * A trailing newline pasted into a dashboard field is invisible there and
  * turns "price_1TzyYBENU0XPtum1EKMUdimg" into "price_1TzyYBENU0XPtum1EKMUdimg\n"
- * once it reaches this process — a string Stripe has never heard of, so every
+ * once it reaches this process - a string Stripe has never heard of, so every
  * subscription attempt failed with "No such price" and no clue why. Same
  * failure shape as the Firebase Admin key issue, same fix: never trust a
  * pasted env var to be exactly what was intended.

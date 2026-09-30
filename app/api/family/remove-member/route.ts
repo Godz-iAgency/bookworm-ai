@@ -12,7 +12,7 @@ import { CONVERSION_WINDOW_DAYS } from "@/lib/book-club";
  *
  *  1. Access ends now. Membership is what grants the tier (see
  *     getEffectivePlanId) AND what firestore.rules' isSharedWithReader checks
- *     (reader's familyId must match the sharer's) — so clearing familyId is
+ *     (reader's familyId must match the sharer's) - so clearing familyId is
  *     the revocation, immediately, for every book read through it in either
  *     direction. Books they shared leave the club's shelf (the pointer is
  *     deleted); books others shared simply stop resolving for them on their
@@ -22,7 +22,7 @@ import { CONVERSION_WINDOW_DAYS } from "@/lib/book-club";
  *  2. Their account is not deleted. They keep their reading, their streak and
  *     their preferences while they decide what to do next.
  *
- *  3. A 7-day clock starts — but only for someone who is actually left with
+ *  3. A 7-day clock starts - but only for someone who is actually left with
  *     nothing. A member who happens to carry their own trial or subscription
  *     simply falls back to it, and starting a deletion countdown on a paying
  *     reader would be indefensible.
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     const club = await requireClub(db, uid);
     if (!club.isOwner) throw clubError(403, "Only the Book Club owner can remove members.");
     if (memberUid === uid) {
-      throw clubError(400, "You can't remove yourself — change your plan instead.");
+      throw clubError(400, "You can't remove yourself. Change your plan instead.");
     }
     if (!club.memberIds.includes(memberUid)) {
       throw clubError(404, "That reader isn't in your Book Club.");

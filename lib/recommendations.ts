@@ -36,7 +36,7 @@ function shuffled<T>(items: T[], rand: () => number): T[] {
  *
  * Deliberately never returns nothing. A reader with no preferences saved, or
  * with preferences from the old bookshop-genre list that no longer name a real
- * pillar, gets picks from the whole library instead of an empty shelf — the
+ * pillar, gets picks from the whole library instead of an empty shelf - the
  * point of this row is that there is always somewhere to go next.
  *
  * Every pick comes from a different pillar, so the row reads as three different
@@ -58,7 +58,7 @@ export function pickRecommendations({
 
   // Chosen pillars first, then the rest as backfill. Taking one book per pillar
   // below then means three different categories even when the reader's saved
-  // topics name fewer than three real pillars — which is every reader who
+  // topics name fewer than three real pillars - which is every reader who
   // onboarded on the old genre list, since only Business and Biography survive
   // it as names. Those readers were getting three books off one shelf.
   const isChosen = (p: (typeof MASTERY_PILLARS)[number]) => topics.includes(p.name);
@@ -84,7 +84,7 @@ export function pickRecommendations({
       if (next) out.push(next);
       if (out.length === count) return out;
     }
-    // Every queue is exhausted — the reader has started nearly everything.
+    // Every queue is exhausted - the reader has started nearly everything.
     if (out.length === before) break;
   }
   return out;

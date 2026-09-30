@@ -58,13 +58,13 @@ async function deleteLocked(uid: string, onlyIfRemoved: boolean): Promise<boolea
     if (famSnap.exists) {
       if (user.isFamilyOwner) {
         // The club existed on this person's subscription, so it goes with
-        // them — membership, shared shelf and every copy of it, exactly as
+        // them - membership, shared shelf and every copy of it, exactly as
         // when an owner downgrades out of Book Club.
         await dissolveClub(db, user.familyId, uid);
       } else {
         // A member leaving frees their seat for someone else. Whatever they
         // put on the club's shelf goes with them, along with everyone else's
-        // copy of it — a copy is the access. Books OTHER members shared need
+        // copy of it - a copy is the access. Books OTHER members shared need
         // no special handling here: this reader's copies of those are simply
         // their own courses, cleared by the sweep below.
         await db.runTransaction(async tx => {

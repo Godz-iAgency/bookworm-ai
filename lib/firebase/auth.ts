@@ -22,14 +22,14 @@ import { auth, db } from "./config";
  */
 
 /**
- * Google sign-in, popup first — including on phones and tablets.
+ * Google sign-in, popup first - including on phones and tablets.
  *
  * This used to force signInWithRedirect on every mobile user agent, which
  * silently failed there: the app is served from vercel.app while Firebase's
  * auth handler lives on <project>.firebaseapp.com, and the redirect flow has
  * to carry state between those two origins. Mobile browsers now partition
  * that cross-site storage, so the round trip came back with no user and no
- * error — tapping the button just returned you to the same screen.
+ * error - tapping the button just returned you to the same screen.
  *
  * Popups don't need cross-origin storage and are allowed on modern mobile
  * browsers when opened from a real tap. Redirect stays as the fallback for
@@ -48,7 +48,7 @@ export async function signInWithGoogle(): Promise<{ user: User | null; isNew: bo
   } catch (err) {
     const code = (err as { code?: string })?.code ?? "";
 
-    // The reader deliberately dismissed it — surface that rather than
+    // The reader deliberately dismissed it - surface that rather than
     // bouncing them out of the app into a redirect they didn't ask for.
     if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
       throw err;
@@ -141,11 +141,11 @@ export async function ensureUserDocument(
     authProvider: user.providerData[0]?.providerId ?? "password",
     createdAt: serverTimestamp(),
     readingLevel: null, // set during onboarding: 'explorer' | 'scholar' | 'architect'
-    preferredLanguage: "en", // 'en' | 'es' | 'fr' — independent of readingLevel
+    preferredLanguage: "en", // 'en' | 'es' | 'fr' - independent of readingLevel
     genrePreferences: [],
     plan: "free", // 'free' | 'page_turner' | 'well_read' | 'book_club'
     // Billing (see lib/billing.ts). trialStatus is absent/null until the
-    // soft gate collects a card — its absence means "hasn't committed yet".
+    // soft gate collects a card - its absence means "hasn't committed yet".
     trialStatus: null, // 'active' | 'converted' | 'cancelled' | 'expired'
     trialStartedAt: null,
     trialEndsAt: null,

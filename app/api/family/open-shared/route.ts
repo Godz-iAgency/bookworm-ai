@@ -5,12 +5,12 @@ import { clubError, requireClub, statusOf } from "@/lib/family-server";
 /**
  * Resolve a share into what the client needs to start reading it live.
  *
- * Nothing is copied or created here — there is no per-reader document at all
+ * Nothing is copied or created here - there is no per-reader document at all
  * for a shared book. This just validates (membership still intact, share
  * still active, the sharer's book not expired) and hands back the sharer's
  * uid + course id, which is what firestore.rules' isSharedWithReader checks
  * against when the client opens a direct, live listener on that course. That
- * listener is the actual "open" — this route only clears the reader for it.
+ * listener is the actual "open" - this route only clears the reader for it.
  */
 export async function POST(req: Request) {
   try {

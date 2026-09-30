@@ -15,7 +15,7 @@ function oneMonthFromNow(): string {
 
 /**
  * Switches an existing subscriber to a different tier (immediate paid
- * switch, not a new trial — the trial only ever runs on Page Turner). If the
+ * switch, not a new trial - the trial only ever runs on Page Turner). If the
  * user has no subscription yet, requires they already have a saved card
  * (from a prior trial) and starts one fresh, charging immediately.
  * For `book_club`, also creates the /families/{familyId} doc with this user
@@ -62,14 +62,14 @@ async function handle(req: Request) {
         proration_behavior: "create_prorations",
         payment_behavior: "error_if_incomplete",
         // If they're mid-trial, upgrading tiers ends the trial immediately
-        // (an upgrade is a deliberate paid commitment) — otherwise omit so
+        // (an upgrade is a deliberate paid commitment) - otherwise omit so
         // Stripe doesn't touch an already-converted subscription's billing.
         ...(existing.status === "trialing" ? { trial_end: "now" as const } : {}),
       });
     } else {
       if (!user.stripeCustomerId || !user.stripePaymentMethodId) {
         return NextResponse.json(
-          { error: "No saved payment method — start card setup before upgrading." },
+          { error: "No saved payment method. Start card setup before upgrading." },
           { status: 400 },
         );
       }
@@ -89,7 +89,7 @@ async function handle(req: Request) {
       stripeSubscriptionId: subscriptionId,
       // Mid-period switches preserve usage; only a paid renewal resets it.
       // Choosing a plan calls off any pending Book Club deletion. Harmless for
-      // everyone else — they never had one set.
+      // everyone else - they never had one set.
       bookClubRemovedAt: null,
       bookClubDeleteAt: null,
     };
@@ -109,13 +109,13 @@ async function handle(req: Request) {
     } else if (targetPlan !== "book_club" && user.isFamilyOwner && user.familyId) {
       // Leaving Book Club as its owner. getEffectivePlanId checks familyId
       // before plan, so without this the account would be reported as
-      // "on Book Club" forever no matter what plan is chosen next — the
+      // "on Book Club" forever no matter what plan is chosen next - the
       // switch would succeed on Stripe but look like it silently failed here.
       //
       // Every member's familyId has to be cleared, not just the owner's, and
       // the shared shelf has to go with it. Access is granted on the mere
       // PRESENCE of familyId (see getEffectivePlanId in lib/billing.ts) and a
-      // shared book is read through a copy in the member's own collection —
+      // shared book is read through a copy in the member's own collection -
       // so marking the family cancelled on its own revokes nothing. The
       // members carried on with full Book Club access while the owner had
       // dropped to a $9.99 plan, indefinitely and silently.

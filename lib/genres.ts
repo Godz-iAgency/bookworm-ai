@@ -8,7 +8,7 @@ import { MASTERY_PILLARS } from "@/lib/mastery-library";
  * Derived from the Personal Development pillars rather than listed separately,
  * because a pick is only useful if it resolves to a shelf of real books. The
  * old list was generic bookshop genres (Fiction, Mystery, Fantasy...), none of
- * which this library carries — so a reader could complete onboarding having
+ * which this library carries - so a reader could complete onboarding having
  * told us nothing we could act on. Readers can still start any book at all
  * through search; this is only what we recommend from.
  */
@@ -24,7 +24,7 @@ export const GENRE_PICK_COUNT = 3;
  * onboarded before the topics became these pillars has bookshop genres saved
  * instead ("Self-Help", "Non-Fiction"), and renaming a pillar later would
  * strand its name the same way. A saved name with no tile can't show as
- * selected — but it still counted toward the three-pick cap, which locked the
+ * selected - but it still counted toward the three-pick cap, which locked the
  * whole grid behind selections the reader could neither see nor clear.
  *
  * Filtering on the way in means the picker only ever holds picks it can draw,

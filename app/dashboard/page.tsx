@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
   // Chat + Flashcards follow the last lesson the reader opened
   // (course.activeDayNumber, set in CourseTab). They stay pinned there until
-  // the reader opens a different day — including after the course is complete.
+  // the reader opens a different day - including after the course is complete.
   // Fall back to the first unlocked/not-completed day only for a brand-new
   // course whose lesson hasn't been opened yet.
   const currentDay = activeCourse
@@ -110,7 +110,7 @@ export default function DashboardPage() {
   // if the reader never opens the Course tab. Must not live inside those tabs:
   // all three mount at once (hidden with CSS), which would double-fire it.
   //
-  // Scoped to the Chat/Flashcards tabs on purpose — CourseTab does its own
+  // Scoped to the Chat/Flashcards tabs on purpose - CourseTab does its own
   // fetching when a lesson is opened, so running here too would mean two
   // generations racing for the same day.
   // Today's BookPal allowance. Owned here because the count is shown in the
@@ -140,7 +140,7 @@ export default function DashboardPage() {
       router.push("/login");
       return;
     }
-    // The admin account runs Bookworm rather than reads it — it has no shelf,
+    // The admin account runs Bookworm rather than reads it - it has no shelf,
     // and landing here (from a bookmark, or a stale tab) belongs at /admin.
     if (isAdminEmail(user.email)) router.replace("/admin");
   }, [coursesLoading, user, router]);
@@ -152,7 +152,7 @@ export default function DashboardPage() {
     }
   }, [coursesLoading, activeCourseId, courses, setActiveCourseId]);
 
-  // Load the user's plan/trial state — drives the book cap + trial banner.
+  // Load the user's plan/trial state - drives the book cap + trial banner.
   const refreshBilling = useCallback(() => {
     if (!user) {
       setBilling(null);
@@ -172,7 +172,7 @@ export default function DashboardPage() {
   /**
    * A reader whose Book Club access was taken away, with nothing of their own
    * to fall back on, is sent to choose what happens next. Their books and
-   * their account are still here — this is a decision, not a lockout — but it
+   * their account are still here - this is a decision, not a lockout - but it
    * has to be made before carrying on, because there is no plan behind them
    * any more and a deletion date is now set.
    */
@@ -236,7 +236,7 @@ export default function DashboardPage() {
     }
   }, [user, progressLoaded, coursesLoading, courses, progress]);
 
-  // Called by CourseTab when a day is completed — updates streak/badges.
+  // Called by CourseTab when a day is completed - updates streak/badges.
   const handleDayCompleted = async (dayLevel: number, finishedBook: boolean, courseId: string) => {
     if (!user) return;
     try {
@@ -272,7 +272,7 @@ export default function DashboardPage() {
     setView("reading");
   };
 
-  // Tap the "•••" on a shelf card — open the course's info/remove screen.
+  // Tap the "•••" on a shelf card - open the course's info/remove screen.
   const openCourseDetails = (courseId: string) => {
     setActiveCourseId(courseId);
     setView("detail");
@@ -405,7 +405,7 @@ export default function DashboardPage() {
   };
 
   // Inside a course: 3 icons, unchanged (Course / Chat / Flashcards).
-  // Home or Profile: 5 icons (Home, Course, Chat, Flashcards, Profile) — tapping
+  // Home or Profile: 5 icons (Home, Course, Chat, Flashcards, Profile) - tapping
   // Course/Chat/Flashcards from here jumps straight into reading the active course.
   const navItems: { icon: LucideIcon; label: string; isActive: boolean; onClick: () => void }[] =
     view === "reading"
@@ -449,7 +449,7 @@ export default function DashboardPage() {
               rounded="rounded"
               loading="eager"
             />
-            {/* On the Chat tab this bar IS BookPal's header — the cover already
+            {/* On the Chat tab this bar IS BookPal's header - the cover already
                 says which book we're in, so repeating the title and cover inside
                 the chat only cost it a third of the screen. */}
             {activeTab === "chat" ? (
@@ -471,7 +471,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <p className="font-bold text-sm truncate min-w-0">{activeCourse.book.title}</p>
-                {/* Quick "add a new course" — only on the Course tab. */}
+                {/* Quick "add a new course" - only on the Course tab. */}
                 {activeTab === "course" && (
                   <div className="ml-auto shrink-0">
                     <AddCourseButton isLibraryFull={isLibraryFull} maxOpenBooks={maxOpenBooks} />

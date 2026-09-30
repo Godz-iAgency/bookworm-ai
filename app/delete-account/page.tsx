@@ -86,7 +86,7 @@ export default function DeleteAccountPage() {
       </Link>
 
       <div className="mt-6 w-full max-w-lg">
-        {/* Deletion succeeded — this must win over every other state, because
+        {/* Deletion succeeded - this must win over every other state, because
             signing out has just set `user` back to null and the sign-in form
             would otherwise reappear as though nothing had happened. */}
         {deleted ? (

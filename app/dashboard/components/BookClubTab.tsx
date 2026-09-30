@@ -49,7 +49,7 @@ export default function BookClubTab({
    * Stop watching any shared book this reader is no longer entitled to.
    *
    * firestore.rules closes the actual door the moment a share is withdrawn, a
-   * member is removed, or the book expires — this just stops the local
+   * member is removed, or the book expires - this just stops the local
    * listener and drops it from the shelf on the same basis, so a device that
    * was mid-read when that happened doesn't sit there quietly re-fetching a
    * book it can no longer read. Keyed on the answer it acted on so it runs
@@ -149,7 +149,7 @@ export default function BookClubTab({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard blocked — the link is on screen to copy by hand */
+      /* clipboard blocked - the link is on screen to copy by hand */
     }
   };
 

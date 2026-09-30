@@ -19,7 +19,7 @@ export default function LandingPage() {
   useEffect(() => {
     const updateSize = () => {
       // Sized to form a halo around the logo it sits behind. It used to be
-      // 1.5x the largest viewport edge — far bigger than the logo — because it
+      // 1.5x the largest viewport edge - far bigger than the logo - because it
       // was then a full-page backdrop rather than anchored to the mark.
       setEntropySize(Math.min(Math.max(window.innerWidth * 1.4, 420), 760))
     }
@@ -52,9 +52,9 @@ export default function LandingPage() {
 
       {/* Top navigation */}
       <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-4 py-5 sm:px-5">
-        {/* Left — opens the explainer video, playing. */}
+        {/* Left - opens the explainer video, playing. */}
         <VslLink />
-        {/* Right — returning users log in here */}
+        {/* Right - returning users log in here */}
         <Link
           href="/login"
           className="rounded-full border border-white/20 bg-white/5 px-5 py-2 text-sm font-medium text-white/90 backdrop-blur-md transition-colors hover:bg-white/10"
@@ -117,7 +117,7 @@ export default function LandingPage() {
           
           <div className="mt-5 text-center text-xs space-y-2 font-mono text-white/50 w-full flex flex-col items-center">
             <p className="italic tracking-wide">
-              &ldquo;Order and chaos dance &mdash;
+              &ldquo;Order and chaos dance,
               <span className="opacity-70"> digital poetry in motion.&rdquo;</span>
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function LandingPage() {
         {/* Explainer video: below the hero so "Start Learning" stays above the fold. */}
         <VslVideo />
 
-        {/* Features — tap any card to flip it for more detail */}
+        {/* Features - tap any card to flip it for more detail */}
         <div id="features" className="mt-20 grid w-full max-w-5xl scroll-mt-24 gap-8 md:grid-cols-3">
           <FeatureFlipCard
             icon={<CalendarDays className="w-9 h-9 text-[#00D4FF]" strokeWidth={1.75} />}
@@ -137,7 +137,7 @@ export default function LandingPage() {
           <FeatureFlipCard
             icon={<MessageCircle className="w-9 h-9 text-[#FF006E]" strokeWidth={1.75} />}
             title="AI Chat Assistant"
-            back="Ask anything about the book and get tight, concept-grounded answers pulled from that day's lesson — a tutor who already read it."
+            back="Ask anything about the book and get tight, concept-grounded answers pulled from that day's lesson, like a tutor who already read it."
             background="/brand/card-chat.webp"
           />
           <FeatureFlipCard
@@ -150,7 +150,7 @@ export default function LandingPage() {
 
         {/* No account-deletion link here on purpose. Play requires the
             deletion route to work for someone with no app installed and no
-            session — /delete-account does, and that URL is what gets declared
+            session - /delete-account does, and that URL is what gets declared
             in Play Console's Data Safety form. It stays linked from the
             privacy policy; it does not also need to sit in this footer. */}
         <footer className="mt-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-14 text-xs text-white/40">
@@ -164,7 +164,7 @@ export default function LandingPage() {
         </footer>
       </div>
 
-      {/* Back-to-top button — appears after scrolling down */}
+      {/* Back-to-top button - appears after scrolling down */}
       {showTop && (
         <button
           type="button"

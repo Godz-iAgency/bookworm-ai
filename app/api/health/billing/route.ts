@@ -7,7 +7,7 @@ import { getAdminConfigStatus, CLIENT_PROJECT_ID } from "@/lib/firebase/admin";
  * Every Stripe route needs the Firebase Admin SDK to verify the caller's ID
  * token before it does anything. When those credentials are missing or
  * malformed the reader just sees a card form that fails, with no way to tell
- * a server misconfiguration apart from a genuine sign-in problem — and env
+ * a server misconfiguration apart from a genuine sign-in problem - and env
  * vars that are correct locally say nothing about what the deploy has.
  *
  * Reports presence and shape only: booleans, variable names, and the project
@@ -39,7 +39,7 @@ export async function GET() {
    *
    * Vercel injects these at build time. Without them, "is my fix live yet?"
    * can only be answered by guessing from behaviour, and this project does not
-   * always auto-deploy on push — so a fix that was pushed, a fix that was
+   * always auto-deploy on push - so a fix that was pushed, a fix that was
    * deployed, and a fix that is actually running were indistinguishable, and
    * more than one bug in this app has been re-diagnosed when the real answer
    * was a stale build.
@@ -56,7 +56,7 @@ export async function GET() {
     // A paused client gate cannot make broken server configuration ready.
     ready: configReady,
     billingPaused,
-    // Whether paid billing COULD run if the pause switch were removed — stays
+    // Whether paid billing COULD run if the pause switch were removed - stays
     // useful even while paused, so this doesn't need rechecking twice.
     configReady,
     expectedFirebaseProject: CLIENT_PROJECT_ID,

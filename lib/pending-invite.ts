@@ -54,7 +54,7 @@ export function clearPendingInvite(): void {
  * needs one. Onboarding then hands off to the invite itself (see
  * app/onboarding/page.tsx), so the detour is preserved rather than skipped.
  *
- * The admin account is the exception to all of it — it runs Bookworm rather
+ * The admin account is the exception to all of it - it runs Bookworm rather
  * than reads it, and goes straight to the control centre however it signed in.
  */
 export function destinationAfterAuth(isNewAccount: boolean, email?: string | null): string {

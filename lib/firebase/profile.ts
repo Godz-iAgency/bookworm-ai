@@ -5,7 +5,7 @@ import { db } from "./config";
 
 /**
  * The subset of the /users/{uid} document the Profile screen reads + edits.
- * (The full doc has more fields — plan, familyId, etc. — managed elsewhere.)
+ * (The full doc has more fields - plan, familyId, etc. - managed elsewhere.)
  */
 export interface UserProfile {
   email: string | null;
@@ -13,7 +13,7 @@ export interface UserProfile {
   photoURL: string | null;
   readingLevel: string | null;
   /**
-   * Language new generations are written in — see lib/languages.ts. Separate
+   * Language new generations are written in - see lib/languages.ts. Separate
    * from readingLevel: one sets difficulty, the other sets the language that
    * difficulty is expressed in.
    */
@@ -21,9 +21,9 @@ export interface UserProfile {
   genrePreferences: string[];
   lastBookRead: string | null;
   plan: string | null;
-  /** Lesson text size — see lib/reading-prefs.ts. */
+  /** Lesson text size - see lib/reading-prefs.ts. */
   readingFontSize: string | null;
-  /** "scroll" or "page" — how lessons are paged through. */
+  /** "scroll" or "page" - how lessons are paged through. */
   readingMode: string | null;
 }
 

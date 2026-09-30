@@ -11,7 +11,7 @@ import { pickRecommendations } from "@/lib/recommendations";
 /**
  * Three books to read next, under the shelf.
  *
- * Always present, including for a reader with an empty shelf — someone between
+ * Always present, including for a reader with an empty shelf - someone between
  * books is exactly who needs a suggestion, and the dashboard otherwise offers
  * them nothing but a search box.
  *
@@ -20,7 +20,7 @@ import { pickRecommendations } from "@/lib/recommendations";
  * generations, which is not something a mis-tap on the home screen should be
  * able to do. That page is also already the one that knows how to resolve a
  * cover, honour the saved reading level, and notice a book is on the shelf
- * already — so this row stays a way in to it, not a second copy of it.
+ * already - so this row stays a way in to it, not a second copy of it.
  */
 export function RecommendedShelf({ shelfTitles }: { shelfTitles: string[] }) {
   const { user } = useAuth();

@@ -27,7 +27,7 @@ import { doc, updateDoc, increment } from "firebase/firestore";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * The soft gate — course preview + card collection, per doc4_trial_summary.md.
+ * The soft gate - course preview + card collection, per doc4_trial_summary.md.
  * Page Turner trial only (no tier picker): sign up -> search -> reading level
  * land here before their first course generates. Existing subscribers never
  * hit this route (see app/reading-level/page.tsx's access check).
@@ -57,7 +57,7 @@ export default function PreviewPage() {
 
   // Whether this reader is already paying. null while we find out.
   //
-  // Nobody should reach the soft gate twice — useCourseGeneration only sends
+  // Nobody should reach the soft gate twice - useCourseGeneration only sends
   // readers here when they have no access. But "asked for a card again after
   // I subscribed" is the single worst way for that to be wrong, so the gate
   // verifies for itself rather than trusting how it was reached.
@@ -100,7 +100,7 @@ export default function PreviewPage() {
     let cancelled = false;
 
     // Paced to show real progress rather than one static line that sits
-    // still and then jumps straight to the finished course — the actual
+    // still and then jumps straight to the finished course - the actual
     // generation call runs the whole time underneath this, in parallel.
     (async () => {
       const langProfile = await getUserProfile(user.uid).catch(() => null);
@@ -327,7 +327,7 @@ export default function PreviewPage() {
           )}
         </div>
 
-        {/* The ask sits right under the value it's asking about — not after a
+        {/* The ask sits right under the value it's asking about - not after a
             wall of locked rows and fine print. That list moves below, for
             anyone who wants more convincing before deciding; it's no longer
             what stands between "I liked Day 1" and being able to act on it. */}
@@ -347,7 +347,7 @@ export default function PreviewPage() {
               <SoftGateForm onActivated={handleActivated} />
             </Elements>
           ) : (
-            // No publishable key yet — say so plainly instead of rendering an
+            // No publishable key yet - say so plainly instead of rendering an
             // empty card box that looks broken.
             <div className="w-full rounded-xl border border-[#FFB020]/40 bg-[#FFB020]/10 px-4 py-3 text-center text-sm text-[#FFB020]">
               Card payments aren&apos;t set up yet. Add your Stripe keys to
@@ -375,17 +375,17 @@ export default function PreviewPage() {
             </div>
           ))}
           <div className="flex items-center gap-2 pt-2 text-sm text-white/60">
-            <span>+ AI Chat — Ask the book anything</span>
+            <span>+ AI Chat: Ask the book anything</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-white/60">
-            <span>+ 20 Smart Flashcards — generated from the book</span>
+            <span>+ 20 Smart Flashcards: generated from the book</span>
           </div>
         </div>
 
         <div className="mb-4 w-full space-y-2.5">
           {[
             "A reminder email goes to your inbox before your trial ends so nothing catches you off guard.",
-            "Cancel in one tap — no forms, no phone calls, no runaround.",
+            "Cancel in one tap. No forms, no phone calls, no runaround.",
             "Your book disappears in 7 days either way. That is kind of the whole point.",
           ].map((line) => (
             <div key={line} className="flex items-start gap-2 text-sm text-white/80">
@@ -442,7 +442,7 @@ function SoftGateForm({ onActivated }: { onActivated: () => void }) {
 
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) {
-        setError("Card form isn't ready yet — try again in a moment.");
+        setError("Card form isn't ready yet. Try again in a moment.");
         return;
       }
 

@@ -33,7 +33,7 @@ async function handle(req: Request) {
     const customerId = snap.data()!.stripeCustomerId;
     if (!customerId) {
       return NextResponse.json(
-        { error: "No Stripe customer on file — start card setup first." },
+        { error: "No Stripe customer on file. Start card setup first." },
         { status: 400 },
       );
     }

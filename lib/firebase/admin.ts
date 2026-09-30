@@ -3,7 +3,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 /**
- * Server-only Firebase Admin SDK — bypasses Firestore security rules, so
+ * Server-only Firebase Admin SDK - bypasses Firestore security rules, so
  * this is the ONLY place billing fields (plan, trialStatus, stripe*Id, etc.)
  * should ever be written. The client SDK must never write these directly:
  * a user could otherwise open devtools and grant themselves a paid plan.
@@ -17,7 +17,7 @@ let _db: Firestore | null = null;
 
 /**
  * The Firebase project the browser signs users into. Hardcoded in
- * lib/firebase/config.ts, so it's repeated here rather than read from env —
+ * lib/firebase/config.ts, so it's repeated here rather than read from env -
  * an ID token minted for this project only verifies against a service
  * account from the same project.
  */
@@ -27,17 +27,17 @@ export const CLIENT_PROJECT_ID = "bookworm-ai-ca43d";
  * A service-account private key survives a lot of copy/paste on its way into
  * a hosting dashboard, and arrives in one of three shapes:
  *
- *   1. real newlines, unquoted        — what a correct paste looks like
- *   2. one line with literal \n       — copied out of the service-account JSON
+ *   1. real newlines, unquoted        - what a correct paste looks like
+ *   2. one line with literal \n       - copied out of the service-account JSON
  *   3. either of the above, but still wrapped in the quotes that made it a
  *      single value inside .env.local
- *   4. the entire service-account JSON file, pasted whole — that's the file
+ *   4. the entire service-account JSON file, pasted whole - that's the file
  *      Firebase actually hands you, and grabbing just the private_key field
  *      out of it is an easy step to miss
  *
  * Local dev only ever sees (1), because Next's env parser strips the quotes
  * for us. Vercel stores exactly what you paste, quotes included, and cert()
- * then rejects the key — which used to surface to the reader as
+ * then rejects the key - which used to surface to the reader as
  * "Not authenticated." All four shapes are normalised to a real PEM here.
  */
 function normalizePrivateKey(raw: string): string {
@@ -51,7 +51,7 @@ function normalizePrivateKey(raw: string): string {
         return parsed.private_key.trim();
       }
     } catch {
-      // Starts with `{` but isn't parseable JSON either — fall through and
+      // Starts with `{` but isn't parseable JSON either - fall through and
       // let the caller's PEM-shape check produce the real error.
     }
   }
@@ -91,7 +91,7 @@ function getAdminApp(): App {
 
   if (!privateKey.startsWith("-----BEGIN") || !privateKey.includes("PRIVATE KEY")) {
     throw new Error(
-      "FIREBASE_ADMIN_PRIVATE_KEY is set but is not a valid PEM key — it must start with -----BEGIN PRIVATE KEY-----. Check that the whole key was pasted."
+      "FIREBASE_ADMIN_PRIVATE_KEY is set but is not a valid PEM key. It must start with -----BEGIN PRIVATE KEY-----. Check that the whole key was pasted."
     );
   }
 
@@ -137,7 +137,7 @@ export function getAdminDb(): Firestore {
 
 /**
  * Admin Auth, for the few server operations that act on the account itself
- * rather than on its data — deleting a user, most of all. Goes through the
+ * rather than on its data - deleting a user, most of all. Goes through the
  * same initialisation as everything else here, so a misconfigured deployment
  * fails with the same specific error rather than a generic one.
  */
@@ -150,13 +150,13 @@ export function getAdminAuth() {
  * `Authorization: Bearer <token>`.
  *
  * Billing routes MUST use this rather than trusting a uid in the request
- * body — otherwise anyone could POST another user's uid and change their
+ * body - otherwise anyone could POST another user's uid and change their
  * plan or charge their saved card. Returns null when the header is missing
  * or the token doesn't verify; callers should answer 401.
  *
  * A *configuration* failure deliberately throws instead of returning null.
  * Swallowing it turned a missing service account into "Not authenticated."
- * for the reader — an error about them, pointing at the wrong thing, while
+ * for the reader - an error about them, pointing at the wrong thing, while
  * the real cause stayed invisible. Callers surface it as a 500.
  */
 export async function getUidFromRequest(req: Request): Promise<string | null> {
@@ -166,7 +166,7 @@ export async function getUidFromRequest(req: Request): Promise<string | null> {
 /**
  * The caller's uid AND the email on their verified token.
  *
- * The admin routes gate on email, and it has to be the email Firebase signed —
+ * The admin routes gate on email, and it has to be the email Firebase signed -
  * not one the client sent us, which would make the whole dashboard a matter of
  * typing the right string into a request body.
  */

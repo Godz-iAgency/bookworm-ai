@@ -18,7 +18,7 @@ const MAX_LINK_BOOKS = 10;
  * does two things in one write, because a link and the free access behind it
  * are separate doors into the same room: the link stops redeeming, AND the
  * account's own override goes inactive, so a session already signed in loses
- * access the next time anything checks — rather than the holder keeping the
+ * access the next time anything checks - rather than the holder keeping the
  * run of the app until they happen to log out.
  */
 export async function POST(req: Request) {

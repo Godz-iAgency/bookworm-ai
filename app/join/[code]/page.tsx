@@ -70,7 +70,7 @@ export default function JoinPage() {
       <h1 className="mb-2 text-2xl font-bold">You&apos;ve been invited to a Book Club</h1>
       <p className="mb-6 max-w-sm text-sm leading-relaxed text-white/70">
         Join and you&apos;ll get your own {bookClub.monthlyGenerations} books a month, with up to{" "}
-        {bookClub.maxOpenBooks} open at a time — on your inviter&apos;s subscription, at no cost to you.
+        {bookClub.maxOpenBooks} open at a time, on your inviter&apos;s subscription, at no cost to you.
       </p>
 
       {error && (

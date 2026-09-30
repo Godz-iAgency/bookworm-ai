@@ -8,7 +8,7 @@ const BOOK_CLUB_MAX_MEMBERS = planFromId("book_club").maxMembers ?? 4;
 /**
  * Book Club owner generates a shareable invite link. No email service is
  * wired up yet, so the owner copies the link and sends it however they
- * like — see /api/family/join for redemption.
+ * like - see /api/family/join for redemption.
  */
 export async function POST(req: Request) {
   try {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     const code = randomBytes(6).toString("base64url");
     // Top-level collection (not a subcollection of the family) so /api/family/join
-    // can redeem a code with a single direct doc lookup — no collection-group
+    // can redeem a code with a single direct doc lookup - no collection-group
     // query or extra Firestore index needed.
     await db.runTransaction(async tx => {
       const currentUser = (await tx.get(db.collection("users").doc(uid))).data();

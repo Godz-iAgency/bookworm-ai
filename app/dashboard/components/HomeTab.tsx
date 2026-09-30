@@ -25,7 +25,7 @@ interface HomeTabProps {
   onOpenBookClub: () => void;
 }
 
-// Particle burst for the earned-badge celebration — a wide, slow firework that
+// Particle burst for the earned-badge celebration - a wide, slow firework that
 // erupts across the whole pill in the brand colors (+ gold for a July-4th pop).
 // Precomputed so the render is cheap.
 const BURST_PARTICLES = Array.from({ length: 30 }, (_, i) => {
@@ -45,7 +45,7 @@ const BURST_PARTICLES = Array.from({ length: 30 }, (_, i) => {
 
 type BadgeToast = { badgeId: string; earned: boolean; phase: "in" | "burst" };
 
-// The reader's shelf — every active course, at a glance, with the same
+// The reader's shelf - every active course, at a glance, with the same
 // escalating countdown used in the old top-bar strip. Tapping a card jumps
 // straight into reading it.
 export default function HomeTab({
@@ -65,7 +65,7 @@ export default function HomeTab({
   const readToday = progress.lastActivityDate === today;
   const earned = new Set(progress.badges);
 
-  // Nothing already on the shelf should come back as a recommendation —
+  // Nothing already on the shelf should come back as a recommendation -
   // including what the reader's Book Club has already shared, which is just as
   // much "already available to me" as their own books are.
   const shelfTitles = useMemo(
@@ -97,7 +97,7 @@ export default function HomeTab({
     setToast({ badgeId, earned: isEarned, phase: "in" });
     if (isEarned) {
       // Hold the message ~2.2s to read, then a slow ~1.8s firework (3x the old
-      // speed) as it dissipates — ~4s total before returning to the pills.
+      // speed) as it dissipates - ~4s total before returning to the pills.
       timers.current.push(window.setTimeout(() => setToast((t) => (t ? { ...t, phase: "burst" } : null)), 2200));
       timers.current.push(window.setTimeout(() => setToast(null), 4000));
     } else {
@@ -114,7 +114,7 @@ export default function HomeTab({
         <p className="mt-1 text-sm text-white/60 md:text-base">Pick up where you left off, or start something new.</p>
       </div>
 
-      {/* Streak + badges — gradient border + glow so it feels alive like the
+      {/* Streak + badges - gradient border + glow so it feels alive like the
           course cards, even at a 0 streak. */}
       <div
         className="mb-8 rounded-2xl p-5"
@@ -148,7 +148,7 @@ export default function HomeTab({
               {streak === 0
                 ? "Complete a lesson today to start a streak."
                 : readToday
-                ? "You've read today — nicely done."
+                ? "You've read today. Nicely done."
                 : "Read a lesson today to keep it going."}
             </p>
           </div>
@@ -162,7 +162,7 @@ export default function HomeTab({
           }
         `}</style>
 
-        {/* Tap-a-badge toast — celebration for earned, how-to-earn for locked.
+        {/* Tap-a-badge toast - celebration for earned, how-to-earn for locked.
             On the exit beat the earned pill dissipates while a slow firework
             erupts across it. */}
         {toast && toastBadge && (
@@ -173,7 +173,7 @@ export default function HomeTab({
             }}
             className="relative mt-4 cursor-pointer animate-in fade-in zoom-in-95 duration-300"
           >
-            {/* Pill content — dissipates (fade + expand + blur) during the burst. */}
+            {/* Pill content - dissipates (fade + expand + blur) during the burst. */}
             <div
               className={`flex flex-col items-center rounded-xl border border-white/10 bg-black/40 px-4 py-5 text-center transition-all ease-out ${
                 toast.phase === "burst"
@@ -208,7 +208,7 @@ export default function HomeTab({
               </p>
             </div>
 
-            {/* Firework — erupts from the pill's center across its whole area. */}
+            {/* Firework - erupts from the pill's center across its whole area. */}
             {toast.phase === "burst" && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div className="relative h-0 w-0">
@@ -238,7 +238,7 @@ export default function HomeTab({
           </div>
         )}
 
-        {/* Badges — equal-width grid so every pill has matching margins. The odd
+        {/* Badges - equal-width grid so every pill has matching margins. The odd
             5th badge spans the full row, keeping every row symmetric. Tap any
             badge to celebrate it (earned) or see how to earn it (locked). */}
         <div className="mt-5 grid grid-cols-2 gap-2.5 border-t border-white/10 pt-4">
@@ -272,7 +272,7 @@ export default function HomeTab({
         </div>
       </div>
 
-      {/* Personal Development — a separate shelf from the 7-day courses below.
+      {/* Personal Development - a separate shelf from the 7-day courses below.
           Sits above them because it's a doorway to a curated library rather
           than another card in the reader's own collection. */}
       <Link
@@ -388,7 +388,7 @@ export default function HomeTab({
                 </div>
               </button>
 
-              {/* Course options — opens the detail/remove screen. Separate from
+              {/* Course options - opens the detail/remove screen. Separate from
                   the card button (no nested buttons) and stops propagation. */}
               <button
                 onClick={(e) => {
@@ -424,7 +424,7 @@ export default function HomeTab({
       </div>
 
       {/* The way into the club's shared shelf. Only for members, and it says
-          what is actually on it — an entry point that reads "Book Club" alone
+          what is actually on it - an entry point that reads "Book Club" alone
           gives no reason to tap it on the days nothing has been shared. */}
       {club?.inClub && (
         <button

@@ -19,7 +19,7 @@ interface AuthContextType {
   loading: boolean;
   /**
    * Mobile Google sign-in leaves the app entirely and comes back, so its
-   * outcome can only be collected here on reload — see the getRedirectResult
+   * outcome can only be collected here on reload - see the getRedirectResult
    * effect below. The auth pages read these to route and to show failures
    * that would otherwise be invisible.
    */
@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // was new. This listener fires for the same sign-in at nearly the same
         // moment; a second concurrent call raced the first one for who creates
         // the doc, and Google's account-picker delay was consistently enough
-        // for this listener to win — so brand-new Google signups saw isNew
+        // for this listener to win - so brand-new Google signups saw isNew
         // come back false and skipped onboarding entirely.
         setUser(firebaseUser);
       } else {

@@ -39,7 +39,7 @@ export function ReadingPrefsProvider({ children }: { children: ReactNode }) {
   const [fontSize, setFontSizeState] = useState<ReadingFontSize>(DEFAULT_FONT_SIZE);
   const [readingMode, setReadingModeState] = useState<ReadingMode>(DEFAULT_READING_MODE);
 
-  // Local mirror first. Read in an effect, never in a useState initializer —
+  // Local mirror first. Read in an effect, never in a useState initializer -
   // the server renders the defaults, so touching localStorage during render
   // would produce a hydration mismatch.
   useEffect(() => {

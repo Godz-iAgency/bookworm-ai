@@ -1,5 +1,5 @@
 /**
- * Complimentary access — accounts that skip billing entirely.
+ * Complimentary access - accounts that skip billing entirely.
  *
  * Three things needed the same underlying idea, so they share one: the
  * Founders Podcast demo (one book, then it stops), the Hudson reading account
@@ -43,7 +43,7 @@ export function activeOverride(
  * A sign-in link that needs no password.
  *
  * Held in /accessLinks/{token}; whoever has the token can sign in as the
- * account it points at, which is the entire point — the Founders demo has to
+ * account it points at, which is the entire point - the Founders demo has to
  * work from a tap in a message, and a nine-year-old should not be typing a
  * password. The token is long and random, it is never shown to anyone who
  * isn't sent it, and it can be switched off from the admin dashboard the

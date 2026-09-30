@@ -75,10 +75,10 @@ export interface Metrics {
 }
 
 const shortDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
+  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "n/a";
 
 /**
- * The control centre. One account reaches it — see lib/admin.ts — and that
+ * The control centre. One account reaches it - see lib/admin.ts - and that
  * account only ever sees this, never the reading app.
  *
  * The gate here is for routing and for not rendering an empty shell to the
@@ -131,7 +131,7 @@ export default function AdminPage() {
     else { setMetrics(m); setError(null); }
     if (!("error" in l && l.error)) setLinks(l.links);
     // Stripe being unconfigured or unreachable is its own problem, shown in
-    // its own panel — it must not blank out the rest of the dashboard.
+    // its own panel - it must not blank out the rest of the dashboard.
     if ("error" in p && p.error) setPaymentsError(p.error);
     else { setPayments(p); setPaymentsError(null); }
   }, []);
@@ -157,7 +157,7 @@ export default function AdminPage() {
 
   // Swaps this browser into the founder's own reading account. Firebase only
   // holds one signed-in identity at a time, so this replaces the admin
-  // session rather than running both at once — getting back is the same
+  // session rather than running both at once - getting back is the same
   // switch in reverse, from a button inside the reading app itself.
   const switchToReading = async () => {
     setSwitching(true);
@@ -214,7 +214,7 @@ export default function AdminPage() {
       setCopied(token);
       setTimeout(() => setCopied(null), 2000);
     } catch {
-      /* clipboard blocked — the link is on screen to copy by hand */
+      /* clipboard blocked - the link is on screen to copy by hand */
     }
   };
 
@@ -321,7 +321,7 @@ export default function AdminPage() {
                 <span className="text-xs text-white/45">{m.totals.newThisMonth} in 30 days</span>
               </div>
               {/* Each column is h-full so the bar's percentage has a definite
-                  height to resolve against — inside an auto-height column a
+                  height to resolve against - inside an auto-height column a
                   percentage height computes to zero and the chart renders as
                   an empty strip with only its labels showing. */}
               <div className="flex h-28 gap-1.5">
@@ -353,7 +353,7 @@ export default function AdminPage() {
                 <Row label="Converted to paid" value={m.trials.converted} />
                 <Row label="Lapsed" value={m.trials.lapsed} />
                 <Row label="Conversion rate"
-                  value={m.trials.conversionRate === null ? "—" : `${m.trials.conversionRate}%`} />
+                  value={m.trials.conversionRate === null ? "n/a" : `${m.trials.conversionRate}%`} />
               </Panel>
 
               <Panel title="Reading" onClick={() => setDetail(details!.reading())}>
@@ -399,7 +399,7 @@ export default function AdminPage() {
               </Panel>
             </div>
 
-            {/* Payments — what Stripe actually charged, and the way back. */}
+            {/* Payments - what Stripe actually charged, and the way back. */}
             <div className="mb-6 rounded-2xl border border-white/10 bg-[#111] p-5">
               <div className="mb-1 flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-[#00D4FF]" strokeWidth={2} />
@@ -520,14 +520,14 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Demo links — share one, switch it off when it has done its job. */}
+            {/* Demo links - share one, switch it off when it has done its job. */}
             <div className="mb-6 rounded-2xl border border-white/10 bg-[#111] p-5">
               <div className="mb-1 flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-[#00D4FF]" strokeWidth={2} />
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white/60">Demo links</h2>
               </div>
               <p className="mb-4 text-xs text-white/45">
-                Anyone with one of these taps straight into the app — no signup, no card. Switch one off and it stops working immediately, including for anyone already signed in through it.
+                Anyone with one of these taps straight into the app. No signup, no card. Switch one off and it stops working immediately, including for anyone already signed in through it.
               </p>
 
               <form
@@ -644,7 +644,7 @@ export default function AdminPage() {
                   <tbody>
                     {m.recent.map((r, i) => (
                       <tr key={`${r.email}-${i}`} className="border-t border-white/5">
-                        <td className="max-w-[220px] truncate px-1 py-2.5 text-white/85">{r.email ?? "—"}</td>
+                        <td className="max-w-[220px] truncate px-1 py-2.5 text-white/85">{r.email ?? "(no email)"}</td>
                         <td className="px-1 py-2.5 text-white/55">{shortDate(r.createdAt)}</td>
                         <td className="px-1 py-2.5 text-white/55">{shortDate(r.lastSeenAt)}</td>
                         <td className="px-1 py-2.5 text-white/70">{r.plan}</td>

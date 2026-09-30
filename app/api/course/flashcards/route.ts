@@ -7,7 +7,7 @@ import { buildFlashcardsMessages } from "@/lib/course-prompts";
 import { generateJson } from "@/lib/generate";
 import { stripEmDashes } from "@/lib/lesson";
 
-// Much smaller than a full lesson generation — 3 cards + 3 starters only.
+// Much smaller than a full lesson generation - 3 cards + 3 starters only.
 export const maxDuration = 60;
 
 /**

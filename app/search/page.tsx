@@ -33,7 +33,7 @@ export default function SearchPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   // The level chosen during onboarding. When it's known, confirming a book
-  // generates immediately — asking again on a separate screen would be asking
+  // generates immediately - asking again on a separate screen would be asking
   // the same question twice in one sitting. null means we haven't loaded it
   // yet; "" means this account predates onboarding asking for one.
   const [savedLevel, setSavedLevel] = useState<string | null>(null);
@@ -88,7 +88,7 @@ export default function SearchPage() {
   const handleConfirm = () => {
     if (!searchedBook) return;
     setCurrentBook(searchedBook);
-    // Level already settled during onboarding — go straight to the course.
+    // Level already settled during onboarding - go straight to the course.
     // Otherwise fall back to the standalone step for accounts that never had
     // a level asked for.
     if (savedLevel) {
@@ -154,14 +154,14 @@ export default function SearchPage() {
 
   return (
     // overflow-hidden here used to mean the confirmation card had no way to
-    // be reached at all once it grew taller than the screen — not "scroll to
+    // be reached at all once it grew taller than the screen - not "scroll to
     // see the rest," just gone. A page can't know every phone's height in
     // advance, so it must always be free to scroll if its content needs to.
     <div className="relative min-h-dvh w-full overflow-y-auto bg-[#0a0a0a] bg-dot-grid text-white flex flex-col items-center">
       {/* Background overlay for dot grid */}
       <div className="absolute inset-0 bg-black/40 z-0" />
 
-      {/* Header with logo and step indicator — compact, matching the
+      {/* Header with logo and step indicator - compact, matching the
           dashboard's header treatment, so it isn't competing with the
           confirmation card for a phone's limited height. */}
       <div className="w-full max-w-4xl px-4 py-2.5 flex justify-between items-center z-10">
@@ -212,7 +212,7 @@ export default function SearchPage() {
               </div>
 
               {/* A camera photo of the cover is a second way in, not a
-                  replacement — typing still works exactly as it did. The
+                  replacement - typing still works exactly as it did. The
                   hidden input's `capture` attribute opens the phone's camera
                   directly rather than a file browser. */}
               <input
@@ -240,7 +240,7 @@ export default function SearchPage() {
             </form>
           </div>
         ) : (
-          /* STATE 2: CONFIRMATION CARD — sized to comfortably fit a phone
+          /* STATE 2: CONFIRMATION CARD - sized to comfortably fit a phone
              screen alongside the header, not just to look good at desktop
              width. The cover shrank most: a 128x192 image was the single
              biggest thing pushing the buttons off-screen. */

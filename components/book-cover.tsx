@@ -6,7 +6,7 @@ const LS_PREFIX = "bw_cover_";
 
 /**
  * A course started from a typed or scanned title used to get this baked into
- * its coverUrl when Google Books had no thumbnail for the matched edition —
+ * its coverUrl when Google Books had no thumbnail for the matched edition -
  * a plain white JPG, saved once and shown forever. Treating it the same as
  * an empty coverUrl below routes both old and new "no art" courses through
  * BookCover's real fallback instead.
@@ -21,7 +21,7 @@ const NO_COVER_SENTINEL = "/placeholder.jpg";
  * the course is still created with `coverUrl: ""` on purpose, because a lookup
  * failing must not stop a reader starting a book. Every screen then passed
  * that empty string straight to an <img>, which browsers resolve against the
- * current page — so the shelf asked for the page again, logged
+ * current page - so the shelf asked for the page again, logged
  * "An empty string was passed to the src attribute", and drew a broken-image
  * icon where the cover belongs.
  *

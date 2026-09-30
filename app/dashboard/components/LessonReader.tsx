@@ -44,7 +44,7 @@ const PHONE_QUERY = "(max-width: 767px)";
  *
  * The initial value is read from the viewport rather than defaulting to false.
  * That is safe here specifically because this component never exists in the
- * server-rendered HTML — it mounts only once a reader opens a day — so there is
+ * server-rendered HTML - it mounts only once a reader opens a day - so there is
  * no markup for it to disagree with. Defaulting to false instead would render
  * the in-flow layout for a frame and then swap to the overlay, restarting the
  * fade-in and flashing the dashboard's bars.
@@ -171,7 +171,7 @@ export default function LessonReader({
       })}
       {/* Its own page in paged mode, like the handoff below it: choosing what
           you'll actually go and do is a beat of its own, not a postscript to
-          the last paragraph. Deliberately without breakInside: avoid — at the
+          the last paragraph. Deliberately without breakInside: avoid - at the
           largest text size the block can outgrow a page, and flowing onto the
           next one is far better than being clipped by it. */}
       {actions.length > 0 && (
@@ -210,7 +210,7 @@ export default function LessonReader({
           : "flex h-full w-full flex-col animate-in fade-in duration-300"
       }
     >
-      {/* Reader chrome — deliberately thin so the text gets the screen. */}
+      {/* Reader chrome - deliberately thin so the text gets the screen. */}
       <div className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#0e0e0e] px-4 py-2.5">
         <button
           onClick={onClose}
@@ -303,7 +303,7 @@ export default function LessonReader({
         )}
       </div>
 
-      {/* Quick settings — the same two controls that live in Profile, within
+      {/* Quick settings - the same two controls that live in Profile, within
           reach while reading so adjusting size doesn't mean leaving the page.
 
           Overlaid rather than in the flow: as a sibling it shortened the reading
@@ -314,7 +314,7 @@ export default function LessonReader({
           {/* Rendered after the reading surface, and promoted with
               transform-gpu, both deliberately.
               In page mode the column strip carries will-change: transform so a
-              page turn is a compositor-only move — which lifts it onto its own
+              page turn is a compositor-only move - which lifts it onto its own
               GPU layer. Against a promoted layer, an opaque z-30 panel is not
               enough on its own: the lesson text painted straight through these
               controls, the Done button included. Coming later in the document
@@ -372,8 +372,8 @@ export default function LessonReader({
             </div>
 
             {/* The way out, in the panel rather than only on the AA button that
-                opened it. Changing size is a two-handed moment — you tap a
-                size, read the preview underneath, maybe try the next one — and
+                opened it. Changing size is a two-handed moment - you tap a
+                size, read the preview underneath, maybe try the next one - and
                 the only exit used to be that small icon back in the top
                 corner, which reads as "text size" rather than "close". This
                 sits directly under the control you just touched. Tapping the
@@ -453,7 +453,7 @@ export default function LessonReader({
    *
    * `position: fixed` alone does not escape them: the tab wrapper carries
    * `animate-in`, which leaves an identity transform behind, and any transform
-   * makes that element the containing block for fixed descendants — the reader
+   * makes that element the containing block for fixed descendants - the reader
    * stayed pinned between the two bars. A portal leaves the DOM subtree
    * entirely, so no ancestor's transform, filter or backdrop-blur can trap it,
    * including ones added later. React context and events still flow normally,

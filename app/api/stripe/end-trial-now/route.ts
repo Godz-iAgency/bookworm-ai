@@ -4,7 +4,7 @@ import { getStripe } from "@/lib/stripe/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 
 /**
- * "Keep Learning" CTA on the dashboard trial banner — lets an eager user
+ * "Keep Learning" CTA on the dashboard trial banner - lets an eager user
  * convert their trial to paid immediately instead of waiting for Day 7.
  * Firestore stays untouched here; the resulting `customer.subscription.updated`
  * webhook event is the single source of truth for flipping trialStatus.

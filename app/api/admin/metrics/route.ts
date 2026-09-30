@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const db = getAdminDb();
     const auth = getAdminAuth();
 
-    // Auth accounts (paged — listUsers caps at 1000 per call).
+    // Auth accounts (paged - listUsers caps at 1000 per call).
     const authUsers: { uid: string; email: string | null; createdAt: string; lastSeenAt: string | null }[] = [];
     let pageToken: string | undefined;
     do {
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
       else if (p.trialStatus === "expired" || p.trialStatus === "cancelled") trialsLapsed++;
 
       // A Book Club member counts against the club's tier, not their own
-      // (blank) plan — familyId is what actually grants them access.
+      // (blank) plan - familyId is what actually grants them access.
       const tier = p.familyId ? "book_club" : p.plan;
       if (tier && tier in tiers && p.trialStatus !== "active" && !p.accessOverride && (p.familyId || p.plan !== "free")) tiers[tier]++;
     }

@@ -215,7 +215,7 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Confirmation — never switch tiers on a single tap. States the real
+        {/* Confirmation - never switch tiers on a single tap. States the real
             figure Stripe gave us and whether it lands today or next cycle. */}
         <AnimatePresence>
           {pending && (

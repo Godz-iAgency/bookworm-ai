@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 
 // A quick "start a new course" button for the Home + Course headers. Uses the
-// app's card language — gradient border + glow, dark interior, gradient "+" —
+// app's card language - gradient border + glow, dark interior, gradient "+" -
 // so it feels like part of the family (and matches the logo's colors). Routes
 // to /search, or explains itself (same rule as the shelf's Add Course tile)
 // when the library is at its open-book cap.
@@ -36,7 +36,7 @@ export default function AddCourseButton({
       <div className="relative shrink-0">
         <button
           onClick={() => setShowLimit((o) => !o)}
-          aria-label="Shelf full — tap to find out why"
+          aria-label="Shelf full. Tap to find out why"
           aria-expanded={showLimit}
           className={`flex h-11 w-11 items-center justify-center rounded-full border text-2xl font-bold leading-none transition-colors ${
             showLimit

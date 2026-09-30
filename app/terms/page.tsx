@@ -15,7 +15,7 @@ import Link from "next/link";
  * A server component with no client JavaScript, matching app/privacy/page.tsx.
  */
 
-/** Bumped by hand, never generated — see the same note in app/privacy/page.tsx. */
+/** Bumped by hand, never generated - see the same note in app/privacy/page.tsx. */
 const LAST_UPDATED = "September 26, 2026";
 const OPERATOR = "GODZ-i LLC";
 const CONTACT_EMAIL = "christopher@godz-iagency.com";

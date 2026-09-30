@@ -25,7 +25,7 @@ import { languageFromId } from "./languages";
  * the fact by stripEmDashes() in lib/lesson.ts. The instruction reduces how
  * often the sanitizer has to do anything, it doesn't replace it.
  */
-export const STYLE_RULES = `PUNCTUATION RULE: Never use an em dash (—) or an en dash (–) anywhere in your output. Where you would reach for one, use a comma, a period, a colon, or parentheses instead. Use a plain hyphen only inside hyphenated words and number ranges.`;
+export const STYLE_RULES = `PUNCTUATION RULE: Never use an em dash (\u2014) or an en dash (\u2013) anywhere in your output. Where you would reach for one, use a comma, a period, a colon, or parentheses instead. Use a plain hyphen only inside hyphenated words and number ranges.`;
 
 /**
  * The accuracy contract, attached to every call that says anything about the

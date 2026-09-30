@@ -68,7 +68,7 @@ export default function ReadingLevelPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      {/* Header — back arrow returns to the book step */}
+      {/* Header - back arrow returns to the book step */}
       <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-5">
         <div className="flex items-center gap-2">
           <BackButton to="/search" label="Back to book search" />

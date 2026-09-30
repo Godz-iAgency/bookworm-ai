@@ -8,7 +8,7 @@ import { AttributionCapture } from "@/components/attribution-capture"
 // Warm handwritten display font, used only for the personal Home greeting.
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", weight: ["500", "600", "700"] })
 
-// The app's UI voice. Nunito is a humanist sans with rounded terminals — it
+// The app's UI voice. Nunito is a humanist sans with rounded terminals - it
 // reads as warm and friendly where the previous Geist Sans read as technical.
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito", display: "swap" })
 

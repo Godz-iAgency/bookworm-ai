@@ -13,7 +13,7 @@ const VALID_PLANS: PlanId[] = ["page_turner", "well_read", "book_club"];
  *    immediately (`trial_end: "now"`), so the new plan's full price is charged
  *    TODAY. Reported as mode "charge_now".
  *  - Already a paying subscriber: the switch uses `create_prorations`, which
- *    does NOT charge today — Stripe puts the prorated difference on the next
+ *    does NOT charge today - Stripe puts the prorated difference on the next
  *    scheduled invoice. Reported as mode "next_invoice" with that invoice's
  *    real total and date, taken from Stripe's own preview rather than
  *    arithmetic of ours.
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const priceId = priceIdForPlan(targetPlan as PlanId);
     const subscriptionId: string = user.stripeSubscriptionId ?? "";
 
-    // No live subscription — upgrading creates one and bills it right away.
+    // No live subscription - upgrading creates one and bills it right away.
     if (!subscriptionId) {
       const price = await stripe.prices.retrieve(priceId);
       return NextResponse.json({

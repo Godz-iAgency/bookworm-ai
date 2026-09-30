@@ -27,7 +27,7 @@ export const READING_LEVELS: ReadingLevel[] = [
     id: "explorer",
     label: "Explorer",
     Icon: Sprout,
-    desc: "Simple and fun. Written at a 3rd–5th grade level with everyday analogies.",
+    desc: "Simple and fun. Written at a 3rd to 5th grade level with everyday analogies.",
   },
   {
     id: "scholar",

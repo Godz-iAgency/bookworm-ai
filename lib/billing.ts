@@ -28,7 +28,7 @@ export interface BillingProfile {
   /** Set by the invoice.payment_failed webhook, cleared when a payment succeeds. */
   paymentFailedAt: string | null;
   /**
-   * Complimentary access that skips billing entirely — the Founders demo, the
+   * Complimentary access that skips billing entirely - the Founders demo, the
    * Hudson reading account. Admin SDK only. See lib/access.ts.
    */
   accessOverride: AccessOverride | null;
@@ -36,7 +36,7 @@ export interface BillingProfile {
   bookClubRemovedAt: string | null;
   /**
    * When a removed Book Club member's account is deleted if they choose
-   * nothing. Null once they convert — or from the start, for someone who was
+   * nothing. Null once they convert - or from the start, for someone who was
    * already carrying their own trial or subscription.
    */
   bookClubDeleteAt: string | null;
@@ -70,7 +70,7 @@ export async function getBillingProfile(uid: string): Promise<BillingProfile | n
 }
 
 /**
- * Is this reader stranded by a Book Club removal — no club, and nothing of
+ * Is this reader stranded by a Book Club removal - no club, and nothing of
  * their own to fall back on?
  *
  * They keep their account and their books while they decide; what they lose is
@@ -92,7 +92,7 @@ export function getEffectivePlanId(profile: Pick<BillingProfile, "plan" | "famil
   return "free";
 }
 
-/** Does this user currently have generation/dashboard access — trial running, paid, a family member, or comped? */
+/** Does this user currently have generation/dashboard access - trial running, paid, a family member, or comped? */
 export function hasActiveAccess(
   profile: Pick<BillingProfile, "trialStatus" | "plan" | "familyId"> & { accessOverride?: AccessOverride | null },
 ): boolean {
@@ -103,7 +103,7 @@ export function hasActiveAccess(
 
 /**
  * The shelf cap actually in force. A comped account carries its own, since it
- * belongs to no tier — the Hudson account is five books with no subscription
+ * belongs to no tier - the Hudson account is five books with no subscription
  * behind it, which no PLANS entry describes.
  */
 export function effectiveMaxOpenBooks(
@@ -118,7 +118,7 @@ export function effectiveMaxOpenBooks(
  * A tier's shelf + quota limits. "free" maps to the entry tier rather than
  * zero: the shelf cap is a plan *feature* limit, not the paywall. Payment is
  * enforced at generation time by the soft gate (hasActiveAccess / canGenerate)
- * — returning 0 here would instead brick the "+" button for every user who
+ * - returning 0 here would instead brick the "+" button for every user who
  * hasn't subscribed yet, including before billing is even switched on.
  */
 export function getPlanLimits(planId: Plan["id"] | "free"): { maxOpenBooks: number; monthlyGenerations: number } {
@@ -133,7 +133,7 @@ export function getPlanLimits(planId: Plan["id"] | "free"): { maxOpenBooks: numb
  *
  * NEXT_PUBLIC_BILLING_PAUSED is a manual kill switch on top of that, for the
  * case where Stripe's keys are present but the Firebase Admin credential the
- * soft gate needs (see lib/firebase/admin.ts) is broken on this deployment —
+ * soft gate needs (see lib/firebase/admin.ts) is broken on this deployment -
  * that turned every course generation into a dead-end trial screen. Flip it
  * back off once /api/health/billing reports ready: true.
  */
@@ -146,7 +146,7 @@ export function isBillingEnabled(): boolean {
 
 /**
  * Whether the user can generate another book right now. During an active
- * trial the cap is always 3 total for the trial (flat, regardless of tier —
+ * trial the cap is always 3 total for the trial (flat, regardless of tier -
  * trial only ever runs on Page Turner). Once the trial has converted (or for
  * an existing paid/family member with no trial in progress), the tier's real
  * monthly quota applies, resetting when `monthResetAt` has passed.
@@ -179,7 +179,7 @@ export function canGenerate(
   }
 
   // `monthResetAt` is when the current billing period ends. The counter is
-  // rolled over server-side by the invoice.payment_succeeded webhook — never
+  // rolled over server-side by the invoice.payment_succeeded webhook - never
   // here. If that date has passed but the counter hasn't reset yet, the
   // webhook is merely in flight, so we keep counting against the quota
   // (fail closed). Zeroing it client-side instead would hand out unlimited

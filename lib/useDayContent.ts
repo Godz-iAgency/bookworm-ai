@@ -43,7 +43,7 @@ export function useDayContent(
   // close on, so a missing axiom is a repairable gap like an empty deck is.
   const hasAxiom = !!day?.closingAxiom;
   const hasStarters = (day?.chatSeed?.length ?? 0) > 0;
-  // Locked days are never generated — the reader hasn't earned them yet.
+  // Locked days are never generated - the reader hasn't earned them yet.
   const needsContent = enabled && !!day?.isUnlocked && (!hasLesson || !hasCards || !hasAxiom || !hasStarters);
 
   const run = useCallback(
@@ -120,9 +120,9 @@ export function useDayContent(
                   ...c,
                   // Fill gaps, never overwrite. On the full path every one of
                   // these is empty anyway, so it takes what was just written;
-                  // on a repair path it keeps what the reader already has —
+                  // on a repair path it keeps what the reader already has -
                   // the lesson they read, and cards they may be part-way
-                  // through — and only fills what was actually missing. That
+                  // through - and only fills what was actually missing. That
                   // matters now that a missing axiom alone can trigger this.
                   days: c.days.map((d) =>
                     d.dayNumber !== day.dayNumber

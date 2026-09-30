@@ -70,7 +70,7 @@ export interface Course {
    * Days 2-7 are written from this rather than from the reader's current
    * profile setting, so changing that setting later never leaves one course
    * half in two languages. Undefined on courses generated before languages
-   * existed, which are English — see lib/languages.ts.
+   * existed, which are English - see lib/languages.ts.
    */
   language?: string;
   status: 'active' | 'expired' | 'completed';
@@ -84,7 +84,7 @@ export interface Course {
   frameworks?: string[];
   /**
    * The day the reader most recently opened. Flashcards + Chat follow this so
-   * they stay pinned to the last lesson read — they only change when the reader
+   * they stay pinned to the last lesson read - they only change when the reader
    * opens a different day. Undefined on courses created before this field, or on
    * a brand-new course whose lesson hasn't been opened yet (the dashboard then
    * falls back to the first unlocked day).
@@ -94,7 +94,7 @@ export interface Course {
    * Set only on the reader's own copy of a book another Book Club member
    * shared. Its presence is what keeps a shared book off the personal shelf
    * and out of the plan's open-book cap (see lib/book-club.ts); everything
-   * else about it — loading, saving, expiry — is an ordinary course.
+   * else about it - loading, saving, expiry - is an ordinary course.
    */
   sharedFrom?: SharedFrom;
 }
@@ -168,7 +168,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
 
   // Shared-book live views: one pair of Firestore listeners per open share
   // (the sharer's course + this reader's own progress on it), and the last
-  // Course object built from them — set the moment either fires, so the
+  // Course object built from them - set the moment either fires, so the
   // progress-autosave effect below never mistakes an incoming snapshot for a
   // local edit that still needs saving.
   const sharedSubs = useRef(new Map<string, () => void>());
@@ -176,7 +176,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
 
   // The uid whose courses currently live in `courses`. Persistence only writes
   // when this matches the signed-in user, so a previous account's courses can
-  // NEVER be written under a new account — even if the user logs out and signs
+  // NEVER be written under a new account - even if the user logs out and signs
   // up as someone else fast enough that the reload hasn't settled (that race
   // was leaking one account's books into another's Firestore collection).
   const [hydratedUid, setHydratedUid] = useState<string | null>(null);
@@ -242,7 +242,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
         console.error('Failed to load courses:', err);
         if (!cancelled) setCourses([]);
       } finally {
-        // Mark these courses as belonging to this user — unlocks persistence.
+        // Mark these courses as belonging to this user - unlocks persistence.
         if (!cancelled) setHydratedUid(user.uid);
       }
     })();
@@ -252,7 +252,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     };
   }, [user, authLoading]);
 
-  // Persist courses whenever they change — but only once the courses in state
+  // Persist courses whenever they change - but only once the courses in state
   // were loaded for the CURRENT user (hydratedUid === user.uid). This guards
   // against both wiping saved data with the empty initial array AND writing a
   // previous account's stale courses into a different account.
@@ -260,7 +260,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     if (!user || hydratedUid !== user.uid) return;
     for (const course of courses) {
       // A shared book is a live view of someone else's course, never this
-      // reader's own document — see the shared-progress effect below, which
+      // reader's own document - see the shared-progress effect below, which
       // is what actually persists a reader's side of it.
       if (course.sharedFrom) continue;
       // setCourses is exposed on this context, so anything can end up here.
@@ -302,7 +302,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
     }
   }, [courses, hydratedUid, user]);
 
-  // A reader's own progress on a shared book — which days they've completed,
+  // A reader's own progress on a shared book - which days they've completed,
   // their commitments, which day they're on. Parallels the autosave effect
   // above, but writes only these fields, to sharedProgress rather than the
   // course itself (which the reader has no permission to touch). Skipped
@@ -322,7 +322,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
       for (const d of course.days) if (d.committedActions?.length) committedActionsByDay[String(d.dayNumber)] = d.committedActions;
       // Firestore's client SDK throws on an `undefined` field value (no
       // ignoreUndefinedProperties here), and activeDayNumber starts out
-      // exactly that — before the reader has opened any day.
+      // exactly that - before the reader has opened any day.
       const progress: SharedProgress = { completedDays, committedActionsByDay, activeDayNumber: course.activeDayNumber ?? null };
       saveQueue.current = saveQueue.current.catch(() => {}).then(async () => {
         if (auth.currentUser?.uid !== uid) return;
@@ -350,7 +350,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
   // active selection if it was the one removed (the dashboard re-selects).
   //
   // A shared book has no document of this reader's own course collection to
-  // delete — it was never copied there — but it DOES have this reader's own
+  // delete - it was never copied there - but it DOES have this reader's own
   // progress doc, and that has to go too: CourseDetail promises removing one
   // means starting over from day one, which would be a lie if progress just
   // sat there waiting to resume the moment they reopened it.
@@ -399,7 +399,7 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
 
     const unsubCourse = onSnapshot(doc(db, 'users', ownerUid, 'courses', courseId), snap => {
       if (!snap.exists()) {
-        // Withdrawn, expired, or the sharer deleted it — either way, gone.
+        // Withdrawn, expired, or the sharer deleted it - either way, gone.
         setCourses(prev => prev.filter(c => c.id !== shareId));
         unsubscribe();
         return;

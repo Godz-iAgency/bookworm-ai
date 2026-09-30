@@ -82,7 +82,7 @@
 @theme inline {
   --font-sans: var(--font-nunito);
   --font-mono: var(--font-geist-mono);
-  /* `font-reading` — the serif used for lesson body copy only. */
+  /* `font-reading` - the serif used for lesson body copy only. */
   --font-reading: var(--font-lora);
   --color-background: var(--background);
   --color-foreground: var(--foreground);

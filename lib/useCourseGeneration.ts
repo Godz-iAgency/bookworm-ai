@@ -66,7 +66,7 @@ export function useCourseGeneration() {
 
       // Billing checks only apply once Stripe is actually configured. Before
       // that the soft gate can't collect a card, so gating here would dead-end
-      // every user — instead the app behaves exactly as it did pre-billing.
+      // every user - instead the app behaves exactly as it did pre-billing.
       let profile;
       try {
         profile = isBillingEnabled() ? await getBillingProfile(user.uid) : null;
@@ -78,7 +78,7 @@ export function useCourseGeneration() {
 
       if (isBillingEnabled()) {
         // Brand-new readers (no trial started, no plan yet) go through the soft
-        // gate — it re-runs generation itself and collects the card before
+        // gate - it re-runs generation itself and collects the card before
         // saving the course. Only existing subscribers generate directly here.
         if (!profile || !hasActiveAccess(profile)) {
           router.push("/preview");
@@ -91,7 +91,7 @@ export function useCourseGeneration() {
             gen.reason === "monthly_cap"
               ? "You've used all your book generations for this month."
               : gen.reason === "override_cap"
-                ? "This preview includes one book — and it's already on your shelf."
+                ? "This preview includes one book, and it's already on your shelf."
                 : "You've reached your plan's limit."
           );
           return;
@@ -102,7 +102,7 @@ export function useCourseGeneration() {
         // them starting one of their own.
         const maxOpenBooks = effectiveMaxOpenBooks(profile);
         if (personalCourses(courses).length >= maxOpenBooks) {
-          setError("Your library is full for your plan — delete a book to add a new one.");
+          setError("Your library is full for your plan. Delete a book to add a new one.");
           return;
         }
       }

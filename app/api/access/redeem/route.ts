@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * Turns an access link into a signed-in session.
  *
- * Deliberately unauthenticated — the whole point is that the holder has no
+ * Deliberately unauthenticated - the whole point is that the holder has no
  * account and types nothing. The token IS the credential, so the checks that
  * matter are all here: the link must exist, still be switched on, and point at
  * an account whose override is also still switched on. Flipping either off
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
     const customToken = await getAdminAuth().createCustomToken(link.uid);
 
-    // Best effort — a failed counter must never cost someone their sign-in.
+    // Best effort - a failed counter must never cost someone their sign-in.
     linkRef
       .update({ lastUsedAt: new Date().toISOString(), useCount: FieldValue.increment(1) })
       .catch((e) => console.error("Could not record access link use:", e));

@@ -1,7 +1,7 @@
 /**
  * Turn a user-picked image file into a small square avatar as a base64 JPEG
  * data URL. We resize + compress client-side so the result lands around
- * 10–40KB — comfortably under Firestore's 1MB document limit — which lets us
+ * 10–40KB - comfortably under Firestore's 1MB document limit - which lets us
  * store the avatar inline on the user doc without needing Firebase Storage.
  */
 export async function fileToAvatarDataUrl(file: File, size = 240): Promise<string> {

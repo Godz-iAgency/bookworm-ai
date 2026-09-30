@@ -3,7 +3,7 @@
  * readout on Profile and used to size Stripe billing + generation quotas +
  * the concurrent-open-book cap enforced on the dashboard.
  *
- * The 7-day free trial only ever runs on `page_turner` — Well-Read and Book
+ * The 7-day free trial only ever runs on `page_turner` - Well-Read and Book
  * Club are paid-upgrade-only, never trial tiers (see lib/billing.ts).
  */
 /**

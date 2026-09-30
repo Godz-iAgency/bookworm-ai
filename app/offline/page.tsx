@@ -5,7 +5,7 @@ import type { Metadata } from "next";
  *
  * Every style here is inline, and the font is a system stack, on purpose.
  * This page is served from cache on a device that by definition cannot fetch
- * anything else — and Next's stylesheet and the Google font are both
+ * anything else - and Next's stylesheet and the Google font are both
  * content-hashed URLs the worker may never have seen. Written with Tailwind
  * classes it rendered as unstyled black-on-black serif text, which is barely
  * better than the browser's own error. The only external file it leans on is
@@ -14,7 +14,7 @@ import type { Metadata } from "next";
  * No client JavaScript either: it has to work from the cached HTML alone.
  */
 export const metadata: Metadata = {
-  title: "You're offline — Bookworm AI",
+  title: "You're offline | Bookworm AI",
 };
 
 const SANS =
