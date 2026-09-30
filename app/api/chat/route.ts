@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     // even after they switch the setting for future books.
     const systemPrompt = `You are BookPal, a warm and sharp reading tutor for the book '${title}' by '${author}'. Answer using the book's principles, lessons, and concepts. Be engaging, clear, and educational.${lessonContext}\n\nLimit every response to a maximum of 25 words. Be concise, direct, and on-topic.\n\n${getLanguageRules(language, { json: false })}\n\n${STYLE_RULES}`;
 
-    const { text } = await generateContent(AI_TASKS.chat, prompt, systemPrompt);
+    const { text } = await withAiKey(keyTierOfRequest(req), () => generateContent(AI_TASKS.chat, prompt, systemPrompt));
 
     const revoked = await guardAI(req, "chat", false);
     if (revoked) return revoked;

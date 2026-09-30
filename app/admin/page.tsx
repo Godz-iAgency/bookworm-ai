@@ -103,6 +103,9 @@ export default function AdminPage() {
   const [refundNote, setRefundNote] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkBooks, setNewLinkBooks] = useState(1);
+  const [creatingLink, setCreatingLink] = useState(false);
 
   const isAdmin = isAdminEmail(user?.email);
 
@@ -180,6 +183,19 @@ export default function AdminPage() {
       setMetrics((cur) => (cur ? { ...cur, omtm: previous } : cur));
       setError(res.error);
     }
+  };
+
+  // Each link is its own free account with its own book cap (see the API).
+  const createLink = async () => {
+    setCreatingLink(true);
+    setError(null);
+    const res = await postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", {
+      action: "create", label: newLinkLabel, bookLimit: newLinkBooks,
+    });
+    setCreatingLink(false);
+    if (res.error) { setError(res.error); return; }
+    setLinks(res.links);
+    setNewLinkLabel("");
   };
 
   const toggleLink = async (token: string, active: boolean) => {
@@ -513,6 +529,44 @@ export default function AdminPage() {
               <p className="mb-4 text-xs text-white/45">
                 Anyone with one of these taps straight into the app — no signup, no card. Switch one off and it stops working immediately, including for anyone already signed in through it.
               </p>
+
+              <form
+                onSubmit={(e) => { e.preventDefault(); void createLink(); }}
+                className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-white/10 bg-black/30 p-3"
+              >
+                <label className="min-w-[160px] flex-1 text-[11px] font-semibold text-white/55">
+                  Who is it for?
+                  <input
+                    value={newLinkLabel}
+                    onChange={(e) => setNewLinkLabel(e.target.value)}
+                    maxLength={60}
+                    placeholder="For example: Maya's followers"
+                    className="mt-1 w-full rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm font-normal text-white placeholder:text-white/30"
+                  />
+                </label>
+                <label className="text-[11px] font-semibold text-white/55">
+                  Books it can write
+                  <select
+                    value={newLinkBooks}
+                    onChange={(e) => setNewLinkBooks(Number(e.target.value))}
+                    className="mt-1 block rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm font-normal text-white"
+                  >
+                    {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <button
+                  type="submit"
+                  disabled={creatingLink || !newLinkLabel.trim()}
+                  className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {creatingLink ? "Creating…" : "Create link"}
+                </button>
+                <p className="w-full text-[11px] leading-relaxed text-white/40">
+                  Everyone who opens one link shares one account and its book total, so they also see each other&rsquo;s
+                  books. Make a separate link for each person or group you want kept apart. Links use the free AI key,
+                  never the paid one.
+                </p>
+              </form>
 
               {!links ? (
                 <Loader2 className="h-5 w-5 animate-spin text-white/40" />

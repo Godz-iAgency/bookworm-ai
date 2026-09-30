@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { randomUUID } from "node:crypto";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 import { validOutline } from "@/lib/course-validation";
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
     // A course is seven planned days or it is not a course. Checked inside the
     // retry so a thin plan is regenerated rather than saved to someone's shelf.
-    const outline = await generateJson(AI_TASKS.outline, user, system, {
+    const outline = await withAiKey(keyTierOfRequest(req), () => generateJson(AI_TASKS.outline, user, system, {
       maxOutputTokens: 16384,
       budgetMs: 105_000,
       attempts: 3,
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
         if (days.length < 7) return `Outline returned ${days.length} of 7 days.`;
         return validOutline(p) ? null : "Outline response is incomplete.";
       },
-    });
+    }));
     const parsed = outline.data;
 
     const days = parsed.days.slice(0, 7).map((d: any, i: number) => ({

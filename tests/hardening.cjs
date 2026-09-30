@@ -30,13 +30,15 @@ function database(seed = {}) {
 }
 module.exports = async function(load) {
   const plans = load('lib/plans.ts', {});
+  const adminLib = load('lib/admin.ts', {});
+  const keys = load('lib/ai-keys.ts', {'node:async_hooks': require('node:async_hooks'), './admin': adminLib});
   const analyticsLib = load('lib/analytics-server.ts', {'./funnel': load('lib/funnel.ts', {})});
   const valid = load('lib/course-validation.ts', {'./lesson': load('lib/lesson.ts', {})});
   assert.equal(valid.validOutline({days: [null]}), false);
   assert.equal(valid.validDeck([{front:'x',back:null}]), false);
   const db = database({'users/u': {accessOverride: {active:true,lifetimeGenerations:1,maxOpenBooks:1}, generationsThisMonth:0}});
   let uid = null;
-  const {guardAI} = load('lib/ai-guard.ts', {'next/server':{NextResponse:json}, './firebase/admin':{getUidFromRequest:async()=>uid,getAdminDb:()=>db}, './plans':plans});
+  const {guardAI} = load('lib/ai-guard.ts', {'next/server':{NextResponse:json}, './firebase/admin':{getUidFromRequest:async()=>uid,getAdminDb:()=>db}, './plans':plans, './ai-keys':keys});
   const req = () => new Request('http://local', {method:'POST',body:JSON.stringify({title:'Book',author:'Author'})});
   assert.equal((await guardAI(req(),'course')).status,401);
   uid='u';
@@ -70,6 +72,33 @@ module.exports = async function(load) {
   const withdrawnChat=new Request('http://local',{method:'POST',body:JSON.stringify({courseId:'owner_real',title:'Shared Book',author:'Sharer'})});
   assert.equal((await guardAI(withdrawnChat,'chat')).status,403,'Withdrawing the share blocks even chat immediately');
 
+  // Which Gemini key a request is admitted on: free for the founder's own
+  // accounts and complimentary access, paid for everyone else.
+  const CH = adminLib.CHRISTOPHER_READER_UID;
+  const tierDb = database({
+    'users/comp': {accessOverride:{active:true,lifetimeGenerations:5,maxOpenBooks:5},generationsThisMonth:0},
+    'users/payer': {plan:'page_turner',trialStatus:'converted',generationsThisMonth:0},
+    'users/preview': {plan:'free',generationsThisMonth:0,previewAttempts:0},
+    ['users/'+CH]: {plan:'book_club',familyId:'chClub',generationsThisMonth:0},
+    'users/son': {plan:'free',familyId:'chClub',generationsThisMonth:0},
+    'users/guest': {plan:'free',familyId:'otherClub',generationsThisMonth:0},
+    'families/chClub': {status:'active',ownerId:CH,memberIds:[CH,'son']},
+    'families/otherClub': {status:'active',ownerId:'stranger',memberIds:['stranger','guest']},
+  });
+  const tierOf = async (who, kind = 'scan') => {
+    const {guardAI: guard} = load('lib/ai-guard.ts', {'next/server':{NextResponse:json}, './firebase/admin':{getUidFromRequest:async()=>who,getAdminDb:()=>tierDb}, './plans':plans, './ai-keys':keys});
+    const r = new Request('http://local', {method:'POST',body:JSON.stringify({title:'Book',author:'Author'})});
+    assert.equal(await guard(r, kind), null, who + ' is admitted');
+    return keys.keyTierOfRequest(r);
+  };
+  assert.equal(await tierOf('comp', 'course'), 'free', 'Complimentary access uses the free key');
+  assert.equal(await tierOf(CH), 'free', "The founder's own account uses the free key");
+  assert.equal(await tierOf('son'), 'free', "A member of the founder's Book Club uses the free key");
+  assert.equal(await tierOf('payer'), 'paid', 'A paying reader uses the paid key');
+  assert.equal(await tierOf('preview'), 'paid', 'A reader still deciding at the preview uses the paid key');
+  assert.equal(await tierOf('guest'), 'paid', "Somebody else's Book Club uses the paid key");
+  assert.equal(keys.keyTierOfRequest(new Request('http://local')), 'paid', 'An unadmitted request defaults to the paid key');
+
   const auth = {currentUser:{uid:'u',getIdToken:async()=> 'token'}};
   let finish;
   const {aiFetch}=load('lib/ai-fetch.ts', {'./firebase/config':{auth}}, {fetch:()=>new Promise(r=>finish=r)});
@@ -85,6 +114,50 @@ module.exports = async function(load) {
   assert.equal(new Set(refunds).size,1,'Concurrent retries share the Stripe idempotency key');
   caller=null; assert.equal((await payments(refund('ch_ours'))).status,401);
   assert.equal(refunds.length,2);
+
+  // Demo links: each one is its own fresh complimentary account with a book cap.
+  {
+    const recs = new Map(); let failCommit = false; const deleted = []; let who = {uid:'admin',email:'admin'}; let n = 0;
+    const ref = path => ({path, id: path.split('/').pop(), get: async () => ({data: () => recs.get(path)})});
+    const linkDb = {
+      collection: c => ({doc: id => ref(c + '/' + id), orderBy: () => ({get: async () => ({docs: [...recs.keys()].filter(k => k.startsWith('accessLinks/')).map(k => ({id: k.split('/')[1], data: () => recs.get(k)}))})})}),
+      batch: () => { const w = []; return {set: (r, v) => w.push(() => recs.set(r.path, v)), update: (r, v) => w.push(() => recs.set(r.path, {...recs.get(r.path), ...v})), commit: async () => { if (failCommit) throw Error('write failed'); w.forEach(f => f()); }}; },
+    };
+    const {POST: links} = load('app/api/admin/links/route.ts', {'node:crypto': require('node:crypto'), 'next/server': {NextResponse: json}, 'firebase-admin/firestore': {FieldValue: {serverTimestamp: () => 'TS'}}, '@/lib/firebase/admin': {getAuthedUser: async () => who, getAdminDb: () => linkDb, getAdminAuth: () => ({createUser: async () => ({uid: 'new' + (++n)}), deleteUser: async uid => { deleted.push(uid); }})}, '@/lib/admin': {isAdminEmail: e => e === 'admin'}});
+    const make = body => ({json: async () => body});
+    const made = await links(make({action: 'create', label: '  Maya followers ', bookLimit: 3}));
+    assert.equal(made.status, 200);
+    const [token] = [...recs.keys()].filter(k => k.startsWith('accessLinks/')).map(k => k.split('/')[1]);
+    assert.ok(/^[A-Za-z0-9_-]{32}$/.test(token), 'The token is long, random and accepted by the redeem route');
+    const account = recs.get('users/new1');
+    assert.equal(account.accessOverride.active, true);
+    assert.equal(account.accessOverride.lifetimeGenerations, 3);
+    assert.equal(account.accessOverride.maxOpenBooks, 3);
+    assert.equal(account.accessOverride.label, 'Maya followers');
+    assert.equal(account.email, null);
+    assert.equal(account.plan, 'free');
+    assert.equal(recs.get('accessLinks/' + token).uid, 'new1');
+    assert.equal(made.body.links.length, 1);
+    assert.equal(made.body.links[0].bookLimit, 3);
+    await links(make({action: 'create', label: 'Second', bookLimit: 1}));
+    assert.ok(recs.has('users/new2'), 'Each link gets its own account, never a shared one');
+
+    for (const bad of [{label: '', bookLimit: 1}, {label: 'x'.repeat(61), bookLimit: 1}, {label: 'Ok', bookLimit: 0}, {label: 'Ok', bookLimit: 11}, {label: 'Ok', bookLimit: 1.5}, {label: 'Ok', bookLimit: null}, {label: 5, bookLimit: 1}]) {
+      assert.equal((await links(make({action: 'create', ...bad}))).status, 400);
+    }
+    assert.equal(n, 2, 'A rejected request never creates a sign-in');
+
+    failCommit = true;
+    assert.equal((await links(make({action: 'create', label: 'Broken', bookLimit: 1}))).status, 500);
+    assert.deepEqual(Array.from(deleted), ['new3'], 'A failed write removes the sign-in it just made');
+    failCommit = false;
+
+    who = {uid: 'someone', email: 'other'};
+    assert.equal((await links(make({action: 'create', label: 'Nope', bookLimit: 1}))).status, 403);
+    who = null;
+    assert.equal((await links(make({action: 'create', label: 'Nope', bookLimit: 1}))).status, 401);
+    assert.equal(n, 3);
+  }
 
   const deldb=database({'users/u':{stripeSubscriptionId:'sub_1'}});let authDeletes=0;
   const {deleteAccount}=load('lib/account-delete.ts', {'./account-lock':{withAccountLock:async(_uid,work)=>work()},'firebase-admin/firestore':{FieldValue:{}},'./stripe/server':{getStripe:()=>({subscriptions:{cancel:async()=>{throw Error('Stripe unavailable')}}})},'./firebase/admin':{getAdminDb:()=>deldb,getAdminAuth:()=>({deleteUser:async()=>authDeletes++})},'./family-server':{dissolveClub:async()=>{}}});
@@ -169,7 +242,7 @@ module.exports = async function(load) {
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Two completion paths count the book only once');
   await persistBackfill('u',{booksFinished:0,badges:[],streakCount:0,lastActivityDate:null});
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Stale backfill never lowers the finished count');
-  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice, first payment recorded once, refund undoes conversion.');
+  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice, first payment recorded once, refund undoes conversion, demo links get their own capped free account.');
   console.log('PASS: atomic shelf cap/idempotent save, output language bound to its generation ticket, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
-  console.log('PASS: concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
+  console.log('PASS: Gemini key chosen by who is asking, concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
 };

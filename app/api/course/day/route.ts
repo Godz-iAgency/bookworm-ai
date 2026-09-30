@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { dayInputFromBody, generateDayContent } from "@/lib/day-generation";
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing day details." }, { status: 400 });
     }
 
-    const content = await generateDayContent(input.ctx, input.day);
+    const content = await withAiKey(keyTierOfRequest(req), () => generateDayContent(input.ctx, input.day));
 
     const revoked = await guardAI(req, "study", false);
     if (revoked) return revoked;

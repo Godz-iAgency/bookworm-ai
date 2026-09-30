@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "@/lib/firebase/admin";
 import { generateDayContent } from "@/lib/day-generation";
+import { keyTierFor, withAiKey } from "@/lib/ai-keys";
 
 // Same work as /api/course/day: a full lesson, possible expansion, study aids.
 export const maxDuration = 300;
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
     const userRef = db.collection("users").doc(uid);
     const ticketRef = userRef.collection("generatedCourses").doc(generationId);
     let ticket: any;
+    let complimentary = false;
     try {
       await db.runTransaction(async (tx) => {
         const profile = (await tx.get(userRef)).data();
@@ -42,6 +44,7 @@ export async function POST(req: Request) {
         if (Number(t.firstDayAttempts ?? 0) >= MAX_ATTEMPTS) throw new Error("Day 1 will be written when you open your course.");
         tx.update(ticketRef, { firstDayAttempts: Number(t.firstDayAttempts ?? 0) + 1 });
         ticket = t;
+        complimentary = profile.accessOverride?.active === true;
       });
     } catch (e: any) {
       return NextResponse.json({ error: e.message || "Access unavailable." }, { status: 403 });
@@ -49,7 +52,7 @@ export async function POST(req: Request) {
 
     const days: any[] = ticket.outline.days;
     const first = days[0];
-    const content = await generateDayContent(
+    const content = await withAiKey(keyTierFor(uid, complimentary, null), () => generateDayContent(
       {
         title: ticket.title,
         author: ticket.author ?? "",
@@ -67,7 +70,7 @@ export async function POST(req: Request) {
         keyIdeas: first.keyIdeas ?? [],
         bookConnection: first.bookConnection || undefined,
       }
-    );
+    ));
 
     // Recheck before handing over a result that took minutes to write.
     const profile = (await userRef.get()).data();

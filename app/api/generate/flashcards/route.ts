@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     
     const systemPrompt = `Return a pure JSON array of objects. Keys must be exactly "front" (for the question) and "back" (for the answer). Do NOT wrap in markdown backticks.`;
 
-    const { text: rawResponse } = await generateContent(AI_TASKS.studyAids, prompt, systemPrompt, { json: true });
+    const { text: rawResponse } = await withAiKey(keyTierOfRequest(req), () => generateContent(AI_TASKS.studyAids, prompt, systemPrompt, { json: true }));
     const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
     const data = JSON.parse(cleanJson);
 

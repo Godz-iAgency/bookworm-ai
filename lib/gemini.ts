@@ -1,6 +1,7 @@
 import type { AiTask } from "./ai-models";
 import { providerSignal } from "./generation-budget";
 import { generateGroqContent, groqModelName } from "./groq";
+import { geminiKey } from "./ai-keys";
 
 /** An inline image attached to a Gemini call, base64-encoded with no data-URL prefix. */
 export interface GeminiImage {
@@ -37,9 +38,9 @@ function redact(text: string): string {
 
 /** Direct call to the task's Gemini model. Throws on any failure. */
 async function callGemini(task: AiTask, prompt: string, systemPrompt: string | undefined, opts: GenerateOptions): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const { key: apiKey, name: keyName } = geminiKey();
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured.");
+    throw new Error(`${keyName} is not configured.`);
   }
 
   // Image first, then the instruction, matching Gemini's own recommended

@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { validStudyAids } from "@/lib/course-validation";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
@@ -34,12 +35,12 @@ export async function POST(req: Request) {
       lesson
     );
 
-    const { data: parsed } = await generateJson(AI_TASKS.studyAids, user, system, {
+    const { data: parsed } = await withAiKey(keyTierOfRequest(req), () => generateJson(AI_TASKS.studyAids, user, system, {
       maxOutputTokens: 8192,
       budgetMs: 50_000,
       attempts: 3,
       validate: (value) => (validStudyAids(value) ? null : "Flashcard repair returned incomplete content."),
-    });
+    }));
 
     const flashcards = Array.isArray(parsed?.flashcards)
       ? parsed.flashcards

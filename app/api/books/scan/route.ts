@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
@@ -39,13 +40,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing image." }, { status: 400 });
     }
 
-    const { data: parsed } = await generateVisionJson(
+    const { data: parsed } = await withAiKey(keyTierOfRequest(req), () => generateVisionJson(
       AI_TASKS.coverScan,
       PROMPT,
       SYSTEM,
       { mimeType: typeof mimeType === "string" ? mimeType : "image/jpeg", data: imageBase64 },
       { maxOutputTokens: 1024, budgetMs: 55_000 }
-    );
+    ));
 
     if (parsed?.confident !== true || typeof parsed.title !== "string" || !parsed.title.trim()) {
       return NextResponse.json({ book: null });

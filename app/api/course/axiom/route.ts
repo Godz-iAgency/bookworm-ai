@@ -1,3 +1,4 @@
+import { withAiKey, keyTierOfRequest } from "@/lib/ai-keys";
 import { guardAI } from "@/lib/ai-guard";
 import { NextResponse } from "next/server";
 import { AI_TASKS } from "@/lib/ai-models";
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       lesson
     );
 
-    const { data: parsed } = await generateJson(AI_TASKS.axiom, user, system, {
+    const { data: parsed } = await withAiKey(keyTierOfRequest(req), () => generateJson(AI_TASKS.axiom, user, system, {
       maxOutputTokens: 1024,
       budgetMs: 55_000,
       attempts: 2,
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
           : scriptGlitches(p.closingAxiom).length
             ? "Axiom has a word in the wrong alphabet."
             : null,
-    });
+    }));
 
     const revoked = await guardAI(req, "study", false);
     if (revoked) return revoked;

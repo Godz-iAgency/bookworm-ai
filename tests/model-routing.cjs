@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Model routing, provider honesty, the lesson length floor and in-place
 // expansion, exercised against the real modules with the network faked.
@@ -62,7 +64,9 @@ module.exports = async function (load) {
   const capture = { error: (...a) => logs.push(a.join(' ')), warn: (...a) => logs.push(a.join(' ')), info() {}, log() {} };
   const globals = { fetch, process: { env: { GEMINI_API_KEY: 'k', GROQ_API_KEY: 'g' } }, AbortSignal, console: capture, setTimeout: (cb) => { cb(); return 0; } };
   const groq = load('lib/groq.ts', { './generation-budget': budget }, globals);
-  const gemini = load('lib/gemini.ts', { './generation-budget': budget, './groq': groq }, globals);
+  const adminLib = load('lib/admin.ts', {});
+  const keys = load('lib/ai-keys.ts', { 'node:async_hooks': require('node:async_hooks'), './admin': adminLib }, globals);
+  const gemini = load('lib/gemini.ts', { './generation-budget': budget, './groq': groq, './ai-keys': keys }, globals);
 
   const ok = await gemini.generateContent(T.lesson, 'p', 's', { maxOutputTokens: 100 });
   assert.deepEqual([ok.provider, ok.model, ok.text], ['gemini', 'gemini-3.5-flash-lite', 'answer'], 'Thought parts are not the answer');
@@ -104,6 +108,77 @@ module.exports = async function (load) {
   assert.equal(scan.reason, 'CONSUMER_SUSPENDED', "Google's own error reason is kept");
   assert.equal(calls.length, 1, 'A photo never falls back to text-only Groq');
   assert.ok(!logs.concat(scan.message, scan.detail).some((l) => /AIzaSyTEST|Ab8TEST|TESTTESTTEST/.test(l)), 'Neither key format reaches logs or errors');
+
+  // Two Gemini keys: the free one for the founder's accounts and demo links,
+  // the paid one for everyone else. A free-tier request never reaches the card.
+  {
+    const env = globals.process.env;
+    const used = () => Array.from(calls.filter((c) => c.url.includes('generativelanguage')).map((c) => /key=([^&]+)/.exec(c.url)[1]));
+    geminiFails = false;
+    env.GEMINI_API_KEY = 'free-key';
+    env.GEMINI_API_KEY_PAID = 'paid-key';
+
+    calls.length = 0;
+    await gemini.generateContent(T.chat, 'p', 's');
+    assert.deepEqual(used(), ['paid-key'], 'A request with no tier set is treated as a regular reader');
+    calls.length = 0;
+    await keys.withAiKey('paid', () => gemini.generateContent(T.chat, 'p', 's'));
+    assert.deepEqual(used(), ['paid-key']);
+    calls.length = 0;
+    await keys.withAiKey('free', () => gemini.generateContent(T.lesson, 'p', 's'));
+    assert.deepEqual(used(), ['free-key'], 'Complimentary accounts use the free key');
+    // The tier survives the awaits and retries inside a generation.
+    calls.length = 0;
+    busyFor = 1;
+    await keys.withAiKey('free', async () => { await Promise.resolve(); return gemini.generateContent(T.lesson, 'p', 's'); });
+    busyFor = 0;
+    assert.deepEqual(used(), ['free-key', 'free-key']);
+    // Two readers at once never swap keys.
+    calls.length = 0;
+    await Promise.all([
+      keys.withAiKey('free', () => gemini.generateContent(T.chat, 'p', 's')),
+      keys.withAiKey('paid', () => gemini.generateContent(T.chat, 'p', 's')),
+    ]);
+    assert.deepEqual(used().sort(), ['free-key', 'paid-key']);
+
+    // Until a paid key exists, regular readers keep working on the free one.
+    delete env.GEMINI_API_KEY_PAID;
+    calls.length = 0;
+    await keys.withAiKey('paid', () => gemini.generateContent(T.chat, 'p', 's'));
+    assert.deepEqual(used(), ['free-key']);
+    assert.ok(logs.some((l) => /GEMINI_API_KEY_PAID is not set/.test(l)), 'The missing paid key is called out in the log');
+
+    // A complimentary account never spends the card, even when its own key is gone.
+    env.GEMINI_API_KEY_PAID = 'paid-key';
+    delete env.GEMINI_API_KEY;
+    calls.length = 0;
+    const fromGroq = await keys.withAiKey('free', () => gemini.generateContent(T.chat, 'p', 's'));
+    assert.equal(fromGroq.provider, 'groq', 'Without its key, a free-tier request falls to Groq');
+    assert.equal(used().length, 0, 'The paid key is never used for a complimentary account');
+    env.GEMINI_API_KEY = 'k';
+    delete env.GEMINI_API_KEY_PAID;
+
+    const CH = adminLib.CHRISTOPHER_READER_UID;
+    assert.equal(keys.keyTierFor('someone', false, null), 'paid');
+    assert.equal(keys.keyTierFor('someone', true, null), 'free', 'A complimentary override');
+    assert.equal(keys.keyTierFor(CH, false, null), 'free', "The founder's own reading account");
+    assert.equal(keys.keyTierFor('son', false, CH), 'free', "A member of the founder's Book Club");
+    assert.equal(keys.keyTierFor('member', false, 'another-owner'), 'paid', "Somebody else's Book Club");
+    assert.equal(keys.keyTierFor('someone', false, undefined), 'paid');
+
+    // Every route that calls an AI model must say whose key pays for it.
+    const offenders = [];
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).forEach((e) => {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) return walk(full);
+      if (e.name !== 'route.ts') return;
+      const src = fs.readFileSync(full, 'utf8');
+      const callsAi = /from "@\/lib\/(gemini|generate|day-generation)"/.test(src) && /\bgenerate(Content|Json|Text|VisionJson|DayContent)\(/.test(src);
+      if (callsAi && !/withAiKey\(/.test(src)) offenders.push(path.relative(path.join(__dirname, '..'), full));
+    });
+    walk(path.join(__dirname, '..', 'app', 'api'));
+    assert.deepEqual(offenders, [], 'AI routes calling a model without choosing a key: ' + offenders.join(', '));
+  }
 
   // The length floor: headings and 24-hour actions do not count.
   assert.equal(valid.instructionalWordCount(mkLesson(3000)), 3000);

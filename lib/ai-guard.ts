@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminDb, getUidFromRequest } from "./firebase/admin";
 import { planFromId, TRIAL_GENERATION_CAP } from "./plans";
+import { aiKeyTiers, keyTierFor } from "./ai-keys";
 
 const requestBodies = new WeakMap<Request, any>();
 export const aiAdmissions = new WeakMap<Request, boolean>();
@@ -26,14 +27,19 @@ export async function guardAI(req: Request, kind: "course" | "study" | "chat" | 
       const p = (await tx.get(ref)).data();
       if (!p || p.accessOverride?.active === false || p.deletionPending) throw new Error("Access unavailable.");
       let family = false;
+      let clubOwnerId: string | null = null;
       if (p.familyId) {
         const f = (await tx.get(db.collection("families").doc(p.familyId))).data();
         family = f?.status === "active" && f?.memberIds?.includes(uid);
+        if (family) clubOwnerId = f?.ownerId ?? null;
       }
       const trial = p.trialStatus === "active" && Date.parse(p.trialEndsAt) > Date.now();
       const paid = ["page_turner", "well_read", "book_club"].includes(p.plan) && p.trialStatus !== "active" && (!p.subscriptionCancelAt || Date.parse(p.subscriptionCancelAt) > Date.now());
       const override = p.accessOverride?.active ? p.accessOverride : null;
       const access = !!override || trial || paid || family;
+      // Which Gemini key pays for this request (lib/ai-keys.ts). Set before the
+      // recheck early-return below so both calls agree.
+      aiKeyTiers.set(req, keyTierFor(uid, !!override, clubOwnerId));
       if (kind === "study" || kind === "chat") {
         if (typeof body.courseId !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(body.courseId)) throw new Error("Missing course.");
         let course = (await tx.get(ref.collection("courses").doc(body.courseId))).data();
