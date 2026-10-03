@@ -104,8 +104,10 @@ async function deleteLocked(uid: string, onlyIfRemoved: boolean): Promise<boolea
   }
 
   // ---- 4. Remove the profile, then the sign-in -------------------------
-  // Funnel milestones (lib/analytics-server.ts) go with the account.
+  // Funnel milestones (lib/analytics-server.ts) and, for a guest, the record of
+  // which link made it, go with the account.
   await db.collection("analyticsUsers").doc(uid).delete();
+  await db.collection("accessGuests").doc(uid).delete();
   await userRef.delete();
   try { await getAdminAuth().deleteUser(uid); } catch (error: any) { if (error.code !== "auth/user-not-found") throw error; }
   return true;

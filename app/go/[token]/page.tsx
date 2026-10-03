@@ -6,6 +6,7 @@ import { signInWithCustomToken } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { auth } from "@/lib/firebase/config";
+import { logout } from "@/lib/firebase/auth";
 
 /**
  * An access link opening itself.
@@ -20,6 +21,8 @@ export default function AccessLinkPage() {
   const params = useParams();
   const token = typeof params.token === "string" ? params.token : "";
   const [error, setError] = useState<string | null>(null);
+  // A guest whose free week is over.
+  const [ended, setEnded] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -30,12 +33,25 @@ export default function AccessLinkPage() {
 
     (async () => {
       try {
+        // Someone already signed in on this device sends their token, so a
+        // guest link can pick up the same guest instead of making a new one.
+        await auth.authStateReady();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (auth.currentUser) headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`;
         const res = await fetch("/api/access/redeem", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ token }),
         });
         const data = await res.json();
+        if (data.ended) {
+          setEnded(true);
+          return;
+        }
+        if (data.resume) {
+          router.replace("/dashboard");
+          return;
+        }
         if (!res.ok || !data.customToken) {
           setError(data.error || "This link isn't valid.");
           return;
@@ -52,7 +68,20 @@ export default function AccessLinkPage() {
   return (
     <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-[#0a0a0a] px-6 text-center text-white">
       <Logo variant="stacked" priority className="mb-8 w-40 opacity-90" />
-      {error ? (
+      {ended ? (
+        <>
+          <h1 className="mb-2 text-xl font-bold">Your free week has ended</h1>
+          <p className="mb-6 max-w-sm text-sm leading-relaxed text-white/60">
+            Thanks for trying Bookworm AI. Create an account to keep turning books into 7-day courses.
+          </p>
+          <button
+            onClick={() => logout().then(() => router.replace("/signup"))}
+            className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-6 py-3 text-sm font-bold text-white"
+          >
+            Create an account
+          </button>
+        </>
+      ) : error ? (
         <>
           <h1 className="mb-2 text-xl font-bold">{error}</h1>
           <p className="max-w-sm text-sm leading-relaxed text-white/60">

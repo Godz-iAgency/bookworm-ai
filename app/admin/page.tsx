@@ -104,7 +104,7 @@ export default function AdminPage() {
   const [switching, setSwitching] = useState(false);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [newLinkLabel, setNewLinkLabel] = useState("");
-  const [newLinkBooks, setNewLinkBooks] = useState(1);
+  const [newLinkPeople, setNewLinkPeople] = useState(50);
   const [creatingLink, setCreatingLink] = useState(false);
 
   const isAdmin = isAdminEmail(user?.email);
@@ -185,12 +185,12 @@ export default function AdminPage() {
     }
   };
 
-  // Each link is its own free account with its own book cap (see the API).
+  // A guest link: every visitor gets an account of their own with one book (see the API).
   const createLink = async () => {
     setCreatingLink(true);
     setError(null);
     const res = await postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", {
-      action: "create", label: newLinkLabel, bookLimit: newLinkBooks,
+      action: "create", label: newLinkLabel, maxGuests: newLinkPeople,
     });
     setCreatingLink(false);
     if (res.error) { setError(res.error); return; }
@@ -527,7 +527,7 @@ export default function AdminPage() {
                 <h2 className="text-sm font-bold uppercase tracking-wider text-white/60">Demo links</h2>
               </div>
               <p className="mb-4 text-xs text-white/45">
-                Anyone with one of these taps straight into the app. No signup, no card. Switch one off and it stops working immediately, including for anyone already signed in through it.
+                Anyone with one of these taps straight into the app. No signup, no card. Switch one off and it stops working immediately, including for anyone already signed in through it. The Book Club link is yours and stays as it is.
               </p>
 
               <form
@@ -535,23 +535,23 @@ export default function AdminPage() {
                 className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-white/10 bg-black/30 p-3"
               >
                 <label className="min-w-[160px] flex-1 text-[11px] font-semibold text-white/55">
-                  Who is it for?
+                  What is it for?
                   <input
                     value={newLinkLabel}
                     onChange={(e) => setNewLinkLabel(e.target.value)}
                     maxLength={60}
-                    placeholder="For example: Maya's followers"
+                    placeholder="For example: Partner outreach"
                     className="mt-1 w-full rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm font-normal text-white placeholder:text-white/30"
                   />
                 </label>
                 <label className="text-[11px] font-semibold text-white/55">
-                  Books it can write
+                  How many people
                   <select
-                    value={newLinkBooks}
-                    onChange={(e) => setNewLinkBooks(Number(e.target.value))}
+                    value={newLinkPeople}
+                    onChange={(e) => setNewLinkPeople(Number(e.target.value))}
                     className="mt-1 block rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm font-normal text-white"
                   >
-                    {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                    {[10, 25, 50, 100, 250].map((n) => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </label>
                 <button
@@ -559,12 +559,13 @@ export default function AdminPage() {
                   disabled={creatingLink || !newLinkLabel.trim()}
                   className="rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-4 py-2 text-xs font-bold text-white transition-transform hover:scale-[1.02] disabled:opacity-50"
                 >
-                  {creatingLink ? "Creating…" : "Create link"}
+                  {creatingLink ? "Creating…" : "Create guest link"}
                 </button>
                 <p className="w-full text-[11px] leading-relaxed text-white/40">
-                  Everyone who opens one link shares one account and its book total, so they also see each other&rsquo;s
-                  books. Make a separate link for each person or group you want kept apart. Links use the free AI key,
-                  never the paid one.
+                  Send it to anyone. Each person who opens it gets an account of their own with one book to write. Their
+                  week starts when they write it, and when the week is over the link has nothing left to give them. Guests
+                  use the free AI key, never the paid one, and they stay out of your paid-customer numbers. At most 15 new
+                  guests a day can use one link, to protect the free key.
                 </p>
               </form>
 
@@ -588,9 +589,11 @@ export default function AdminPage() {
                             {link.active ? "On" : "Off"}
                           </span>
                           <span className="ml-auto text-[11px] text-white/40">
-                            {link.bookLimit === null
-                              ? `${link.booksUsed} books · no limit`
-                              : `${link.booksUsed} / ${link.bookLimit} books used`}
+                            {link.kind === "guest"
+                              ? `${link.guestCount ?? 0} of ${link.maxGuests ?? 0} guests`
+                              : link.bookLimit === null
+                                ? `${link.booksUsed} books · no limit`
+                                : `${link.booksUsed} / ${link.bookLimit} books used`}
                             {" · "}
                             {link.useCount} {link.useCount === 1 ? "open" : "opens"}
                             {link.lastUsedAt ? ` · last ${shortDate(link.lastUsedAt)}` : ""}

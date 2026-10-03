@@ -51,6 +51,8 @@ export function activeOverride(
  */
 export interface AccessLink {
   token: string;
+  /** "account" signs in as one fixed account; "guest" gives each visitor their own. */
+  kind?: "account" | "guest";
   uid: string;
   label: string;
   active: boolean;
@@ -61,4 +63,20 @@ export interface AccessLink {
   email?: string | null;
   booksUsed?: number;
   bookLimit?: number | null;
+  /** Guest links: people who have opened it so far, and how many it may serve. */
+  guestCount?: number;
+  maxGuests?: number;
 }
+
+/** A guest link gives each visitor exactly this many books. */
+export const GUEST_LINK_BOOKS = 1;
+
+/**
+ * New guests one link may make per day. The free Gemini key (about 500
+ * requests a day, roughly 22 per book) also serves the founder's own reading,
+ * so an open link must not be able to spend all of it.
+ */
+export const GUEST_LINK_DAILY_LIMIT = 15;
+
+/** The most people a single guest link can ever be set to serve. */
+export const GUEST_LINK_MAX_GUESTS = 250;

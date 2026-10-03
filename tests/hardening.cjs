@@ -115,48 +115,125 @@ module.exports = async function(load) {
   caller=null; assert.equal((await payments(refund('ch_ours'))).status,401);
   assert.equal(refunds.length,2);
 
-  // Demo links: each one is its own fresh complimentary account with a book cap.
+  // Guest links: anyone who opens one gets their own account with one book.
   {
-    const recs = new Map(); let failCommit = false; const deleted = []; let who = {uid:'admin',email:'admin'}; let n = 0;
-    const ref = path => ({path, id: path.split('/').pop(), get: async () => ({data: () => recs.get(path)})});
-    const linkDb = {
-      collection: c => ({doc: id => ref(c + '/' + id), orderBy: () => ({get: async () => ({docs: [...recs.keys()].filter(k => k.startsWith('accessLinks/')).map(k => ({id: k.split('/')[1], data: () => recs.get(k)}))})})}),
-      batch: () => { const w = []; return {set: (r, v) => w.push(() => recs.set(r.path, v)), update: (r, v) => w.push(() => recs.set(r.path, {...recs.get(r.path), ...v})), commit: async () => { if (failCommit) throw Error('write failed'); w.forEach(f => f()); }}; },
-    };
-    const {POST: links} = load('app/api/admin/links/route.ts', {'node:crypto': require('node:crypto'), 'next/server': {NextResponse: json}, 'firebase-admin/firestore': {FieldValue: {serverTimestamp: () => 'TS'}}, '@/lib/firebase/admin': {getAuthedUser: async () => who, getAdminDb: () => linkDb, getAdminAuth: () => ({createUser: async () => ({uid: 'new' + (++n)}), deleteUser: async uid => { deleted.push(uid); }})}, '@/lib/admin': {isAdminEmail: e => e === 'admin'}});
-    const make = body => ({json: async () => body});
-    const made = await links(make({action: 'create', label: '  Maya followers ', bookLimit: 3}));
-    assert.equal(made.status, 200);
-    const [token] = [...recs.keys()].filter(k => k.startsWith('accessLinks/')).map(k => k.split('/')[1]);
-    assert.ok(/^[A-Za-z0-9_-]{32}$/.test(token), 'The token is long, random and accepted by the redeem route');
-    const account = recs.get('users/new1');
-    assert.equal(account.accessOverride.active, true);
-    assert.equal(account.accessOverride.lifetimeGenerations, 3);
-    assert.equal(account.accessOverride.maxOpenBooks, 3);
-    assert.equal(account.accessOverride.label, 'Maya followers');
-    assert.equal(account.email, null);
-    assert.equal(account.plan, 'free');
-    assert.equal(recs.get('accessLinks/' + token).uid, 'new1');
-    assert.equal(made.body.links.length, 1);
-    assert.equal(made.body.links[0].bookLimit, 3);
-    await links(make({action: 'create', label: 'Second', bookLimit: 1}));
-    assert.ok(recs.has('users/new2'), 'Each link gets its own account, never a shared one');
+    const access = load('lib/access.ts', {});
+    const TOKEN = 'guesttokenguesttoken1';
+    const today = new Date().toISOString().slice(0, 10);
+    const gdb = database({
+      ['accessLinks/' + TOKEN]: {kind: 'guest', label: 'Partner outreach', active: true, useCount: 0, guestCount: 0, maxGuests: 2, dailyDate: null, dailyCount: 0},
+      'accessLinks/bookclubtokenbookclub1': {uid: 'club', label: 'Book Club', active: true, useCount: 0},
+      'users/club': {accessOverride: {active: true, lifetimeGenerations: null, maxOpenBooks: 5}},
+    });
+    let caller = null; let created = 0; let failCreate = false; const deleted = [];
+    const fieldValue = {serverTimestamp: () => 'TS', increment: n => ({increment: n})};
+    const {POST: redeem} = load('app/api/access/redeem/route.ts', {'next/server': {NextResponse: json}, 'firebase-admin/firestore': {FieldValue: fieldValue}, '@/lib/access': access,
+      '@/lib/firebase/admin': {getAdminDb: () => gdb, getAuthedUser: async () => caller, getAdminAuth: () => ({
+        createUser: async () => { if (failCreate) throw Error('auth down'); return {uid: 'guest' + (++created)}; },
+        createCustomToken: async uid => 'token-for-' + uid,
+        deleteUser: async uid => { deleted.push(uid); }})}});
+    const open = (tok = TOKEN) => redeem({json: async () => ({token: tok})});
 
-    for (const bad of [{label: '', bookLimit: 1}, {label: 'x'.repeat(61), bookLimit: 1}, {label: 'Ok', bookLimit: 0}, {label: 'Ok', bookLimit: 11}, {label: 'Ok', bookLimit: 1.5}, {label: 'Ok', bookLimit: null}, {label: 5, bookLimit: 1}]) {
+    const first = await open();
+    assert.equal(first.status, 200);
+    assert.equal(first.body.customToken, 'token-for-guest1');
+    const guest1 = gdb.records.get('users/guest1');
+    assert.equal(guest1.accessOverride.active, true);
+    assert.equal(guest1.accessOverride.lifetimeGenerations, 1, 'A guest gets exactly one book');
+    assert.equal(guest1.accessOverride.maxOpenBooks, 1);
+    assert.equal(guest1.accessOverride.label, 'Partner outreach');
+    assert.equal(guest1.email, null);
+    assert.equal(guest1.plan, 'free');
+    assert.equal(gdb.records.get('accessGuests/guest1').token, TOKEN, 'The guest is tied to the link that made it');
+    assert.equal(gdb.records.get('accessLinks/' + TOKEN).guestCount, 1);
+
+    const second = await open();
+    assert.equal(second.body.customToken, 'token-for-guest2', 'Each visitor gets an account of their own');
+    const full = await open();
+    assert.equal(full.status, 429, 'A link stops at its limit');
+    assert.ok(/reached its limit/.test(full.body.error));
+    assert.equal(created, 2, 'A full link creates nothing');
+    assert.equal(gdb.records.get('accessLinks/' + TOKEN).guestCount, 2);
+
+    // Coming back on the same device picks the same guest up again.
+    caller = {uid: 'guest1', email: null};
+    const back = await open();
+    assert.deepEqual({...back.body}, {resume: true});
+    assert.equal(created, 2, 'Returning never makes a second guest');
+    // ...until the one book is written and its week is over.
+    gdb.records.get('users/guest1').generationsThisMonth = 1;
+    gdb.records.set('users/guest1/courses/c1', {expiresAt: new Date(Date.now() + 3 * 86400000).toISOString()});
+    assert.deepEqual({...(await open()).body}, {resume: true}, 'Mid-week the guest keeps reading');
+    gdb.records.set('users/guest1/courses/c1', {expiresAt: new Date(Date.now() - 1000).toISOString()});
+    assert.deepEqual({...(await open()).body}, {ended: true}, 'After the week the link has nothing left to give');
+    // A real account is never swapped for a guest.
+    caller = {uid: 'someone-real', email: 'real@example.com'};
+    assert.equal((await open()).status, 409);
+    caller = null;
+
+    // Daily cap, and the day rolling over.
+    gdb.records.set('accessLinks/busytokenbusytoken12', {kind: 'guest', label: 'Busy', active: true, useCount: 0, guestCount: 5, maxGuests: 100, dailyDate: today, dailyCount: access.GUEST_LINK_DAILY_LIMIT});
+    const busy = await open('busytokenbusytoken12');
+    assert.equal(busy.status, 429);
+    assert.ok(/tomorrow/.test(busy.body.error));
+    gdb.records.get('accessLinks/busytokenbusytoken12').dailyDate = '2000-01-01';
+    assert.equal((await open('busytokenbusytoken12')).status, 200, 'A new day starts the count again');
+    assert.equal(gdb.records.get('accessLinks/busytokenbusytoken12').dailyCount, 1);
+
+    // A failed sign-up gives the place back and leaves nothing behind.
+    gdb.records.set('accessLinks/failtokenfailtoken123', {kind: 'guest', label: 'Fail', active: true, useCount: 0, guestCount: 0, maxGuests: 5, dailyDate: null, dailyCount: 0});
+    failCreate = true;
+    assert.equal((await open('failtokenfailtoken123')).status, 500);
+    failCreate = false;
+    assert.equal(gdb.records.get('accessLinks/failtokenfailtoken123').guestCount, 0, 'The place is returned');
+
+    // Off means off, for guests and for the Book Club link alike.
+    gdb.records.get('accessLinks/' + TOKEN).active = false;
+    assert.equal((await open()).status, 403);
+    const club = await open('bookclubtokenbookclub1');
+    assert.equal(club.body.customToken, 'token-for-club', 'The Book Club link still signs in as its own account');
+    assert.equal((await open('nopenopenopenopenope')).status, 404);
+
+    // The admin side: create, list, and switch a whole link (and its guests) off.
+    let who = {uid: 'admin', email: 'admin'};
+    const batches = [];
+    const adb = {
+      collection: c => ({
+        doc: id => ({path: c + '/' + id, id, get: async () => ({exists: gdb.records.has(c + '/' + id), data: () => gdb.records.get(c + '/' + id)}), set: async v => { gdb.records.set(c + '/' + id, v); }}),
+        orderBy: () => ({get: async () => ({docs: [...gdb.records.keys()].filter(k => k.startsWith('accessLinks/')).map(k => ({id: k.split('/')[1], data: () => gdb.records.get(k)}))})}),
+        where: (_f, _o, v) => ({get: async () => ({docs: [...gdb.records.keys()].filter(k => k.startsWith('accessGuests/') && gdb.records.get(k).token === v).map(k => ({id: k.split('/')[1]}))})}),
+      }),
+      batch: () => { const w = []; return {update: (r, v) => w.push(() => { const cur = gdb.records.get(r.path) || {}; gdb.records.set(r.path, {...cur, ...v}); }), commit: async () => { w.forEach(f => f()); }}; },
+    };
+    const {POST: links} = load('app/api/admin/links/route.ts', {'node:crypto': require('node:crypto'), 'next/server': {NextResponse: json}, '@/lib/firebase/admin': {getAuthedUser: async () => who, getAdminDb: () => adb}, '@/lib/admin': {isAdminEmail: e => e === 'admin'}, '@/lib/access': access});
+    const make = body => ({json: async () => body});
+    const made = await links(make({action: 'create', label: '  Podcast outreach ', maxGuests: 25}));
+    assert.equal(made.status, 200);
+    const created2 = made.body.links.find(l => l.label === 'Podcast outreach');
+    assert.ok(/^[A-Za-z0-9_-]{32}$/.test(created2.token), 'The token is long, random and accepted by the redeem route');
+    assert.equal(created2.kind, 'guest');
+    assert.equal(created2.maxGuests, 25);
+    assert.equal(created2.guestCount, 0);
+    assert.equal(gdb.records.get('accessLinks/' + created2.token).active, true);
+    assert.ok(made.body.links.some(l => l.kind === 'account' && l.uid === 'club'), 'The Book Club link is listed unchanged');
+    for (const bad of [{label: '', maxGuests: 10}, {label: 'x'.repeat(61), maxGuests: 10}, {label: 'Ok', maxGuests: 0}, {label: 'Ok', maxGuests: access.GUEST_LINK_MAX_GUESTS + 1}, {label: 'Ok', maxGuests: 2.5}, {label: 'Ok', maxGuests: null}, {label: 5, maxGuests: 10}]) {
       assert.equal((await links(make({action: 'create', ...bad}))).status, 400);
     }
-    assert.equal(n, 2, 'A rejected request never creates a sign-in');
-
-    failCommit = true;
-    assert.equal((await links(make({action: 'create', label: 'Broken', bookLimit: 1}))).status, 500);
-    assert.deepEqual(Array.from(deleted), ['new3'], 'A failed write removes the sign-in it just made');
-    failCommit = false;
-
+    // Switching a guest link off locks out the people already signed in through it.
+    gdb.records.get('accessLinks/' + TOKEN).active = true;
+    gdb.records.set('users/guest1', {accessOverride: {active: true}});
+    gdb.records.set('users/guest2', {accessOverride: {active: true}});
+    gdb.records.set('accessGuests/guest3', {token: 'a-different-link'});
+    gdb.records.set('users/guest3', {accessOverride: {active: true}});
+    assert.equal((await links(make({action: 'toggle', token: TOKEN, active: false}))).status, 200);
+    assert.equal(gdb.records.get('accessLinks/' + TOKEN).active, false);
+    assert.equal(gdb.records.get('users/guest1')['accessOverride.active'], false);
+    assert.equal(gdb.records.get('users/guest2')['accessOverride.active'], false);
+    assert.equal(gdb.records.get('users/guest3').accessOverride.active, true, 'Only that link\'s guests are affected');
     who = {uid: 'someone', email: 'other'};
-    assert.equal((await links(make({action: 'create', label: 'Nope', bookLimit: 1}))).status, 403);
+    assert.equal((await links(make({action: 'create', label: 'Nope', maxGuests: 10}))).status, 403);
     who = null;
-    assert.equal((await links(make({action: 'create', label: 'Nope', bookLimit: 1}))).status, 401);
-    assert.equal(n, 3);
+    assert.equal((await links(make({action: 'list'}))).status, 401);
   }
 
   const deldb=database({'users/u':{stripeSubscriptionId:'sub_1'}});let authDeletes=0;
@@ -242,7 +319,7 @@ module.exports = async function(load) {
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Two completion paths count the book only once');
   await persistBackfill('u',{booksFinished:0,badges:[],streakCount:0,lastActivityDate:null});
   assert.equal(progressdb.records.get('users/u').booksFinished,1,'Stale backfill never lowers the finished count');
-  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice, first payment recorded once, refund undoes conversion, demo links get their own capped free account.');
+  console.log('PASS: duplicate completion, stale backfill, protected scheduled deletion, old-period invoice, first payment recorded once, refund undoes conversion, guest links give each visitor one book, with daily and total caps.');
   console.log('PASS: atomic shelf cap/idempotent save, output language bound to its generation ticket, share resolves without copying, withdrawal blocks reopening, webhook replay and out-of-order period protection.');
   console.log('PASS: Gemini key chosen by who is asking, concurrent AI quota, revoked access, stale family denial, live-shared-book chat/generation gating, account switch, refund ownership/idempotency/auth, schema validation, cancellation-before-deletion.');
 };

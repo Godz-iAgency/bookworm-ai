@@ -1,25 +1,22 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { getAdminAuth, getAdminDb, getAuthedUser } from "@/lib/firebase/admin";
+import { getAdminDb, getAuthedUser } from "@/lib/firebase/admin";
 import { isAdminEmail } from "@/lib/admin";
-import type { AccessLink } from "@/lib/access";
+import { GUEST_LINK_MAX_GUESTS, type AccessLink } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
-
-/** Every link is a free ride on the free Gemini key, so a link cannot be given unlimited books. */
-const MAX_LINK_BOOKS = 10;
 
 /**
  * The demo links, and their on/off switches.
  *
- * `action: "list"` reads them; `action: "create"` makes a new one;
- * `action: "toggle"` flips one. Turning a link off
- * does two things in one write, because a link and the free access behind it
- * are separate doors into the same room: the link stops redeeming, AND the
- * account's own override goes inactive, so a session already signed in loses
- * access the next time anything checks - rather than the holder keeping the
- * run of the app until they happen to log out.
+ * `action: "list"` reads them; `action: "create"` makes a guest link;
+ * `action: "toggle"` flips one.
+ *
+ * Two kinds exist. The Book Club link signs in as one fixed account (its
+ * toggle flips that account's access too). A guest link gives each visitor an
+ * account of their own with one book (see /api/access/redeem); its toggle
+ * flips every guest it has made, so turning a link off also locks out the
+ * people already signed in through it, not just the next visitor.
  */
 export async function POST(req: Request) {
   try {
@@ -32,67 +29,29 @@ export async function POST(req: Request) {
     }
 
     const db = getAdminDb();
-    const { action, token, active, label, bookLimit } = await req.json().catch(() => ({ action: "list" }));
+    const { action, token, active, label, maxGuests } = await req.json().catch(() => ({ action: "list" }));
 
     if (action === "create") {
       const name = typeof label === "string" ? label.trim() : "";
       if (!name || name.length > 60) {
         return NextResponse.json({ error: "Give the link a name of 60 characters or fewer." }, { status: 400 });
       }
-      const limit = Number(bookLimit);
-      if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LINK_BOOKS) {
-        return NextResponse.json({ error: `Choose between 1 and ${MAX_LINK_BOOKS} books.` }, { status: 400 });
+      const limit = Number(maxGuests);
+      if (!Number.isInteger(limit) || limit < 1 || limit > GUEST_LINK_MAX_GUESTS) {
+        return NextResponse.json({ error: `Choose between 1 and ${GUEST_LINK_MAX_GUESTS} people.` }, { status: 400 });
       }
-
-      // A link opens ONE shared account, so each link gets its own fresh one:
-      // no email and no password, a complimentary override that caps how many
-      // books it can ever write, and nothing of anyone else's on its shelf.
-      // Being complimentary is also what puts it on the free Gemini key
-      // (lib/ai-keys.ts), so sharing a link can never run up the paid bill.
-      const auth = getAdminAuth();
-      const created = await auth.createUser({ displayName: name });
-      try {
-        const newToken = randomBytes(24).toString("base64url");
-        const batch = db.batch();
-        batch.set(db.collection("users").doc(created.uid), {
-          email: null,
-          displayName: name,
-          photoURL: null,
-          authProvider: "access-link",
-          createdAt: FieldValue.serverTimestamp(),
-          readingLevel: null,
-          preferredLanguage: "en",
-          genrePreferences: [],
-          plan: "free",
-          trialStatus: null,
-          trialStartedAt: null,
-          trialEndsAt: null,
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-          stripePaymentMethodId: null,
-          generationsThisMonth: 0,
-          monthResetAt: null,
-          showTrialEndWarning: false,
-          reminderEmailSentAt: null,
-          notificationTime: null,
-          familyId: null,
-          isFamilyOwner: false,
-          accessOverride: { label: name, lifetimeGenerations: limit, maxOpenBooks: limit, active: true },
-        });
-        batch.set(db.collection("accessLinks").doc(newToken), {
-          uid: created.uid,
-          label: name,
-          active: true,
-          createdAt: new Date().toISOString(),
-          lastUsedAt: null,
-          useCount: 0,
-        });
-        await batch.commit();
-      } catch (e) {
-        // Never leave a sign-in behind with nothing attached to it.
-        await auth.deleteUser(created.uid).catch(() => {});
-        throw e;
-      }
+      await db.collection("accessLinks").doc(randomBytes(24).toString("base64url")).set({
+        kind: "guest",
+        label: name,
+        active: true,
+        createdAt: new Date().toISOString(),
+        lastUsedAt: null,
+        useCount: 0,
+        guestCount: 0,
+        maxGuests: limit,
+        dailyDate: null,
+        dailyCount: 0,
+      });
     }
 
     if (action === "toggle") {
@@ -104,9 +63,15 @@ export async function POST(req: Request) {
       if (!linkSnap.exists) {
         return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
       }
+      const link = linkSnap.data()!;
       const batch = db.batch();
       batch.update(linkRef, { active });
-      batch.update(db.collection("users").doc(linkSnap.data()!.uid), { "accessOverride.active": active });
+      if (link.kind === "guest") {
+        const guests = await db.collection("accessGuests").where("token", "==", token).get();
+        for (const g of guests.docs) batch.update(db.collection("users").doc(g.id), { "accessOverride.active": active });
+      } else {
+        batch.update(db.collection("users").doc(link.uid), { "accessOverride.active": active });
+      }
       await batch.commit();
     }
 
@@ -114,10 +79,26 @@ export async function POST(req: Request) {
     const links: AccessLink[] = [];
     for (const doc of snap.docs) {
       const d = doc.data();
+      if (d.kind === "guest") {
+        links.push({
+          token: doc.id,
+          kind: "guest",
+          uid: "",
+          label: d.label ?? "Guest link",
+          active: !!d.active,
+          createdAt: d.createdAt ?? "",
+          lastUsedAt: d.lastUsedAt ?? null,
+          useCount: d.useCount ?? 0,
+          guestCount: Number(d.guestCount ?? 0),
+          maxGuests: Number(d.maxGuests ?? 0),
+        });
+        continue;
+      }
       const user = await db.collection("users").doc(d.uid).get();
       const profile = user.data();
       links.push({
         token: doc.id,
+        kind: "account",
         uid: d.uid,
         label: d.label ?? "Access link",
         active: !!d.active,
