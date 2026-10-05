@@ -9,7 +9,7 @@ import {
 } from "./course-prompts";
 import { MIN_LESSON_WORDS, instructionalWordCount, lessonStructureProblem, validLesson, validStudyAids } from "./course-validation";
 import { generateJson, generateText, type Generated } from "./generate";
-import { scriptGlitches, stripEmDashes, stripScriptGlitches } from "./lesson";
+import { scriptGlitches, spellingProblem, stripEmDashes, stripScriptGlitches } from "./lesson";
 
 /** Everything one day needs, and which model produced each part. */
 export interface DayContent {
@@ -202,7 +202,9 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
     maxOutputTokens: 32768,
     budgetMs: LESSON_BUDGET_MS,
     attempts: 2,
-    validate: (lesson: string) => lessonStructureProblem(lesson),
+    // Broken French or Spanish spelling counts as a bad answer, so it is
+    // written again (and by the backup model, if the first one keeps failing).
+    validate: (lesson: string) => lessonStructureProblem(lesson) ?? spellingProblem(lesson, ctx.language),
   });
   let lesson = stripEmDashes(written.data);
   let wordCount = instructionalWordCount(lesson);
@@ -229,7 +231,7 @@ export async function generateDayContent(ctx: CourseContext, day: DayPlan): Prom
       });
       const merged = stripEmDashes(mergeAdditions(lesson, added.data.additions, gap + 100));
       // Merging must never break what made the lesson valid in the first place.
-      if (lessonStructureProblem(merged)) break;
+      if (lessonStructureProblem(merged) || spellingProblem(merged, ctx.language)) break;
       lesson = merged;
       wordCount = instructionalWordCount(lesson);
       expansion = label(added);

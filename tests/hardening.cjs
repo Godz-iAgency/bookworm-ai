@@ -277,6 +277,47 @@ module.exports = async function(load) {
     assert.equal(cdb.records.get('users/travis').generationsThisMonth, 0);
   }
 
+  {
+    // French or Spanish that lost its accents and apostrophes is a bad lesson, not a finished one.
+    const {spellingProblem} = load('lib/lesson.ts', {});
+    const fr = "Aujourd'hui, nous allons voir pourquoi l'identité compte plus que les résultats. C'est déjà là, à côté de vous, et ça change très vite. ";
+    const frBroken = 'Aujourd hui nous allons voir pourquoi l identite compte plus que les resultats. C est deja la a cote de vous et ca change tres vite. ';
+    const es = 'Hoy aprenderás por qué los hábitos pequeños cambian tu identidad. ¿Cómo empezar? Con un sistema diario, una acción mínima y mucha paciencia. ';
+    const esBroken = 'Hoy aprenderas por que los habitos pequenos cambian tu identidad. Como empezar? Con un sistema diario, una accion minima y mucha paciencia. ';
+    const long = s => s.repeat(40);
+    assert.equal(spellingProblem(long(fr), 'fr'), null, 'Real French passes');
+    assert.ok(spellingProblem(long(frBroken), 'fr'), 'French without accents or apostrophes is rejected');
+    assert.ok(spellingProblem(long(fr.replace(/['’]/g, ' ')), 'fr'), 'French without apostrophes alone is rejected');
+    assert.equal(spellingProblem(long(es), 'es'), null, 'Real Spanish passes');
+    assert.ok(spellingProblem(long(esBroken), 'es'), 'Spanish without accents is rejected');
+    assert.equal(spellingProblem(long(esBroken), 'en'), null, 'English is never judged on accents');
+    assert.equal(spellingProblem(frBroken, 'fr'), null, 'A short text says too little to judge');
+  }
+
+  {
+    // A search answers with the English edition, not the translation Google ranked first.
+    const {pickVolume, cleanDescription} = load('lib/google-books.ts', {});
+    assert.equal(cleanDescription('***COMING SOON - PREORDER NOW*** The <b>phenomenal</b> bestseller.'), 'The phenomenal bestseller.');
+    assert.equal(cleanDescription(undefined), 'No description available.');
+    assert.equal(cleanDescription('   '), 'No description available.');
+    assert.equal(cleanDescription('word '.repeat(60)).length, 152, 'Long blurbs are cut near 150 characters with an ellipsis');
+    const v = (title, language, ...authors) => ({volumeInfo: {title, language, authors}});
+    const tamil = v('Atomic Habits (Tamil)', 'ta', 'James Clear');
+    const english = v('Atomic Habits', 'en', 'James Clear');
+    const Q = 'Atomic Habits James Clear';
+    assert.equal(pickVolume([tamil, v('Habit Stacking', 'en', 'S.J. Scott'), english], Q), english, 'The English edition beats a translation');
+    assert.equal(pickVolume([english, tamil], Q), english, 'An English first result stays first');
+    assert.equal(pickVolume([tamil, v('The Atomic Habits Workbook', 'en', 'James Clear'), english], Q), english, 'A companion book by the same author is not the book asked for');
+    const tamilScript = v('அணு பழக்கங்கள்', 'ta', 'ஜேம்ஸ் க்ளியர்');
+    assert.equal(pickVolume([tamilScript, english], Q), english, 'An author in another script: the title decides');
+    const spanish = v('Hábitos atómicos', 'es', 'James Clear');
+    assert.equal(pickVolume([spanish, english], 'Hábitos atómicos'), spanish, 'A title typed in Spanish keeps the Spanish edition');
+    const cien = v('Cien años de soledad', 'es', 'Gabriel García Márquez');
+    assert.equal(pickVolume([cien, v('Love in the Time of Cholera', 'en', 'Gabriel Garcia Marquez')], 'Cien años de soledad'), cien, 'Same author alone never swaps in a different book');
+    assert.equal(pickVolume([spanish, v('Habit Stacking', 'en', 'S.J. Scott')], 'Habit Stacking Habitos'), spanish, "Another author's English book never replaces the match");
+    assert.equal(pickVolume([spanish, tamil], Q), spanish, "No English edition: Google's first answer stands");
+  }
+
   const deldb=database({'users/u':{stripeSubscriptionId:'sub_1'}});let authDeletes=0;
   const {deleteAccount}=load('lib/account-delete.ts', {'./account-lock':{withAccountLock:async(_uid,work)=>work()},'firebase-admin/firestore':{FieldValue:{}},'./stripe/server':{getStripe:()=>({subscriptions:{cancel:async()=>{throw Error('Stripe unavailable')}}})},'./firebase/admin':{getAdminDb:()=>deldb,getAdminAuth:()=>({deleteUser:async()=>authDeletes++})},'./family-server':{dissolveClub:async()=>{}}});
   await assert.rejects(deleteAccount('u'),/Stripe unavailable/);

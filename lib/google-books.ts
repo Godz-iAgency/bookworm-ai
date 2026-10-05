@@ -56,6 +56,21 @@ export function volumesUrl(query: string, maxResults = 1): string {
   return apiKey ? `${base}&key=${apiKey}` : base;
 }
 
+/**
+ * The short blurb for the confirmation card. Google's descriptions often open
+ * with a publisher's promo wrapped in asterisks ("***COMING SOON ...***") and
+ * carry stray HTML tags; neither belongs on a card a reader is meant to trust.
+ */
+export function cleanDescription(raw: string | undefined): string {
+  const text = (raw ?? "")
+    .replace(/\*{2,}[^*]*\*{2,}/g, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "No description available.";
+  return text.length > 150 ? text.substring(0, 150).trimEnd() + "..." : text;
+}
+
 /** Google serves thumbnails over plain http, which a https page will block. */
 export function normalizeCover(url: string | undefined): string | null {
   return url ? url.replace("http:", "https:") : null;
@@ -82,6 +97,41 @@ const STOP_WORDS = new Set([
   "the", "a", "an", "of", "and", "or", "to", "in", "on", "for",
   "is", "how", "why", "your", "you", "it", "at", "be", "with",
 ]);
+
+/**
+ * Which of Google's results to show the reader.
+ *
+ * Google ranks by relevance, not language, so a search for "Atomic Habits James
+ * Clear" can answer with the Tamil edition (title, blurb and all) while the
+ * English one sits a few places down. The app's books are identified by their
+ * English title and author, and the lessons are written in the reader's own
+ * language separately, so a translation as the top card is just a wrong card.
+ *
+ * If the first result is not English, an English result wins only when it is
+ * plainly the same book: every distinctive word of its title is in what the
+ * reader searched for, and it has the same first author (unless the
+ * translation spells the author in another script, which cannot be compared).
+ * Same author alone is not enough: searching "Cien años de soledad" must not
+ * turn into a different García Márquez novel. Anything else keeps Google's
+ * first answer, including a title typed in another language.
+ */
+export function pickVolume<T extends { volumeInfo?: { title?: string; language?: string; authors?: string[] } }>(
+  items: T[],
+  query: string,
+): T {
+  const first = items[0];
+  if (first.volumeInfo?.language === "en") return first;
+  const author = normalizeTitle(first.volumeInfo?.authors?.[0] ?? "");
+  const asked = new Set(normalizeTitle(query).split(" "));
+  const sameBook = (item: T) => {
+    const words = normalizeTitle((item.volumeInfo?.title ?? "").split(/[:：]/)[0])
+      .split(" ")
+      .filter((w) => w && !STOP_WORDS.has(w));
+    if (!words.length || !words.every((w) => asked.has(w))) return false;
+    return !author || normalizeTitle(item.volumeInfo?.authors?.[0] ?? "") === author;
+  };
+  return items.find((item) => item.volumeInfo?.language === "en" && sameBook(item)) ?? first;
+}
 
 /**
  * Is the volume Google returned actually the book that was asked for?

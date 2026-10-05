@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchWithRetry, volumesUrl, normalizeCover } from "@/lib/google-books";
+import { fetchWithRetry, volumesUrl, normalizeCover, pickVolume, cleanDescription } from "@/lib/google-books";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q");
@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
 
   let res: Response;
   try {
-    res = await fetchWithRetry(volumesUrl(q));
+    // Ten results, not one: pickVolume prefers the English edition over a translation.
+    res = await fetchWithRetry(volumesUrl(q, 10));
   } catch (err: any) {
     console.error("Google Books search failed after retries:", err?.message);
     return NextResponse.json({ error: "Google Books request failed" }, { status: 502 });
@@ -27,13 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ book: null });
   }
 
-  const v = data.items[0].volumeInfo;
+  const v = pickVolume<any>(data.items, q).volumeInfo;
   return NextResponse.json({
     book: {
       title: v.title || "Unknown Title",
       author: v.authors?.[0] || "Unknown Author",
       coverUrl: normalizeCover(v.imageLinks?.thumbnail) || "",
-      description: v.description ? v.description.substring(0, 150) + "..." : "No description available.",
+      description: cleanDescription(v.description),
     },
   });
 }

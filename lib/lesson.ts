@@ -28,6 +28,31 @@ export function stripEmDashes(text: string): string {
 }
 
 /**
+ * French or Spanish written without its accents or apostrophes ("s accumulent",
+ * "Aujourd hui", "resultats"). A model sometimes produces this; the words are
+ * all there, so it passes every other check, but a native reader sees broken
+ * spelling on every line.
+ *
+ * Judged on the whole text and deliberately loose, so ordinary lessons never
+ * trip it: real French elides constantly (l', d', qu', n', s') and carries an
+ * accent on roughly one letter in thirty; real Spanish on about one in fifty.
+ * A short text says too little to judge and always passes.
+ */
+export function spellingProblem(text: string, language: string): string | null {
+  if (language !== "fr" && language !== "es") return null;
+  const letters = (text.match(/\p{L}/gu) ?? []).length;
+  if (letters < 2000) return null;
+  const accented = (text.normalize("NFC").match(/[à-öø-ÿÀ-ÖØ-ß]/g) ?? []).length;
+  if (language === "fr") {
+    const apostrophes = (text.match(/\p{L}['’]\p{L}/gu) ?? []).length;
+    if (apostrophes === 0 || accented / letters < 0.01) return "French came back without its accents or apostrophes.";
+  } else if (accented / letters < 0.006) {
+    return "Spanish came back without its accents.";
+  }
+  return null;
+}
+
+/**
  * Words that mix the Latin alphabet with another one, like "well-ведении":
  * a model glitch where one word slips into a different alphabet halfway
  * through. A real word never does that, so any hit is corruption. A word
