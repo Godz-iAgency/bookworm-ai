@@ -230,7 +230,20 @@ module.exports = async function(load) {
     assert.equal(gdb.records.get('users/guest1')['accessOverride.active'], false);
     assert.equal(gdb.records.get('users/guest2')['accessOverride.active'], false);
     assert.equal(gdb.records.get('users/guest3').accessOverride.active, true, 'Only that link\'s guests are affected');
+    // Renaming keeps the URL and renames the plan its readers already see.
+    assert.equal((await links(make({action: 'rename', token: TOKEN, label: ' Guest Pass '}))).status, 200);
+    assert.equal(gdb.records.get('accessLinks/' + TOKEN).label, 'Guest Pass');
+    assert.equal(gdb.records.get('users/guest1')['accessOverride.label'], 'Guest Pass');
+    assert.equal(gdb.records.get('users/guest2')['accessOverride.label'], 'Guest Pass');
+    assert.equal(gdb.records.get('users/guest3')['accessOverride.label'], undefined, 'Only that link\'s guests are renamed');
+    assert.equal((await links(make({action: 'rename', token: 'bookclubtokenbookclub1', label: 'Family'}))).status, 200);
+    assert.equal(gdb.records.get('users/club')['accessOverride.label'], 'Family', 'A one-account link renames its account\'s plan');
+    for (const bad of [{token: TOKEN, label: ''}, {token: TOKEN, label: 'x'.repeat(61)}, {token: TOKEN, label: 5}, {label: 'No token'}]) {
+      assert.equal((await links(make({action: 'rename', ...bad}))).status, 400);
+    }
+    assert.equal((await links(make({action: 'rename', token: 'nopenopenopenopenope', label: 'Gone'}))).status, 404);
     who = {uid: 'someone', email: 'other'};
+    assert.equal((await links(make({action: 'rename', token: TOKEN, label: 'Hijack'}))).status, 403);
     assert.equal((await links(make({action: 'create', label: 'Nope', maxGuests: 10}))).status, 403);
     who = null;
     assert.equal((await links(make({action: 'list'}))).status, 401);

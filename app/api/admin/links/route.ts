@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * The demo links, and their on/off switches.
  *
  * `action: "list"` reads them; `action: "create"` makes a guest link;
- * `action: "toggle"` flips one.
+ * `action: "rename"` renames one; `action: "toggle"` flips one.
  *
  * Two kinds exist. The Book Club link signs in as one fixed account (its
  * toggle flips that account's access too). A guest link gives each visitor an
@@ -52,6 +52,31 @@ export async function POST(req: Request) {
         dailyDate: null,
         dailyCount: 0,
       });
+    }
+
+    if (action === "rename") {
+      const name = typeof label === "string" ? label.trim() : "";
+      if (!token || !name || name.length > 60) {
+        return NextResponse.json({ error: "Give the link a name of 60 characters or fewer." }, { status: 400 });
+      }
+      const linkRef = db.collection("accessLinks").doc(token);
+      const linkSnap = await linkRef.get();
+      if (!linkSnap.exists) {
+        return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
+      }
+      // The name is what the reader sees as their plan, copied onto each
+      // account when the link signed it in, so those accounts change with it.
+      const link = linkSnap.data()!;
+      const batch = db.batch();
+      batch.update(linkRef, { label: name });
+      if (link.kind === "guest") {
+        const guests = await db.collection("accessGuests").where("token", "==", token).get();
+        for (const g of guests.docs) batch.update(db.collection("users").doc(g.id), { "accessOverride.label": name });
+      } else {
+        const accountRef = db.collection("users").doc(link.uid);
+        if ((await accountRef.get()).data()?.accessOverride) batch.update(accountRef, { "accessOverride.label": name });
+      }
+      await batch.commit();
     }
 
     if (action === "toggle") {

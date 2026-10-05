@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { signInWithCustomToken } from "firebase/auth";
 import {
   Loader2, Users, TrendingUp, BookOpen, Flame, AlertTriangle, Link2, Copy, LogOut, RefreshCw,
-  CreditCard, ExternalLink, Undo2, BookOpenCheck, ChevronRight,
+  CreditCard, ExternalLink, Undo2, BookOpenCheck, ChevronRight, Pencil,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/context/AuthContext";
@@ -106,6 +106,7 @@ export default function AdminPage() {
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkPeople, setNewLinkPeople] = useState(50);
   const [creatingLink, setCreatingLink] = useState(false);
+  const [renaming, setRenaming] = useState<{ token: string; label: string } | null>(null);
 
   const isAdmin = isAdminEmail(user?.email);
 
@@ -196,6 +197,19 @@ export default function AdminPage() {
     if (res.error) { setError(res.error); return; }
     setLinks(res.links);
     setNewLinkLabel("");
+  };
+
+  // Renames the link and the plan name its readers see, keeping the same URL.
+  const renameLink = async () => {
+    if (!renaming) return;
+    setBusyToken(renaming.token);
+    const res = await postAuthed<{ links: AccessLink[]; error?: string }>("/api/admin/links", {
+      action: "rename", token: renaming.token, label: renaming.label,
+    });
+    setBusyToken(null);
+    if (res.error) { setError(res.error); return; }
+    setLinks(res.links);
+    setRenaming(null);
   };
 
   const toggleLink = async (token: string, active: boolean) => {
@@ -580,7 +594,47 @@ export default function AdminPage() {
                     return (
                       <li key={link.token} className="rounded-xl border border-white/10 bg-black/30 p-3.5">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold">{link.label}</span>
+                          {renaming?.token === link.token ? (
+                            <form
+                              onSubmit={(e) => { e.preventDefault(); void renameLink(); }}
+                              className="flex flex-wrap items-center gap-2"
+                            >
+                              <input
+                                autoFocus
+                                value={renaming.label}
+                                onChange={(e) => setRenaming({ token: link.token, label: e.target.value })}
+                                onKeyDown={(e) => { if (e.key === "Escape") setRenaming(null); }}
+                                maxLength={60}
+                                aria-label="Link name"
+                                className="w-48 rounded-lg border border-white/15 bg-black/50 px-2.5 py-1 text-sm font-bold text-white"
+                              />
+                              <button
+                                type="submit"
+                                disabled={busyToken === link.token || !renaming.label.trim()}
+                                className="rounded-full bg-[#00D4FF]/15 px-3 py-1 text-xs font-bold text-[#00D4FF] hover:bg-[#00D4FF]/25 disabled:opacity-50"
+                              >
+                                {busyToken === link.token ? "Saving…" : "Save"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRenaming(null)}
+                                className="px-1 text-xs font-semibold text-white/50 hover:text-white/80"
+                              >
+                                Cancel
+                              </button>
+                            </form>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold">{link.label}</span>
+                              <button
+                                onClick={() => setRenaming({ token: link.token, label: link.label })}
+                                className="flex items-center gap-1 text-[0.6875rem] font-semibold text-white/45 hover:text-white/80"
+                              >
+                                <Pencil className="h-3 w-3" strokeWidth={2} />
+                                Rename
+                              </button>
+                            </>
+                          )}
                           <span className={`rounded-full border px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide ${
                             link.active
                               ? "border-[#00D4FF]/40 bg-[#00D4FF]/10 text-[#00D4FF]"
