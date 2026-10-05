@@ -249,6 +249,34 @@ module.exports = async function(load) {
     assert.equal((await links(make({action: 'list'}))).status, 401);
   }
 
+  {
+    // A club owned by a free account has no Stripe invoice, so its members' months run on a clock.
+    const NOW = Date.parse('2026-10-05T12:00:00Z');
+    const day = n => new Date(NOW + n * 86400000).toISOString();
+    const cdb = database({
+      'families/free': {status: 'active', ownerId: 'owner', memberIds: ['owner', 'hudson', 'travis', 'late']},
+      'users/owner': {accessOverride: {active: true, lifetimeGenerations: null, maxOpenBooks: 5}, familyId: 'free', isFamilyOwner: true, generationsThisMonth: 9},
+      'users/hudson': {accessOverride: {active: true, lifetimeGenerations: null, maxOpenBooks: 5}, familyId: 'free', generationsThisMonth: 4},
+      'users/travis': {plan: 'free', familyId: 'free', generationsThisMonth: 10},
+      'users/late': {plan: 'free', familyId: 'free', generationsThisMonth: 7, monthResetAt: day(-1)},
+      'families/paid': {status: 'active', ownerId: 'payer', memberIds: ['payer', 'guest']},
+      'users/payer': {plan: 'book_club', familyId: 'paid', isFamilyOwner: true, stripeSubscriptionId: 'sub_1'},
+      'users/guest': {plan: 'free', familyId: 'paid', generationsThisMonth: 10, monthResetAt: day(-1)},
+    });
+    const {rollFreeClubMonths} = load('lib/club-months.ts', {});
+    assert.deepEqual({...await rollFreeClubMonths(cdb, NOW)}, {started: 1, reset: 1});
+    assert.equal(cdb.records.get('users/travis').generationsThisMonth, 10, 'The first month starts with the count as it is');
+    assert.equal(cdb.records.get('users/travis').monthResetAt, day(30));
+    assert.equal(cdb.records.get('users/late').generationsThisMonth, 0, 'A month that has ended starts again from zero');
+    assert.equal(cdb.records.get('users/late').monthResetAt, day(30));
+    assert.equal(cdb.records.get('users/hudson').generationsThisMonth, 4, 'A comped member is never touched');
+    assert.equal(cdb.records.get('users/owner').generationsThisMonth, 9, 'The owner is never touched');
+    assert.equal(cdb.records.get('users/guest').generationsThisMonth, 10, 'A club with a paying owner stays on Stripe\'s reset');
+    assert.deepEqual({...await rollFreeClubMonths(cdb, NOW + 86400000)}, {started: 0, reset: 0}, 'Nothing changes before the month is up');
+    assert.deepEqual({...await rollFreeClubMonths(cdb, NOW + 31 * 86400000)}, {started: 0, reset: 2}, 'Everyone eligible rolls over once it is');
+    assert.equal(cdb.records.get('users/travis').generationsThisMonth, 0);
+  }
+
   const deldb=database({'users/u':{stripeSubscriptionId:'sub_1'}});let authDeletes=0;
   const {deleteAccount}=load('lib/account-delete.ts', {'./account-lock':{withAccountLock:async(_uid,work)=>work()},'firebase-admin/firestore':{FieldValue:{}},'./stripe/server':{getStripe:()=>({subscriptions:{cancel:async()=>{throw Error('Stripe unavailable')}}})},'./firebase/admin':{getAdminDb:()=>deldb,getAdminAuth:()=>({deleteUser:async()=>authDeletes++})},'./family-server':{dissolveClub:async()=>{}}});
   await assert.rejects(deleteAccount('u'),/Stripe unavailable/);

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/purge-removed-members",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/club-months",
+      "schedule": "30 4 * * *"
     }
   ]
 }
