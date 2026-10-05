@@ -180,12 +180,12 @@ export default function SearchPage() {
             />
           </Link>
         </div>
-        <div className="text-[11px] font-medium tracking-widest text-[#00D4FF] uppercase">
+        <div className="text-[0.6875rem] font-medium tracking-widest text-[#00D4FF] uppercase">
           Step 1 of 2
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl px-3 py-4 z-10">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-3xl px-3 py-4 z-10">
         {!searchedBook ? (
           /* STATE 1: SEARCH SCREEN */
           <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">

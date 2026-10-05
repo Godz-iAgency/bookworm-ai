@@ -9,7 +9,7 @@ export function EntropyDemo() {
       <div className="flex flex-col items-center">
         <Entropy className="rounded-lg" />
         <div className="mt-6 text-center">
-          <div className="space-y-4 font-mono text-[14px] leading-relaxed">
+          <div className="space-y-4 font-mono text-[0.875rem] leading-relaxed">
             <p className="italic text-gray-400/80 tracking-wide">
               &ldquo;Order and chaos dance,
               <span className="opacity-70">digital poetry in motion.&rdquo;</span>

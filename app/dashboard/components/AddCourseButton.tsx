@@ -66,7 +66,7 @@ export default function AddCourseButton({
               <p className="text-xs font-bold text-white">
                 Your shelf is full{maxOpenBooks ? ` (${maxOpenBooks} of ${maxOpenBooks})` : ""}
               </p>
-              <p className="mt-1 text-[11px] leading-snug text-white/60">
+              <p className="mt-1 text-[0.6875rem] leading-snug text-white/60">
                 Finish a book or remove one from your shelf to start a new course.
               </p>
             </motion.div>

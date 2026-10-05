@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { buildAmazonLink } from "@/lib/amazon";
 import LessonReader from "./LessonReader";
 import { useDay1Activation } from "@/lib/useDay1Activation";
+import { settingsForNextDay, settingsOfDay, withDaySettings } from "@/lib/lesson-settings";
+import { useBackStep } from "@/lib/useBackStep";
 
 export default function CourseTab({
   course,
@@ -21,6 +23,8 @@ export default function CourseTab({
 }) {
   const { courses, setCourses } = useBookwormContext();
   const [openDay, setOpenDay] = useState<number | null>(null);
+  // An open lesson closes on the phone's back button, back to the course.
+  useBackStep(openDay !== null, () => setOpenDay(null));
   const [loadingDay, setLoadingDay] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<number | null>(null);
   // The day currently having a missing axiom written, so the reader is told
@@ -64,6 +68,7 @@ export default function CourseTab({
     axiomTried.current.add(attemptKey);
     setAxiomPendingDay(day.dayNumber);
 
+    const written = settingsOfDay(course, day);
     aiFetch("/api/course/axiom", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,8 +76,8 @@ export default function CourseTab({
         courseId: course.id,
         title: course.book.title,
         author: course.book.author,
-        readingLevel: course.readingLevel,
-        language: course.language ?? "en",
+        readingLevel: written.readingLevel,
+        language: written.language,
         dayTitle: day.title,
         lesson: day.lesson,
       }),
@@ -118,6 +123,7 @@ export default function CourseTab({
     setLoadingDay(dayNumber);
     setLoadError(null);
     try {
+      const settings = await settingsForNextDay(course);
       const res = await aiFetch("/api/course/day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,8 +131,8 @@ export default function CourseTab({
         courseId: course.id,
           title: course.book.title,
           author: course.book.author,
-          readingLevel: course.readingLevel,
-          language: course.language ?? "en",
+          readingLevel: settings.readingLevel,
+          language: settings.language,
           dayNumber,
           dayTitle: day?.title ?? `Day ${dayNumber}`,
           allTitles: course.days.map((d) => d.title),
@@ -147,27 +153,29 @@ export default function CourseTab({
       // Cache the generated content into the course so we don't regenerate it,
       // and pin the flashcards/chat to this newly-opened day.
       setCourses((prev) =>
-        prev.map((c) =>
-          c.id === course.id
-            ? {
-                ...c,
-                activeDayNumber: dayNumber,
-                days: c.days.map((d) =>
-                  d.dayNumber === dayNumber
-                    ? {
-                        ...d,
-                        // Another tab may have finished first while this
-                        // request was in flight. Preserve its content.
-                        lesson: d.lesson || data.lesson,
-                        flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
-                        chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
-                        closingAxiom: d.closingAxiom || data.closingAxiom || "",
-                      }
-                    : d
-                ),
-              }
-            : c
-        )
+        prev.map((c) => {
+          if (c.id !== course.id) return c;
+          const wroteLesson = !c.days.find((d) => d.dayNumber === dayNumber)?.lesson;
+          const filled = {
+            ...c,
+            activeDayNumber: dayNumber,
+            days: c.days.map((d) =>
+              d.dayNumber === dayNumber
+                ? {
+                    ...d,
+                    // Another tab may have finished first while this
+                    // request was in flight. Preserve its content.
+                    lesson: d.lesson || data.lesson,
+                    flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
+                    chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
+                    closingAxiom: d.closingAxiom || data.closingAxiom || "",
+                  }
+                : d
+            ),
+          };
+          // Only the request that actually wrote the lesson records what it was written in.
+          return wroteLesson ? withDaySettings(filled, dayNumber, settings) : filled;
+        })
       );
       setOpenDay(dayNumber);
       return true;
@@ -330,7 +338,7 @@ export default function CourseTab({
   }
 
   return (
-    <div ref={topRef} className="w-full max-w-3xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-8">
+    <div ref={topRef} className="w-full max-w-3xl mx-auto px-3 py-4 md:py-8 animate-in fade-in duration-500 pb-8">
 
       {/* Course Header */}
       <div className="mb-5 text-center animate-in slide-in-from-top-4">
@@ -561,7 +569,7 @@ function NextDayCard({
         clickable ? "cursor-pointer hover:border-[#00D4FF]/40 hover:bg-white/[0.05]" : ""
       }`}
     >
-      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
+      <p className="text-[0.625rem] font-bold uppercase tracking-widest text-[#00D4FF]">
         Tomorrow · Day {day.dayNumber}
       </p>
       <h4 className="mt-2 text-lg font-bold leading-tight text-white">{day.title}</h4>
@@ -608,7 +616,7 @@ function NextDayCard({
 function LastDayCard({ book }: { book: Book }) {
   return (
     <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
+      <p className="text-[0.625rem] font-bold uppercase tracking-widest text-[#00D4FF]">
         The last day
       </p>
       <h4 className="mt-2 text-lg font-bold leading-tight text-white">
@@ -645,7 +653,7 @@ function CourseCompleteBanner({ course }: { course: Course }) {
         All 7 days done. Want to keep the full book on your shelf? Grab a copy and go deeper.
       </p>
       {/* Bookworm is a study aid, not the book: say so where the book is offered. */}
-      <p className="mx-auto mb-6 max-w-md text-[11px] leading-relaxed text-white/40">
+      <p className="mx-auto mb-6 max-w-md text-[0.6875rem] leading-relaxed text-white/40">
         Bookworm AI is an independent study aid and is not affiliated with the author.
       </p>
       <div className="flex flex-col items-center gap-3 md:flex-row md:justify-center">
@@ -666,7 +674,7 @@ function CourseCompleteBanner({ course }: { course: Course }) {
       </div>
       {/* Amazon's Associates Program requires this disclosure wherever an
           affiliate link is offered, not just buried in the privacy policy. */}
-      <p className="mt-4 text-[11px] text-white/35">
+      <p className="mt-4 text-[0.6875rem] text-white/35">
         As an Amazon Associate, Bookworm AI earns from qualifying purchases.
       </p>
     </div>

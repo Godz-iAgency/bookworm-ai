@@ -8,11 +8,14 @@ import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, GENRE_PICK_COUNT } from "@/lib/genres";
 import { updateUserProfile } from "@/lib/firebase/profile";
 import { READING_LEVELS, DEFAULT_READING_LEVEL } from "@/lib/reading-levels";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { destinationAfterOnboarding } from "@/lib/pending-invite";
+import { useBackStep } from "@/lib/useBackStep";
 
 /**
  * First-run onboarding, shown once right after a new account is created (email
- * OR Google). Two steps: topics to grow in, then reading level. Both are
+ * OR Google). Two steps: topics to grow in, then reading level and the
+ * language lessons are written in. All of these are
  * preferences about the reader rather than about any one book, so they are
  * settled here - that way choosing a first book on /search leads straight into
  * a generated course instead of another form. Existing users never see this;
@@ -28,10 +31,18 @@ export default function OnboardingPage() {
   // Pre-selected rather than empty: the reader scans and adjusts instead of
   // being handed a blank three-way decision.
   const [level, setLevel] = useState<string>(DEFAULT_READING_LEVEL);
+  const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const genresComplete = selected.length === GENRE_PICK_COUNT;
+
+  const backToTopics = () => {
+    setError(null);
+    setStep(1);
+  };
+  // The phone's own back button goes from step 2 to step 1 too.
+  useBackStep(step === 2, backToTopics);
 
   // Must be signed in to onboard.
   useEffect(() => {
@@ -57,11 +68,13 @@ export default function OnboardingPage() {
         genrePreferences: selected,
         lastBookRead: lastBook.trim(),
         readingLevel: level,
+        preferredLanguage: language,
       });
       // Normally straight to picking a first book, but someone who arrived
       // here from a Book Club invite goes back to finish joining it first -
       // now that they have the reading level a course actually needs.
-      router.push(destinationAfterOnboarding());
+      // replace, not push: back from the first book should not land on onboarding again.
+      router.replace(destinationAfterOnboarding());
     } catch (err) {
       console.error("Failed to save onboarding preferences:", err);
       setError("Something went wrong saving your preferences. Please try again.");
@@ -80,14 +93,29 @@ export default function OnboardingPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center overflow-y-auto bg-[#0a0a0a] py-3 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-3 flex w-full max-w-2xl items-center justify-between px-3">
-        <Logo variant="lockup" size={26} priority className="opacity-90" />
+      <div className="z-10 mb-3 flex w-full max-w-3xl items-center justify-between px-3">
+        <div className="flex items-center gap-2">
+          {step === 2 && (
+            <button
+              type="button"
+              onClick={backToTopics}
+              disabled={saving}
+              aria-label="Back to topics"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 transition-colors before:absolute before:-bottom-3 before:-left-4 before:-right-2 before:-top-3 before:content-[''] hover:bg-white/10 hover:text-white active:bg-white/15 disabled:opacity-50"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+          )}
+          <Logo variant="lockup" size={26} priority className="opacity-90" />
+        </div>
         <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">
           Step {step} of 2
         </span>
       </div>
 
-      <div className="z-10 flex w-full max-w-2xl flex-col px-3">
+      <div className="z-10 flex w-full max-w-3xl flex-col px-3">
         {step === 1 ? (
           <>
             <h1 className="mb-1 text-center text-xl font-bold tracking-tight md:text-3xl">
@@ -147,7 +175,7 @@ export default function OnboardingPage() {
               How do you want to learn?
             </h1>
             <p className="mb-6 text-center text-sm text-white/60">
-              This sets the voice every lesson is written in. You can change it anytime.
+              This sets the voice and the language every lesson is written in. You can change both anytime.
             </p>
 
             <div className="grid w-full grid-cols-1 gap-2.5">
@@ -179,8 +207,32 @@ export default function OnboardingPage() {
                       >
                         {lvl.label}
                       </h3>
-                      <p className="text-[13px] leading-snug text-white/70">{lvl.desc}</p>
+                      <p className="text-[0.8125rem] leading-snug text-white/70">{lvl.desc}</p>
                     </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <h2 className="mb-2 mt-6 text-center text-base font-bold">Lessons written in</h2>
+            <div className="grid w-full grid-cols-3 gap-2.5" role="radiogroup" aria-label="Language of your lessons">
+              {LANGUAGES.map((lang) => {
+                const isSelected = language === lang.id;
+                return (
+                  <button
+                    key={lang.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    onClick={() => setLanguage(lang.id)}
+                    className={`rounded-2xl border px-2 py-3 text-center transition-all duration-300 ${
+                      isSelected
+                        ? "border-transparent bg-[#1a1a1a] shadow-[0_0_20px_rgba(0,212,255,0.25)] ring-2 ring-[#00D4FF]"
+                        : "border-white/10 bg-[#1a1a1a]/50 hover:border-[#FF006E]/60"
+                    }`}
+                  >
+                    <span className={`block text-base font-bold ${isSelected ? "text-[#00D4FF]" : "text-white"}`}>{lang.native}</span>
+                    {lang.native !== lang.label && <span className="block text-xs text-white/50">{lang.label}</span>}
                   </button>
                 );
               })}
@@ -205,10 +257,7 @@ export default function OnboardingPage() {
             </button>
 
             <button
-              onClick={() => {
-                setError(null);
-                setStep(1);
-              }}
+              onClick={backToTopics}
               disabled={saving}
               className="mt-3 text-center text-sm font-semibold text-white/50 transition-colors hover:text-white/80 disabled:opacity-50"
             >

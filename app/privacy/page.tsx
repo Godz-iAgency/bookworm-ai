@@ -45,8 +45,8 @@ function Row({ who, what, why }: { who: string; what: string; why: string }) {
   return (
     <div className="border-t border-white/10 py-3 first:border-t-0 first:pt-0">
       <p className="text-sm font-bold text-white">{who}</p>
-      <p className="mt-1 text-[13px] leading-relaxed text-white/65">{what}</p>
-      <p className="mt-1 text-[13px] leading-relaxed text-white/45">{why}</p>
+      <p className="mt-1 text-[0.8125rem] leading-relaxed text-white/65">{what}</p>
+      <p className="mt-1 text-[0.8125rem] leading-relaxed text-white/45">{why}</p>
     </div>
   );
 }

@@ -57,6 +57,14 @@ export interface Day {
    * there when they come back to the day, rather than resetting to nothing.
    */
   committedActions?: number[];
+  /**
+   * The reading level and language this day was written in. Set on days
+   * written after the reader changed either one mid-book (and stamped onto
+   * the days written before the change), so each day keeps its own. Absent
+   * means the course's own settings - see lib/lesson-settings.ts.
+   */
+  readingLevel?: string;
+  language?: string;
   isUnlocked: boolean;
   isCompleted: boolean;
 }
@@ -66,10 +74,10 @@ export interface Course {
   book: Book;
   readingLevel: string;
   /**
-   * The language this course was generated in, fixed when it was created.
-   * Days 2-7 are written from this rather than from the reader's current
-   * profile setting, so changing that setting later never leaves one course
-   * half in two languages. Undefined on courses generated before languages
+   * The language the course is currently being written in. Starts as the
+   * language it was created in; if the reader changes language on Profile,
+   * the days not yet written follow the new setting and this moves with them
+   * (lib/lesson-settings.ts). Undefined on courses generated before languages
    * existed, which are English - see lib/languages.ts.
    */
   language?: string;
@@ -292,10 +300,16 @@ export function BookwormProvider({ children }: { children: ReactNode }) {
               closingAxiom: d.closingAxiom || incoming.closingAxiom || '',
               isCompleted: d.isCompleted || incoming.isCompleted,
               isUnlocked: d.isUnlocked || incoming.isUnlocked,
+              // What a day was written in, once known, is never rewritten.
+              ...(d.language || incoming.language ? { language: d.language || incoming.language } : {}),
+              ...(d.readingLevel || incoming.readingLevel ? { readingLevel: d.readingLevel || incoming.readingLevel } : {}),
               committedActions: JSON.stringify(incoming.committedActions) !== JSON.stringify(before?.days.find(old => old.dayNumber === d.dayNumber)?.committedActions) ? incoming.committedActions ?? [] : d.committedActions ?? [],
             };
           });
           tx.update(ref, { days, status: days.every(d => d.isCompleted) ? 'completed' : remote.status,
+            // A mid-book switch of language or reading level moves the course's own.
+            ...(course.readingLevel && course.readingLevel !== remote.readingLevel ? { readingLevel: course.readingLevel } : {}),
+            ...(course.language && course.language !== remote.language ? { language: course.language } : {}),
             ...(course.activeDayNumber !== before?.activeDayNumber && course.activeDayNumber ? { activeDayNumber: course.activeDayNumber } : {}) });
         });
       }).catch(err => { saved.current.delete(course.id); console.error('Failed to save course:', course.id, err); });

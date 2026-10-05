@@ -59,14 +59,24 @@ async function apiCases() {
   assert.equal((await postAuthed('/test')).success, true);
 }
 
-async function dayCase({ lesson = '', axiom = '', response, concurrent }) {
+function lessonSettings(profile = null, uid = null) {
+  const icon = () => null;
+  return load('lib/lesson-settings.ts', {
+    './firebase/config': { auth: { currentUser: uid ? { uid } : null } },
+    './firebase/profile': { getUserProfile: async () => profile },
+    './languages': load('lib/languages.ts', {}),
+    './reading-levels': load('lib/reading-levels.ts', { 'lucide-react': { Sprout: icon, BookOpen: icon, Brain: icon } }),
+  });
+}
+
+async function dayCase({ lesson = '', axiom = '', response, concurrent, profile = null, courseExtra = {}, sent = [] }) {
   let failed = null;
   let updates = 0;
   let pending;
   const oldDeck = [{ front: 'Read question', back: 'Read answer' }];
   const day = { dayNumber: 2, title: 'Day two', isUnlocked: true, lesson,
     flashcards: lesson ? oldDeck : [], chatSeed: ['Existing starter'], closingAxiom: axiom };
-  const course = { id: 'c', book: { title: 'Book', author: 'Author' }, days: [day] };
+  const course = { id: 'c', book: { title: 'Book', author: 'Author' }, readingLevel: 'scholar', days: [day], ...courseExtra };
   let current = [course];
   const react = {
     useRef: (v) => ({ current: v }),
@@ -74,11 +84,12 @@ async function dayCase({ lesson = '', axiom = '', response, concurrent }) {
     useCallback: (fn) => (...args) => (pending = fn(...args)),
     useEffect: (fn) => fn(),
   };
-  const { useDayContent } = load('lib/useDayContent.ts', { react, '@/lib/ai-fetch': { aiFetch: async () => ({ ok: true, json: async () => response }) } });
+  const { useDayContent } = load('lib/useDayContent.ts', { react, './lesson-settings': lessonSettings(profile, profile ? 'reader' : null),
+    '@/lib/ai-fetch': { aiFetch: async (_url, opts) => { sent.push(JSON.parse(opts.body)); return { ok: true, json: async () => response }; } } });
   useDayContent(course, day, (update) => { updates++; current = update(current); }, true);
   if (concurrent) current = [{ ...course, days: [{ ...day, ...concurrent }] }];
   await pending;
-  return { failed, updates, day: current[0].days[0], oldDeck };
+  return { failed, updates, day: current[0].days[0], course: current[0], oldDeck };
 }
 
 async function courseCases() {
@@ -171,6 +182,51 @@ async function main() {
   }, concurrent: { lesson: 'Winner', flashcards: cards, closingAxiom: 'Winner axiom' } });
   assert.equal(raced.day.lesson, 'Winner');
   assert.equal(raced.day.closingAxiom, 'Winner axiom');
-  console.log('PASS: font validation, auth/network/HTTP failures, no mutation retries, concurrent shelf preservation, billing lookup failures, incomplete day failures, and gap-only repairs.');
+  {
+    const cards = [{ front: 'Q', back: 'A' }];
+    const full = { lesson: 'Nueva leccion', flashcards: cards, chatSeed: ['s'], closingAxiom: 'Axioma' };
+    // A reader who switched to Spanish Explorer mid-book: the next day follows that.
+    const sent = [];
+    const switched = await dayCase({ response: full, profile: { readingLevel: 'explorer', preferredLanguage: 'es' }, courseExtra: { language: 'en' }, sent });
+    assert.equal(sent[0].language, 'es', 'A new day is written in the reader\'s current language');
+    assert.equal(sent[0].readingLevel, 'explorer', 'A new day is written at the reader\'s current level');
+    assert.equal(switched.day.language, 'es');
+    assert.equal(switched.day.readingLevel, 'explorer');
+    assert.equal(switched.course.language, 'es', 'The course now shows the new language');
+    assert.equal(switched.course.readingLevel, 'explorer');
+    // No profile to read (signed out, or the read failed): the course's own settings.
+    const sent2 = [];
+    await dayCase({ response: full, courseExtra: { language: 'fr' }, sent: sent2 });
+    assert.equal(sent2[0].language, 'fr');
+    assert.equal(sent2[0].readingLevel, 'scholar');
+    // Repairing a day already written uses that day's own language, not the profile's.
+    const sent3 = [];
+    await dayCase({ lesson: 'Already read', response: { flashcards: cards, chatSeed: ['s'], closingAxiom: 'Axiom' }, profile: { readingLevel: 'explorer', preferredLanguage: 'es' }, courseExtra: { language: 'en' }, sent: sent3 });
+    assert.equal(sent3[0].language, 'en', 'A repair matches the day it repairs');
+    assert.equal(sent3[0].readingLevel, 'scholar');
+
+    const ls = lessonSettings();
+    const course = { id: 'c', readingLevel: 'scholar', language: 'en', days: [
+      { dayNumber: 1, lesson: 'Read', title: 'One' }, { dayNumber: 2, lesson: '', title: 'Two' }, { dayNumber: 3, lesson: '', title: 'Three' }] };
+    const after = ls.withDaySettings(course, 2, { readingLevel: 'architect', language: 'fr' });
+    assert.equal(after.days[0].language, 'en', 'Days written before a switch keep their language');
+    assert.equal(after.days[0].readingLevel, 'scholar');
+    assert.equal(after.days[1].language, 'fr');
+    assert.equal(after.days[2].language, undefined, 'Unwritten days are not stamped');
+    assert.equal(after.language, 'fr');
+    assert.deepEqual({ ...ls.settingsOfDay(after, after.days[0]) }, { readingLevel: 'scholar', language: 'en' });
+    assert.deepEqual({ ...ls.settingsOfDay(after, after.days[2]) }, { readingLevel: 'architect', language: 'fr' });
+    // No switch: nothing else changes.
+    const same = ls.withDaySettings(course, 2, { readingLevel: 'scholar', language: 'en' });
+    assert.equal(same.days[0].language, undefined);
+    assert.equal(same.language, 'en');
+    // An invalid profile value never reaches a prompt.
+    const odd = await lessonSettings({ readingLevel: 'wizard', preferredLanguage: 'xx' }, 'reader').settingsForNextDay(course);
+    assert.deepEqual({ ...odd }, { readingLevel: 'scholar', language: 'en' });
+    // A Book Club member's view of someone else's book keeps that book's settings.
+    const shared = await lessonSettings({ readingLevel: 'explorer', preferredLanguage: 'es' }, 'reader').settingsForNextDay({ ...course, sharedFrom: { ownerUid: 'x' } });
+    assert.deepEqual({ ...shared }, { readingLevel: 'scholar', language: 'en' });
+  }
+  console.log('PASS: font validation, auth/network/HTTP failures, no mutation retries, concurrent shelf preservation, billing lookup failures, incomplete day failures, gap-only repairs, and mid-book language and level switches.');
 }
 main().catch((err) => { console.error(err); process.exitCode = 1; });

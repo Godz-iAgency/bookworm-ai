@@ -163,7 +163,7 @@ export default function BookClubTab({
 
   if (!overview.inClub) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-3 py-6 text-center md:px-4 md:py-8">
+      <div className="mx-auto w-full max-w-3xl px-3 py-6 text-center md:py-8">
         <Users className="mx-auto mb-4 h-10 w-10 text-white/30" strokeWidth={1.75} />
         <h2 className="text-xl font-bold">You&rsquo;re not in a Book Club</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/60">
@@ -177,7 +177,7 @@ export default function BookClubTab({
   const seatsUsed = overview.members.length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl animate-in fade-in px-3 py-4 pb-10 duration-500 md:px-4 md:py-8">
+    <div className="mx-auto w-full max-w-5xl animate-in fade-in px-3 py-4 pb-10 duration-500 md:py-8">
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold tracking-tight md:text-4xl">Book Club</h2>
         <p className="mt-1 text-sm text-white/60 md:text-base">
@@ -211,12 +211,12 @@ export default function BookClubTab({
               </div>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{member.name}</span>
               {member.isOwner && (
-                <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
+                <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-[#00D4FF]">
                   Owner
                 </span>
               )}
               {member.isYou && (
-                <span className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/50">
+                <span className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white/50">
                   You
                 </span>
               )}
@@ -301,7 +301,7 @@ export default function BookClubTab({
                     </div>
                   </div>
                 )}
-                <p className="mt-2 text-[11px] text-white/40">
+                <p className="mt-2 text-[0.6875rem] text-white/40">
                   One invite, one seat. Send it to the person you want to join.
                 </p>
               </>
@@ -352,11 +352,11 @@ export default function BookClubTab({
                 />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <p className="truncate text-sm font-bold">{shared.title}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-white/50">
+                  <p className="mt-0.5 truncate text-[0.6875rem] text-white/50">
                     {shared.isMine ? "You shared this" : `Shared by ${shared.sharedByName}`}
                   </p>
                   <span
-                    className={`mt-1.5 inline-block w-fit rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${countdown.className}`}
+                    className={`mt-1.5 inline-block w-fit rounded border px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide ${countdown.className}`}
                   >
                     {countdown.label}
                   </span>

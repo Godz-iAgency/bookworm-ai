@@ -63,7 +63,7 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <p className="mt-16 text-center text-[11px] text-gray-600 font-dm-sans leading-relaxed max-w-[280px] mx-auto">
+        <p className="mt-16 text-center text-[0.6875rem] text-gray-600 font-dm-sans leading-relaxed max-w-[280px] mx-auto">
           By continuing, you agree to Bookworm AI's <br/>
           <span className="underline decoration-white/10">Terms of Service</span> and <span className="underline decoration-white/10">Privacy Policy</span>.
         </p>

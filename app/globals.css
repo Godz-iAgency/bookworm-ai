@@ -232,6 +232,16 @@
 }
 
 /* 全局字体设置 */
+/* Tablets read at arm's length on a bigger screen, so the whole interface
+   grows by an eighth there (text, spacing and widths are in rem, so they all
+   follow). Phones keep the 16px base they were designed at; laptops and
+   desktops too. Breakpoints are unaffected: media-query rem is always 16px. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  html {
+    font-size: 112.5%;
+  }
+}
+
 html {
   font-family: var(--font-nunito), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   -webkit-font-smoothing: antialiased;

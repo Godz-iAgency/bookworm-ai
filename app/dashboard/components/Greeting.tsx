@@ -35,14 +35,14 @@ export default function Greeting() {
           rather than the tablet/desktop widths this already fit) get a real
           margin below that measured edge; sm and md keep their existing sizes. */}
       <p
-        className="truncate text-[19px] sm:text-[25px] md:text-[30px] font-semibold leading-tight text-white"
+        className="truncate text-[1.1875rem] sm:text-[1.5625rem] md:text-[1.875rem] font-semibold leading-tight text-white"
         style={{ fontFamily: "var(--font-caveat)" }}
       >
         Hi {name}
       </p>
       <div className="mt-0.5 flex items-center justify-center gap-1">
         <Icon className="h-3 w-3 shrink-0 text-[#00D4FF]" strokeWidth={2} />
-        <span className="truncate bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-[11px] font-bold text-transparent">
+        <span className="truncate bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-[0.6875rem] font-bold text-transparent">
           {greeting.phrase}
         </span>
       </div>

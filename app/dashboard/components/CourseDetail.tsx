@@ -61,7 +61,7 @@ export default function CourseDetail({
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-24 md:pb-8">
+    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:py-8 animate-in fade-in duration-500 pb-24 md:pb-8">
       {/* Cover + identity */}
       <div className="flex flex-col items-center text-center">
         <StoredBookCover
@@ -144,7 +144,7 @@ export default function CourseDetail({
                   ? "Shared with Book Club"
                   : "Share with Book Club"}
           </button>
-          <p className="mt-1.5 text-center text-[11px] text-white/40">
+          <p className="mt-1.5 text-center text-[0.6875rem] text-white/40">
             {sharedToClub
               ? "Tap to remove it from the club. Your own copy stays."
               : "Your club can read this course. Their progress stays separate from yours."}

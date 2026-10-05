@@ -194,7 +194,7 @@ export function CoreFunnel({
             <button
               key={p.key}
               onClick={() => setPreset(p.key)}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+              className={`rounded-full px-3 py-1.5 text-[0.6875rem] font-semibold transition-colors ${
                 preset === p.key ? "bg-white text-black" : "border border-white/15 text-white/65 hover:bg-white/10"
               }`}
             >
@@ -205,7 +205,7 @@ export function CoreFunnel({
         <select
           value={source ?? "__all"}
           onChange={(e) => setSource(e.target.value === "__all" ? undefined : e.target.value)}
-          className="rounded-full border border-white/15 bg-[#111] px-3 py-1.5 text-[11px] font-semibold text-white/80"
+          className="rounded-full border border-white/15 bg-[#111] px-3 py-1.5 text-[0.6875rem] font-semibold text-white/80"
           aria-label="Filter by creator"
         >
           <option value="__all">All sources</option>
@@ -235,11 +235,11 @@ export function CoreFunnel({
       >
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <Target className="h-4 w-4 text-[#FF006E]" strokeWidth={2} />
-          <span className="text-[10px] font-bold uppercase tracking-wide text-white/50">One metric that matters</span>
+          <span className="text-[0.625rem] font-bold uppercase tracking-wide text-white/50">One metric that matters</span>
           <select
             value={omtm}
             onChange={(e) => onOmtmChange(e.target.value as OmtmKey)}
-            className="ml-auto rounded-full border border-white/15 bg-[#0d0d0d] px-3 py-1 text-[11px] font-semibold text-white/80"
+            className="ml-auto rounded-full border border-white/15 bg-[#0d0d0d] px-3 py-1 text-[0.6875rem] font-semibold text-white/80"
             aria-label="Choose your one metric that matters"
           >
             {OMTM_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -260,7 +260,7 @@ export function CoreFunnel({
               ? "Not enough decided readers in one of the two periods to compare yet."
               : `${delta > 0 ? "+" : ""}${delta} pts versus the previous ${presetLabel === "Custom" ? "period of the same length" : presetLabel.replace("Last ", "").toLowerCase()} (${pct(before!.rate)}, ${before!.numerator} of ${before!.denominator}).`}
         </p>
-        <p className="mt-1 text-[11px] text-white/35">You choose this metric. It never changes on its own.</p>
+        <p className="mt-1 text-[0.6875rem] text-white/35">You choose this metric. It never changes on its own.</p>
       </div>
 
       {/* The four stages */}
@@ -277,14 +277,14 @@ export function CoreFunnel({
               className="group rounded-xl border border-white/10 bg-black/30 p-3.5 text-left transition-colors hover:border-[#00D4FF]/40 hover:bg-[#00D4FF]/[0.04]"
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-white/45">{s.label}</p>
+                <p className="text-[0.625rem] font-bold uppercase tracking-wide text-white/45">{s.label}</p>
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/25 transition-colors group-hover:text-[#00D4FF]" />
               </div>
               <p className="mt-1 text-2xl font-black tabular-nums">{s.reached.length}</p>
-              <p className="text-[11px] text-white/55">
+              <p className="text-[0.6875rem] text-white/55">
                 <span className="font-bold text-white/85">{pct(s.rate)}</span> {STAGE_PREV_LABEL[s.key]}
               </p>
-              <p className="mt-0.5 text-[10px] text-white/35">
+              <p className="mt-0.5 text-[0.625rem] text-white/35">
                 {s.reached.length + s.dropped.length} decided{s.pending.length ? ` · ${s.pending.length} pending` : ""}
               </p>
             </button>
@@ -292,15 +292,15 @@ export function CoreFunnel({
         ))}
       </div>
 
-      <div className="mt-4 grid gap-2 text-[13px] sm:grid-cols-3">
+      <div className="mt-4 grid gap-2 text-[0.8125rem] sm:grid-cols-3">
         <div className="rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-white/45">Day 1 → second book, overall</p>
+          <p className="text-[0.625rem] font-bold uppercase tracking-wide text-white/45">Day 1 → second book, overall</p>
           <p className="mt-0.5 font-bold tabular-nums">
             {pct(result.overall.rate)} <span className="font-normal text-white/50">({result.overall.reached} of {result.overall.resolved} settled)</span>
           </p>
         </div>
         <div className="rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-white/45">Median time, book 1 → book 2</p>
+          <p className="text-[0.625rem] font-bold uppercase tracking-wide text-white/45">Median time, book 1 → book 2</p>
           <p className="mt-0.5 font-bold tabular-nums">
             {result.medianDaysToBook2 === null ? <span className="font-normal text-white/50">Not enough data yet</span> : `${result.medianDaysToBook2} days`}
           </p>
@@ -309,7 +309,7 @@ export function CoreFunnel({
           onClick={openExtras}
           className="group rounded-xl border border-white/10 bg-black/30 px-3.5 py-2.5 text-left transition-colors hover:border-[#00D4FF]/40"
         >
-          <p className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-white/45">
+          <p className="flex items-center justify-between text-[0.625rem] font-bold uppercase tracking-wide text-white/45">
             Cohort <ChevronRight className="h-3.5 w-3.5 text-white/25 group-hover:text-[#00D4FF]" />
           </p>
           <p className="mt-0.5 text-white/70">
@@ -319,7 +319,7 @@ export function CoreFunnel({
         </button>
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+      <p className="mt-3 text-[0.6875rem] leading-relaxed text-white/35">
         Cohorts are by sign-up date. Rates only count readers who have had their full window
         ({FUNNEL_WINDOWS.day1Ms / 3600_000} h for Day 1, {FUNNEL_WINDOWS.cardMs / 3600_000} h for a card, trial end plus 3 days for payment,
         {" "}{FUNNEL_WINDOWS.book2Ms / DAY} days for book 2). Live Day 1 tracking started {DAY1_TRACKING_SINCE}; before that, a
@@ -328,7 +328,7 @@ export function CoreFunnel({
 
       {/* Creators */}
       <div className="mt-6">
-        <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-white/50">By creator · {presetLabel.toLowerCase()}</h3>
+        <h3 className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-white/50">By creator · {presetLabel.toLowerCase()}</h3>
         {creators.every((c) => !c.source) ? (
           <p className="text-xs leading-relaxed text-white/45">
             No creator links used yet. Give each creator a link with their own code, for example{" "}
@@ -340,9 +340,9 @@ export function CoreFunnel({
         ) : null}
         {creators.length > 0 && (
           <div className="-mx-1 mt-2 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-[13px]">
+            <table className="w-full min-w-[560px] text-left text-[0.8125rem]">
               <thead>
-                <tr className="text-[10px] uppercase tracking-wide text-white/40">
+                <tr className="text-[0.625rem] uppercase tracking-wide text-white/40">
                   <th className="px-1 pb-2 font-bold">Creator</th>
                   <th className="px-1 pb-2 text-right font-bold">Users sent</th>
                   <th className="px-1 pb-2 text-right font-bold">Day 1</th>

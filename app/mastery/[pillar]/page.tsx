@@ -113,7 +113,7 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                           style={{ width: `${Math.max(pct, 2)}%` }}
                         />
                       </div>
-                      <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/35">
+                      <span className="shrink-0 text-[0.625rem] font-semibold tabular-nums text-white/35">
                         {complete ? "Finished" : `Day ${Math.min(doneDays + 1, totalDays)} of ${totalDays}`}
                       </span>
                     </div>
@@ -121,12 +121,12 @@ export default function PillarPage({ params }: { params: Promise<{ pillar: strin
                 </div>
 
                 {complete ? (
-                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[10px] font-bold text-[#00D4FF]">
+                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-0.5 text-[0.625rem] font-bold text-[#00D4FF]">
                     <Check className="h-3 w-3" strokeWidth={3} />
                     Done
                   </span>
                 ) : course ? (
-                  <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold text-white/55">
+                  <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[0.625rem] font-bold text-white/55">
                     On shelf
                   </span>
                 ) : (

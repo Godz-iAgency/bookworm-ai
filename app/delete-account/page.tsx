@@ -152,7 +152,7 @@ export default function DeleteAccountPage() {
 
             <div className="mt-4 flex gap-2.5 rounded-lg border border-[#FF006E]/35 bg-[#FF006E]/10 px-3.5 py-3">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF006E]" strokeWidth={2} />
-              <p className="text-[13px] leading-relaxed text-[#FF006E]">
+              <p className="text-[0.8125rem] leading-relaxed text-[#FF006E]">
                 Deletion happens straight away and cannot be undone. There is no recovery window.
               </p>
             </div>
@@ -185,7 +185,7 @@ export default function DeleteAccountPage() {
 
                 <label
                   htmlFor="confirm-delete"
-                  className="mt-4 block text-[11px] font-semibold uppercase tracking-wide text-white/40"
+                  className="mt-4 block text-[0.6875rem] font-semibold uppercase tracking-wide text-white/40"
                 >
                   Type DELETE to confirm
                 </label>
@@ -210,7 +210,7 @@ export default function DeleteAccountPage() {
               /* ---- Signed out: prove it's your account ------------------ */
               <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <h2 className="text-sm font-bold text-white">Sign in to confirm it&apos;s you</h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-white/55">
+                <p className="mt-1 text-[0.8125rem] leading-relaxed text-white/55">
                   We ask for this because deleting an account can&apos;t be reversed.
                 </p>
 
@@ -243,7 +243,7 @@ export default function DeleteAccountPage() {
                 </form>
                 <Link href="/login" className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline">Forgot password?</Link>
 
-                <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-wide text-white/30">
+                <div className="my-4 flex items-center gap-3 text-[0.6875rem] uppercase tracking-wide text-white/30">
                   <span className="h-px flex-1 bg-white/10" />
                   or
                   <span className="h-px flex-1 bg-white/10" />
@@ -258,7 +258,7 @@ export default function DeleteAccountPage() {
                 </button>
 
                 {SUPPORT_EMAIL && (
-                  <p className="mt-4 text-[12px] leading-relaxed text-white/45">
+                  <p className="mt-4 text-[0.75rem] leading-relaxed text-white/45">
                     Can&apos;t sign in?{" "}
                     <a
                       href={`mailto:${SUPPORT_EMAIL}?subject=Account%20deletion%20request`}

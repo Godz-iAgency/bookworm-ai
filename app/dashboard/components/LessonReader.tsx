@@ -220,7 +220,7 @@ export default function LessonReader({
           <X className="h-5 w-5" strokeWidth={2} />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">Day {dayNumber}</p>
+          <p className="text-[0.625rem] font-bold uppercase tracking-widest text-[#00D4FF]">Day {dayNumber}</p>
           <p className="truncate text-sm font-bold text-white">{dayTitle}</p>
         </div>
         <button
@@ -332,7 +332,7 @@ export default function LessonReader({
           >
           <div className="mx-auto flex max-w-md flex-col gap-3">
             <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Size</span>
+              <span className="w-16 shrink-0 text-[0.625rem] font-bold uppercase tracking-wider text-white/40">Size</span>
               <div className="flex flex-1 gap-1.5">
                 {FONT_SIZE_ORDER.map((id) => (
                   <button
@@ -354,7 +354,7 @@ export default function LessonReader({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wider text-white/40">Layout</span>
+              <span className="w-16 shrink-0 text-[0.625rem] font-bold uppercase tracking-wider text-white/40">Layout</span>
               <div className="flex flex-1 gap-1.5">
                 <ModeButton
                   active={!paged}
@@ -411,7 +411,7 @@ export default function LessonReader({
                 style={{ width: `${((page + 1) / pageCount) * 100}%` }}
               />
             </div>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/40 tabular-nums">
+            <p className="mt-1 text-[0.625rem] font-bold uppercase tracking-wider text-white/40 tabular-nums">
               Page {page + 1} of {pageCount}
             </p>
           </div>
@@ -502,7 +502,7 @@ function CommitmentBlock({
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">Your move</p>
+      <p className="text-[0.625rem] font-bold uppercase tracking-widest text-[#00D4FF]">Your move</p>
       <p className="mt-1 font-bold text-white" style={{ fontSize: size, lineHeight: 1.35 }}>
         What will you take away for the next 24 hours?
       </p>

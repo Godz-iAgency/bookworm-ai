@@ -77,7 +77,7 @@ export default function ReadingLevelPage() {
       </div>
 
       {/* Main */}
-      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-3">
+      <div className="z-10 flex w-full max-w-3xl flex-col items-center px-3">
         {/* Reminder of the book they picked */}
         <div className="mb-3 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-sm">
           <span className="text-xs font-semibold text-white/90">📖 {currentBook.title}</span>
@@ -118,7 +118,7 @@ export default function ReadingLevelPage() {
                   >
                     {level.label}
                   </h3>
-                  <p className="text-[13px] leading-snug text-white/70">{level.desc}</p>
+                  <p className="text-[0.8125rem] leading-snug text-white/70">{level.desc}</p>
                 </div>
               </button>
             );

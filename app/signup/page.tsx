@@ -137,7 +137,7 @@ export default function SignUpPage() {
           onGoogleClick={handleGoogle}
         />
 
-        <p className="mt-6 max-w-[280px] text-center text-[11px] leading-relaxed text-white/40">
+        <p className="mt-6 max-w-[280px] text-center text-[0.6875rem] leading-relaxed text-white/40">
           By continuing, you agree to Bookworm AI&apos;s{" "}
           <Link href="/terms" className="underline decoration-white/20 hover:text-white/60">
             Terms of Service

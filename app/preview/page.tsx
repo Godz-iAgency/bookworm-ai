@@ -225,7 +225,7 @@ export default function PreviewPage() {
       // For a new trial, activate-trial already reset this to 0 server-side and
       // this is the trial's one book. For an existing subscriber it
       // counts against their monthly quota the same as any other generation.
-      router.push(destination);
+      router.replace(destination);
     },
     [user, currentBook, currentReadingLevel, days, outline, courses, setCourses, setActiveCourseId, router]
   );
@@ -262,14 +262,14 @@ export default function PreviewPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-3">
+      <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <BackButton to="/reading-level" label="Back to reading level" />
           <Logo variant="lockup" size={26} priority className="opacity-90" />
         </div>
       </div>
 
-      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-3 pb-16">
+      <div className="z-10 flex w-full max-w-3xl flex-col items-center px-3 pb-16">
         {/* Book + level recap */}
         <div className="mb-2 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-sm">
           <span className="text-xs font-semibold text-white/90">
@@ -290,7 +290,7 @@ export default function PreviewPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-[#00D4FF]">Day 1</p>
               <p className="text-sm font-medium text-white/90">{days[0]?.title}</p>
             </div>
-            <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
+            <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wide text-[#00D4FF]">
               Free to read
             </span>
           </div>
@@ -367,10 +367,10 @@ export default function PreviewPage() {
               key={day.dayNumber}
               className="flex items-center gap-3 rounded-lg border border-white/10 bg-[#1a1a1a]/60 px-3 py-2"
             >
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-white/40">
+              <span className="shrink-0 text-[0.625rem] font-bold uppercase tracking-wide text-white/40">
                 Day {day.dayNumber}
               </span>
-              <p className="min-w-0 flex-1 truncate text-[13px] text-white/70">{day.title}</p>
+              <p className="min-w-0 flex-1 truncate text-[0.8125rem] text-white/70">{day.title}</p>
               <Lock className="h-3.5 w-3.5 shrink-0 text-white/25" strokeWidth={2} />
             </div>
           ))}
@@ -408,11 +408,11 @@ function LessonPreview({ lesson }: { lesson: string }) {
     <article className="font-reading">
       {parseLesson(lesson).map((b, i) =>
         b.type === "heading" ? (
-          <h4 key={i} className="mb-2 mt-5 text-[22px] font-bold leading-snug text-white first:mt-0">
+          <h4 key={i} className="mb-2 mt-5 text-[1.375rem] font-bold leading-snug text-white first:mt-0">
             {b.text}
           </h4>
         ) : (
-          <p key={i} className="mb-4 text-[18px] leading-[1.75] text-white/85">
+          <p key={i} className="mb-4 text-[1.125rem] leading-[1.75] text-white/85">
             {b.text}
           </p>
         )

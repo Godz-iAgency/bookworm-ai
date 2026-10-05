@@ -313,7 +313,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   } as const;
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
+    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:py-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
       {/* Identity - laid out as a row rather than a stack. Centred, the avatar
           and email alone ate a third of a phone screen before any setting the
           reader actually came here to change was visible. */}
@@ -393,7 +393,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 <level.Icon className="h-7 w-7 shrink-0 text-white/70" strokeWidth={1.75} />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-base font-bold text-white">{level.label}</h4>
-                  <p className="text-[13px] leading-snug text-white/70">{level.desc}</p>
+                  <p className="text-[0.8125rem] leading-snug text-white/70">{level.desc}</p>
                 </div>
               </button>
             ))}
@@ -435,14 +435,14 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 <Languages className="h-7 w-7 shrink-0 text-white/70" strokeWidth={1.75} />
                 <div className="flex-1 min-w-0">
                   <h4 className="text-base font-bold text-white">{l.label}</h4>
-                  <p className="text-[13px] leading-snug text-white/70">{l.native}</p>
+                  <p className="text-[0.8125rem] leading-snug text-white/70">{l.native}</p>
                 </div>
               </button>
             ))}
           </div>
         )}
         <p className="mt-2 text-xs text-white/40">
-          New books are written in this language. Books already on your shelf stay as they are.
+          New books, and the days of your current books that are not written yet, use this language. Days you have already read stay as they are.
         </p>
       </div>
 
@@ -466,7 +466,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 <span className="font-reading font-bold leading-none" style={{ fontSize: FONT_SCALE[id].body }}>
                   A
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide">{FONT_SCALE[id].label}</span>
+                <span className="text-[0.625rem] font-bold uppercase tracking-wide">{FONT_SCALE[id].label}</span>
               </button>
             ))}
           </div>
@@ -507,7 +507,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
               Pages
             </button>
           </div>
-          <p className="mt-2 text-[11px] leading-snug text-white/40">
+          <p className="mt-2 text-[0.6875rem] leading-snug text-white/40">
             {readingMode === "page"
               ? "Swipe or tap the arrows to turn pages, like a real book."
               : "One continuous page you scroll through."}
@@ -612,7 +612,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 {comp ? "Full access, no subscription" : currentPlan.tagline}
               </p>
             </div>
-            <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00D4FF]">
+            <span className="shrink-0 rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-3 py-1 text-[0.625rem] font-bold uppercase tracking-wide text-[#00D4FF]">
               {comp ? "Complimentary" : billing?.trialStatus === "active" ? "Trial" : "Current"}
             </span>
           </div>
@@ -620,7 +620,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           {billing && (
             <div className="mt-3 flex gap-4 border-t border-white/10 pt-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">
+                <p className="text-[0.625rem] font-bold uppercase tracking-wide text-white/40">
                   {comp ? "Books made" : billing.trialStatus === "active" ? "Trial books" : "This month"}
                 </p>
                 <p className="text-sm font-bold text-white/90">
@@ -633,7 +633,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-white/40">Open now</p>
+                <p className="text-[0.625rem] font-bold uppercase tracking-wide text-white/40">Open now</p>
                 <p className="text-sm font-bold text-white/90">
                   {openBooks} / {comp ? comp.maxOpenBooks : currentPlan.maxOpenBooks}
                 </p>
@@ -658,7 +658,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           {!comp && currentPlan.id === "book_club" && (
             <button
               onClick={() => router.push("/pricing")}
-              className="mt-2 w-full rounded-lg px-4 py-1.5 text-[11px] font-semibold text-white/45 transition-colors hover:text-white/70"
+              className="mt-2 w-full rounded-lg px-4 py-1.5 text-[0.6875rem] font-semibold text-white/45 transition-colors hover:text-white/70"
             >
               Change plan
             </button>
@@ -669,7 +669,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
           {billing?.paymentFailedAt && (
             <div className="mt-3 flex gap-2.5 rounded-lg border border-[#FFB020]/40 bg-[#FFB020]/10 px-3 py-2.5">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FFB020]" strokeWidth={2} />
-              <p className="text-[12px] leading-relaxed text-[#FFB020]">
+              <p className="text-[0.75rem] leading-relaxed text-[#FFB020]">
                 Your last payment didn&apos;t go through. We&apos;ll try again, but your books stop
                 when the retries run out, so it&apos;s worth checking your card.
               </p>
@@ -682,7 +682,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
             <div className="mt-3 border-t border-white/10 pt-3">
               {billing.subscriptionCancelAt ? (
                 <>
-                  <p className="text-[12px] leading-relaxed text-white/70">
+                  <p className="text-[0.75rem] leading-relaxed text-white/70">
                     Your plan ends on{" "}
                     <span className="font-bold text-white">
                       {new Date(billing.subscriptionCancelAt).toLocaleDateString("en-US", {
@@ -703,7 +703,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
                 </>
               ) : confirmCancel ? (
                 <>
-                  <p className="text-[12px] leading-relaxed text-white/70">
+                  <p className="text-[0.75rem] leading-relaxed text-white/70">
                     Your books stay until the end of the period you&apos;ve already paid for. After
                     that, generating new ones stops.
                   </p>
@@ -763,14 +763,14 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
             {confirmDelete ? (
               <>
                 <h3 className="text-sm font-bold text-white/90">Delete your account</h3>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-white/70">
+                <p className="mt-1.5 text-[0.75rem] leading-relaxed text-white/70">
                   This removes your books, your preferences and your sign-in, cancels any
                   subscription, and cannot be undone.
                   {billing?.isFamilyOwner
                     ? " Everyone in your Book Club loses access too."
                     : ""}
                 </p>
-                <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                <label className="mt-3 block text-[0.6875rem] font-semibold uppercase tracking-wide text-white/40">
                   Type DELETE to confirm
                 </label>
                 <input
@@ -801,7 +801,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
               </>
             ) : (
               <>
-                <p className="text-[12px] leading-relaxed text-white/45">
+                <p className="text-[0.75rem] leading-relaxed text-white/45">
                   Deleting your account removes your books, your preferences and your sign-in, and
                   cancels any subscription. It can&apos;t be undone.
                 </p>

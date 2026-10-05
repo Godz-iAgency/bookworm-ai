@@ -181,7 +181,7 @@ export default function PricingPage() {
                 <h2 className="bg-gradient-to-r from-[#00D4FF] to-[#FF006E] bg-clip-text text-2xl font-black tracking-tight text-transparent">
                   {plan.name}
                 </h2>
-                <p className="mb-3 text-[13px] leading-snug text-white/60">{plan.tagline}</p>
+                <p className="mb-3 text-[0.8125rem] leading-snug text-white/60">{plan.tagline}</p>
                 <p className="text-3xl font-black">
                   {plan.price}
                   <span className="text-sm font-medium text-white/50">/month</span>
@@ -192,7 +192,7 @@ export default function PricingPage() {
 
                 <ul className="mb-5 flex-1 space-y-2">
                   {planPerks(plan).map((perk) => (
-                    <li key={perk} className="flex items-start gap-2 text-[13px] text-white/80">
+                    <li key={perk} className="flex items-start gap-2 text-[0.8125rem] text-white/80">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#00D4FF]" strokeWidth={2.5} />
                       <span>{perk}</span>
                     </li>
@@ -260,7 +260,7 @@ export default function PricingPage() {
                       : "This starts your plan today."}
                   </p>
                   <div className="mb-4 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.07] px-4 py-3 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Charged today</p>
+                    <p className="text-[0.625rem] font-bold uppercase tracking-wider text-white/50">Charged today</p>
                     <p className="text-2xl font-black text-white">
                       {formatMoney(pending.quote.amount, pending.quote.currency)}
                     </p>
@@ -273,7 +273,7 @@ export default function PricingPage() {
                     added to your next invoice.
                   </p>
                   <div className="mb-4 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.07] px-4 py-3 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                    <p className="text-[0.625rem] font-bold uppercase tracking-wider text-white/50">
                       Your next invoice
                       {pending.quote.nextInvoiceAt
                         ? ` · ${new Date(pending.quote.nextInvoiceAt).toLocaleDateString("en-US", {
@@ -317,7 +317,7 @@ export default function PricingPage() {
         {billing?.isFamilyOwner && (
           <div className="mt-8 w-full rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-5">
             <h3 className="mb-1 text-base font-bold">Your Book Club</h3>
-            <p className="mb-4 text-[13px] text-white/60">
+            <p className="mb-4 text-[0.8125rem] text-white/60">
               Invite up to 3 others, see who&apos;s in, and manage seats on your Book Club screen.
             </p>
             <Button

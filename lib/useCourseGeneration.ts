@@ -152,7 +152,7 @@ export function useCourseGeneration() {
       setCourses((prev) => [...prev, newCourse]);
       setActiveCourseId(newCourse.id);
 
-      router.push("/dashboard");
+      router.replace("/dashboard");
       } catch (e) {
         console.error("Course creation failed:", e);
         setError("We couldn't build your course right now. Please try again in a moment.");

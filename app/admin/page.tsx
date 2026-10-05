@@ -332,7 +332,7 @@ export default function AdminPage() {
                       style={{ height: `${Math.max(4, (d.count / peakSignups) * 100)}%` }}
                       title={`${d.date}: ${d.count}`}
                     />
-                    <span className="shrink-0 text-center text-[9px] tabular-nums text-white/35">{d.count}</span>
+                    <span className="shrink-0 text-center text-[0.5625rem] tabular-nums text-white/35">{d.count}</span>
                   </div>
                 ))}
               </div>
@@ -440,27 +440,27 @@ export default function AdminPage() {
                       <li key={c.id} className="rounded-xl border border-white/10 bg-black/30 p-3">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                           <span className="text-sm font-bold tabular-nums">{money(c.amount, c.currency)}</span>
-                          <span className="min-w-0 flex-1 truncate text-[13px] text-white/65">
+                          <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-white/65">
                             {c.customerEmail ?? c.customerId ?? "Unknown customer"}
                           </span>
-                          <span className="text-[11px] text-white/40">
+                          <span className="text-[0.6875rem] text-white/40">
                             {new Date(c.created * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </span>
                           {c.disputed && (
-                            <span className="rounded-full border border-[#FF006E]/50 bg-[#FF006E]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#FF006E]">
+                            <span className="rounded-full border border-[#FF006E]/50 bg-[#FF006E]/10 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-[#FF006E]">
                               Disputed
                             </span>
                           )}
                           {fullyRefunded ? (
-                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">
+                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white/40">
                               Refunded
                             </span>
                           ) : c.amountRefunded > 0 ? (
-                            <span className="rounded-full border border-[#FFB020]/40 bg-[#FFB020]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#FFB020]">
+                            <span className="rounded-full border border-[#FFB020]/40 bg-[#FFB020]/10 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-[#FFB020]">
                               {money(c.amountRefunded, c.currency)} back
                             </span>
                           ) : c.status !== "succeeded" ? (
-                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/40">
+                            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-white/40">
                               {c.status}
                             </span>
                           ) : null}
@@ -490,7 +490,7 @@ export default function AdminPage() {
 
                         {arming && (
                           <div className="mt-2.5 rounded-lg border border-[#FF006E]/40 bg-[#FF006E]/10 p-3">
-                            <p className="text-[13px] leading-relaxed text-white/85">
+                            <p className="text-[0.8125rem] leading-relaxed text-white/85">
                               Refund <span className="font-bold">{money(remaining, c.currency)}</span> to{" "}
                               <span className="font-bold">{c.customerEmail ?? "this customer"}</span>? The money goes
                               back to their card and this can&rsquo;t be reversed.
@@ -534,7 +534,7 @@ export default function AdminPage() {
                 onSubmit={(e) => { e.preventDefault(); void createLink(); }}
                 className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-white/10 bg-black/30 p-3"
               >
-                <label className="min-w-[160px] flex-1 text-[11px] font-semibold text-white/55">
+                <label className="min-w-[160px] flex-1 text-[0.6875rem] font-semibold text-white/55">
                   What is it for?
                   <input
                     value={newLinkLabel}
@@ -544,7 +544,7 @@ export default function AdminPage() {
                     className="mt-1 w-full rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm font-normal text-white placeholder:text-white/30"
                   />
                 </label>
-                <label className="text-[11px] font-semibold text-white/55">
+                <label className="text-[0.6875rem] font-semibold text-white/55">
                   How many people
                   <select
                     value={newLinkPeople}
@@ -561,7 +561,7 @@ export default function AdminPage() {
                 >
                   {creatingLink ? "Creating…" : "Create guest link"}
                 </button>
-                <p className="w-full text-[11px] leading-relaxed text-white/40">
+                <p className="w-full text-[0.6875rem] leading-relaxed text-white/40">
                   Send it to anyone. Each person who opens it gets an account of their own with one book to write. Their
                   week starts when they write it, and when the week is over the link has nothing left to give them. Guests
                   use the free AI key, never the paid one, and they stay out of your paid-customer numbers. At most 15 new
@@ -581,14 +581,14 @@ export default function AdminPage() {
                       <li key={link.token} className="rounded-xl border border-white/10 bg-black/30 p-3.5">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className="text-sm font-bold">{link.label}</span>
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                          <span className={`rounded-full border px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide ${
                             link.active
                               ? "border-[#00D4FF]/40 bg-[#00D4FF]/10 text-[#00D4FF]"
                               : "border-white/15 text-white/40"
                           }`}>
                             {link.active ? "On" : "Off"}
                           </span>
-                          <span className="ml-auto text-[11px] text-white/40">
+                          <span className="ml-auto text-[0.6875rem] text-white/40">
                             {link.kind === "guest"
                               ? `${link.guestCount ?? 0} of ${link.maxGuests ?? 0} guests`
                               : link.bookLimit === null
@@ -634,7 +634,7 @@ export default function AdminPage() {
               <div className="-mx-1 overflow-x-auto">
                 <table className="w-full min-w-[620px] text-left text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-wide text-white/40">
+                    <tr className="text-[0.625rem] uppercase tracking-wide text-white/40">
                       <th className="px-1 pb-2 font-bold">Email</th>
                       <th className="px-1 pb-2 font-bold">Joined</th>
                       <th className="px-1 pb-2 font-bold">Last seen</th>
@@ -683,11 +683,11 @@ function Stat({ icon: Icon, label, value, sub, accent, onClick }: {
     >
       <div className="mb-1.5 flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5 text-[#00D4FF]" strokeWidth={2} />
-        <span className="text-[10px] font-bold uppercase tracking-wide text-white/45">{label}</span>
+        <span className="text-[0.625rem] font-bold uppercase tracking-wide text-white/45">{label}</span>
         <ChevronRight className="ml-auto h-3.5 w-3.5 text-white/25 transition-colors group-hover:text-[#00D4FF]" />
       </div>
       <p className="text-2xl font-black tabular-nums">{value}</p>
-      {sub && <p className="mt-0.5 text-[11px] text-white/45">{sub}</p>}
+      {sub && <p className="mt-0.5 text-[0.6875rem] text-white/45">{sub}</p>}
     </button>
   );
 }
@@ -727,7 +727,7 @@ function Panel({ title, children, onClick }: { title: string; children: React.Re
 function Row({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-white/5 pb-2 last:border-0 last:pb-0">
-      <span className="min-w-0 truncate text-[13px] text-white/60">{label}</span>
+      <span className="min-w-0 truncate text-[0.8125rem] text-white/60">{label}</span>
       <span className="shrink-0 text-sm font-bold tabular-nums text-white/90">{value}</span>
     </div>
   );
@@ -741,7 +741,7 @@ function FunnelStep({ label, value, of, onClick }: { label: string; value: numbe
       onClick={onClick}
       className="group rounded-xl border border-white/10 bg-black/30 p-3.5 text-left transition-colors hover:border-[#00D4FF]/40"
     >
-      <p className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-white/45">
+      <p className="flex items-center justify-between text-[0.625rem] font-bold uppercase tracking-wide text-white/45">
         {label}
         <ChevronRight className="h-3.5 w-3.5 text-white/25 transition-colors group-hover:text-[#00D4FF]" />
       </p>
@@ -749,7 +749,7 @@ function FunnelStep({ label, value, of, onClick }: { label: string; value: numbe
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black">
         <div className="h-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E]" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-1 text-[11px] text-white/40">{pct}% of sign-ups</p>
+      <p className="mt-1 text-[0.6875rem] text-white/40">{pct}% of sign-ups</p>
     </button>
   );
 }

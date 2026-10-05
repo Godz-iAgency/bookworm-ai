@@ -3,6 +3,7 @@
 import { aiFetch } from "@/lib/ai-fetch";
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Course, Day } from "./BookwormContext";
+import { settingsForNextDay, settingsOfDay, withDaySettings } from "./lesson-settings";
 
 export type DayContentStatus = "ready" | "generating" | "error";
 
@@ -61,12 +62,15 @@ export function useDayContent(
       setFailedKey(null);
 
       try {
+        // A new day is written in the reader's current Profile settings; a
+        // repair of a day already written matches that day.
+        const settings = needsFull ? await settingsForNextDay(course) : settingsOfDay(course, day);
         const endpoint = needsFull ? "/api/course/day" : "/api/course/flashcards";
         const body = needsFull
           ? {
               title: course.book.title,
               author: course.book.author,
-              readingLevel: course.readingLevel,
+              readingLevel: settings.readingLevel,
               dayNumber: day.dayNumber,
               dayTitle: day.title,
               allTitles: course.days.map((d) => d.title),
@@ -85,7 +89,7 @@ export function useDayContent(
           : {
               title: course.book.title,
               author: course.book.author,
-              readingLevel: course.readingLevel,
+              readingLevel: settings.readingLevel,
               dayNumber: day.dayNumber,
               dayTitle: day.title,
               lesson: day.lesson,
@@ -94,9 +98,7 @@ export function useDayContent(
         const res = await aiFetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // The course's own language, not the reader's current setting: a book
-          // started in English stays English even after they switch.
-          body: JSON.stringify({ ...body, courseId: course.id, language: course.language ?? "en" }),
+          body: JSON.stringify({ ...body, courseId: course.id, language: settings.language }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");
@@ -113,30 +115,32 @@ export function useDayContent(
         }
 
         setCourses((prev) =>
-          prev.map((c) =>
-            c.id !== course.id
-              ? c
-              : {
-                  ...c,
-                  // Fill gaps, never overwrite. On the full path every one of
-                  // these is empty anyway, so it takes what was just written;
-                  // on a repair path it keeps what the reader already has -
-                  // the lesson they read, and cards they may be part-way
-                  // through - and only fills what was actually missing. That
-                  // matters now that a missing axiom alone can trigger this.
-                  days: c.days.map((d) =>
-                    d.dayNumber !== day.dayNumber
-                      ? d
-                      : {
-                          ...d,
-                          lesson: d.lesson || data.lesson || "",
-                          flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
-                          chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
-                          closingAxiom: d.closingAxiom || data.closingAxiom || "",
-                        }
-                  ),
-                }
-          )
+          prev.map((c) => {
+            if (c.id !== course.id) return c;
+            const wroteLesson = needsFull && !c.days.find((d) => d.dayNumber === day.dayNumber)?.lesson;
+            const filled: Course = {
+              ...c,
+              // Fill gaps, never overwrite. On the full path every one of
+              // these is empty anyway, so it takes what was just written;
+              // on a repair path it keeps what the reader already has -
+              // the lesson they read, and cards they may be part-way
+              // through - and only fills what was actually missing. That
+              // matters now that a missing axiom alone can trigger this.
+              days: c.days.map((d) =>
+                d.dayNumber !== day.dayNumber
+                  ? d
+                  : {
+                      ...d,
+                      lesson: d.lesson || data.lesson || "",
+                      flashcards: d.flashcards?.length ? d.flashcards : data.flashcards ?? [],
+                      chatSeed: d.chatSeed?.length ? d.chatSeed : data.chatSeed ?? [],
+                      closingAxiom: d.closingAxiom || data.closingAxiom || "",
+                    }
+              ),
+            };
+            // Only the request that actually wrote the lesson records what it was written in.
+            return wroteLesson ? withDaySettings(filled, day.dayNumber, settings) : filled;
+          })
         );
       } catch (err) {
         console.error("Day content generation failed:", err);

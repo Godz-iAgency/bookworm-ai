@@ -245,7 +245,7 @@ export default function BookClubEndedPage() {
         <div className="mt-8 w-full border-t border-white/10 pt-5 text-center">
           {confirmDelete ? (
             <div className="rounded-xl border border-[#FF006E]/40 bg-[#FF006E]/10 p-4">
-              <p className="text-[13px] leading-relaxed text-white/85">
+              <p className="text-[0.8125rem] leading-relaxed text-white/85">
                 This deletes your account, your books and your sign-in right now. It can&rsquo;t be
                 undone.
               </p>
@@ -379,7 +379,7 @@ function CardStep({
       >
         {busy ? "Working…" : label}
       </Button>
-      <p className="mt-2 text-center text-[11px] text-white/40">{note}</p>
+      <p className="mt-2 text-center text-[0.6875rem] text-white/40">{note}</p>
     </div>
   );
 }

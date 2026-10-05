@@ -103,7 +103,7 @@ export default function FlashcardTab({
   const isActiveMastered = mastered.has(currentIndex);
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in pb-8">
+    <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-3 py-4 md:py-8 animate-in fade-in pb-8">
 
       {/* Header Info */}
       <div className="flex justify-between items-center mb-8 bg-[#1a1a1a] p-4 rounded-xl border border-white/10 shadow-lg">
@@ -248,14 +248,14 @@ export default function FlashcardTab({
           <div className="flex min-w-0 flex-1 gap-2 sm:gap-3">
             <Button
               onClick={handleNext}
-              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl border border-white/20 bg-[#1a1a1a] px-1 text-[11px] font-bold text-white hover:bg-white/10 sm:h-14 sm:px-6 sm:text-base"
+              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl border border-white/20 bg-[#1a1a1a] px-1 text-[0.6875rem] font-bold text-white hover:bg-white/10 sm:h-14 sm:px-6 sm:text-base"
             >
               Review Again
             </Button>
             <Button
               onClick={markMastered}
               disabled={isActiveMastered}
-              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0096ff] px-1 text-[11px] font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 sm:h-14 sm:px-6 sm:text-base"
+              className="h-12 min-w-0 flex-1 overflow-hidden rounded-xl bg-gradient-to-r from-[#00D4FF] to-[#0096ff] px-1 text-[0.6875rem] font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 sm:h-14 sm:px-6 sm:text-base"
             >
               {isActiveMastered ? "Mastered ✓" : "Got It ✓"}
             </Button>

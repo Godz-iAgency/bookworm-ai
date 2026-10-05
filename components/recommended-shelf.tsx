@@ -84,7 +84,7 @@ export function RecommendedShelf({ shelfTitles }: { shelfTitles: string[] }) {
             />
 
             <div className="flex min-w-0 flex-1 flex-col">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#00D4FF]">
+              <p className="text-[0.625rem] font-bold uppercase tracking-widest text-[#00D4FF]">
                 {rec.pillarName}
               </p>
               <p className="mt-1 truncate text-base font-bold">{rec.book.title}</p>

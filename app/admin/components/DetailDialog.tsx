@@ -56,7 +56,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail | null; onClo
                 {detail.sections.map((s, i) => (
                   <section key={i}>
                     {s.heading && (
-                      <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-white/50">
+                      <h3 className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-white/50">
                         {s.heading}
                         {s.table && <span className="ml-1.5 font-semibold text-white/35">({s.table.rows.length})</span>}
                       </h3>
@@ -66,7 +66,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail | null; onClo
                       <div className="mb-3 space-y-1.5">
                         {s.rows.map((r) => (
                           <div key={r.label} className="flex items-baseline justify-between gap-3 border-b border-white/5 pb-1.5 last:border-0">
-                            <span className="min-w-0 text-[13px] text-white/60">{r.label}</span>
+                            <span className="min-w-0 text-[0.8125rem] text-white/60">{r.label}</span>
                             <span className="shrink-0 text-sm font-bold tabular-nums text-white/90">{r.value}</span>
                           </div>
                         ))}
@@ -77,9 +77,9 @@ export function DetailDialog({ detail, onClose }: { detail: Detail | null; onClo
                         <p className="text-sm text-white/40">{s.table.empty ?? "Nobody here yet."}</p>
                       ) : (
                         <div className="-mx-1 overflow-x-auto">
-                          <table className="w-full min-w-[480px] text-left text-[13px]">
+                          <table className="w-full min-w-[480px] text-left text-[0.8125rem]">
                             <thead>
-                              <tr className="text-[10px] uppercase tracking-wide text-white/40">
+                              <tr className="text-[0.625rem] uppercase tracking-wide text-white/40">
                                 {s.table.columns.map((c, ci) => (
                                   <th key={c} className={`px-1 pb-2 font-bold ${ci > 0 ? "whitespace-nowrap" : ""}`}>{c}</th>
                                 ))}
@@ -101,7 +101,7 @@ export function DetailDialog({ detail, onClose }: { detail: Detail | null; onClo
                             </tbody>
                           </table>
                           {s.table.rows.length > MAX_ROWS && (
-                            <p className="mt-2 text-[11px] text-white/40">Showing the first {MAX_ROWS} of {s.table.rows.length}.</p>
+                            <p className="mt-2 text-[0.6875rem] text-white/40">Showing the first {MAX_ROWS} of {s.table.rows.length}.</p>
                           )}
                         </div>
                       )

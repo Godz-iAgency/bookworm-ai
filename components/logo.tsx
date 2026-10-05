@@ -125,7 +125,7 @@ export function Logo({
           with the dots behind it. Legibility is the entire reason the tagline
           is text instead of the near-black supplied image. */}
       {tagline && (
-        <span className="mt-2 text-center text-[11px] font-medium tracking-wide text-white/70 sm:text-xs">
+        <span className="mt-2 text-center text-[0.6875rem] font-medium tracking-wide text-white/70 sm:text-xs">
           {TAGLINE}
         </span>
       )}

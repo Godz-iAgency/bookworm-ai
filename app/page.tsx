@@ -51,7 +51,7 @@ export default function LandingPage() {
     <div className="relative min-h-dvh w-full overflow-hidden bg-black">
 
       {/* Top navigation */}
-      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-3 py-5 sm:px-4">
+      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-3 py-5">
         {/* Left - opens the explainer video, playing. */}
         <VslLink />
         {/* Right - returning users log in here */}
@@ -64,7 +64,7 @@ export default function LandingPage() {
       </header>
 
       {/* Content overlay */}
-      <div className="relative z-10 flex min-h-dvh flex-col items-center px-3 pb-10 pt-16 sm:px-4 sm:pt-20">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center px-3 pb-10 pt-16 sm:pt-20">
         {/* The entropy field is anchored to the logo rather than to the page.
             It used to be `absolute inset-0` on a container as tall as the
             whole scrollable page, which centred it far below the fold. */}

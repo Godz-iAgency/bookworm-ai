@@ -158,7 +158,7 @@ export default function MasteryPage() {
                 <div className="relative min-w-0 flex-1 text-right">
                   <p className="font-bold">{pillar.name}</p>
                   <p className="truncate text-xs text-white/55">{pillar.blurb}</p>
-                  <p className="mt-1 text-[11px] font-semibold text-white/35">
+                  <p className="mt-1 text-[0.6875rem] font-semibold text-white/35">
                     {pillar.books.length} books
                     {tally ? ` · ${tally.started} on your shelf` : ""}
                     {tally && tally.read > 0 ? ` · ${tally.read} read` : ""}

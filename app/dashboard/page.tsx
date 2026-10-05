@@ -51,6 +51,7 @@ import CourseTab from "./components/CourseTab";
 import ChatTab from "./components/ChatTab";
 import FlashcardTab from "./components/FlashcardTab";
 import BookClubTab from "./components/BookClubTab";
+import { useBackStep } from "@/lib/useBackStep";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -59,6 +60,8 @@ export default function DashboardPage() {
     useBookwormContext();
   const [view, setView] = useState<View>("home");
   const [activeTab, setActiveTab] = useState<Tab>("course");
+  // Anywhere but the shelf, the phone's back button returns to the shelf.
+  useBackStep(view !== "home", () => setView("home"));
   const [progress, setProgress] = useState<UserProgress>(DEFAULT_PROGRESS);
   const [progressLoaded, setProgressLoaded] = useState(false);
   const [billing, setBilling] = useState<BillingProfile | null>(null);
@@ -465,7 +468,7 @@ export default function DashboardPage() {
                   >
                     {chatQuota.remaining}
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">left today</span>
+                  <span className="text-[0.625rem] font-bold uppercase tracking-wider text-white/40">left today</span>
                 </div>
               </>
             ) : (
@@ -538,7 +541,7 @@ export default function DashboardPage() {
                     // Not uppercase/tracked like the app's other badges: "Page
                     // Turner" in caps with letter-spacing didn't fit this
                     // 80px slot at all. Plain case does, for every plan name.
-                    <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-1 text-[10px] font-bold text-[#00D4FF] truncate">
+                    <span className="rounded-full border border-[#00D4FF]/40 bg-[#00D4FF]/10 px-2 py-1 text-[0.625rem] font-bold text-[#00D4FF] truncate">
                       {billing.trialStatus === "active" ? "Trial" : planFromId(getEffectivePlanId(billing)).name}
                     </span>
                   )}
@@ -607,7 +610,7 @@ function MobileNavButton({ icon: Icon, label, isActive, onClick }: { icon: Lucid
       `}
     >
       <Icon className="w-6 h-6" strokeWidth={2} />
-      <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+      <span className="text-[0.625rem] font-bold uppercase tracking-wider">{label}</span>
       {isActive && <div className="h-1 w-1 bg-[#00D4FF] rounded-full mt-1" />}
     </button>
   );
