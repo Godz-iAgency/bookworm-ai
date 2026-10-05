@@ -17,7 +17,9 @@ import { aiFetch } from "@/lib/ai-fetch";
 import { READING_LEVELS } from "@/lib/reading-levels";
 import { DEFAULT_LANGUAGE } from "@/lib/languages";
 import { getUserProfile } from "@/lib/firebase/profile";
-import { parseLesson } from "@/lib/lesson";
+import LessonReader from "@/app/dashboard/components/LessonReader";
+import { DayLoader } from "@/components/day-loader";
+import { useBackStep } from "@/lib/useBackStep";
 import { GENERATION_STEPS } from "@/lib/useCourseGeneration";
 import { getBillingProfile, hasActiveAccess, isBillingEnabled } from "@/lib/billing";
 import { useDay1Activation } from "@/lib/useDay1Activation";
@@ -143,9 +145,27 @@ export default function PreviewPage() {
   type DayOneContent = Pick<Day, "lesson" | "flashcards" | "chatSeed" | "closingAxiom">;
   const firstDayRef = useRef<Promise<DayOneContent | null> | null>(null);
   const [firstDayStatus, setFirstDayStatus] = useState<"idle" | "writing" | "failed">("idle");
-  // Whether the free Day 1 is open on screen: the funnel's "Day 1 activated".
-  const [dayOneOpen, setDayOneOpen] = useState(false);
-  useDay1Activation(outline.generationId, dayOneOpen && !!days?.[0]?.lesson);
+  // Day 1 opens in the real lesson reader, at the reader's own text size and
+  // layout (chosen at onboarding), so the free day is the actual experience.
+  const [readerOpen, setReaderOpen] = useState(false);
+  // Tapped while Day 1 was still being written: open it the moment it lands.
+  const [openWhenReady, setOpenWhenReady] = useState(false);
+  const [writingSince, setWritingSince] = useState<number | undefined>(undefined);
+  const [dayOneCommitted, setDayOneCommitted] = useState<number[]>([]);
+  const dayOneReady = !!days?.[0]?.lesson;
+  // Reading Day 1 is the funnel's "Day 1 activated".
+  useDay1Activation(outline.generationId, readerOpen && dayOneReady);
+  useBackStep(readerOpen, () => setReaderOpen(false));
+  useEffect(() => {
+    if (openWhenReady && dayOneReady) {
+      setOpenWhenReady(false);
+      setReaderOpen(true);
+    }
+  }, [openWhenReady, dayOneReady]);
+  const tapDayOne = () => {
+    if (dayOneReady) setReaderOpen(true);
+    else if (firstDayStatus === "writing") setOpenWhenReady(true);
+  };
   const [firstDayTries, setFirstDayTries] = useState(0);
   const [finishing, setFinishing] = useState(false);
 
@@ -153,6 +173,7 @@ export default function PreviewPage() {
     const generationId = outline.generationId;
     if (!generationId) return;
     setFirstDayStatus("writing");
+    setWritingSince(Date.now());
     setFirstDayTries((n) => n + 1);
     firstDayRef.current = (async () => {
       try {
@@ -258,8 +279,45 @@ export default function PreviewPage() {
   // Card accepted while Day 1 was still being written: finish it, then go.
   if (finishing) return <GeneratingOverlay step={2} />;
 
+  const closeReaderToUnlock = () => {
+    setReaderOpen(false);
+    setTimeout(() => document.getElementById("unlock")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
   return (
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
+      {readerOpen && dayOneReady && (
+        <div className="fixed inset-0 z-50 bg-[#0a0a0a] text-white">
+          <LessonReader
+            dayNumber={1}
+            dayTitle={days[0].title}
+            lesson={days[0].lesson}
+            closingAxiom={days[0].closingAxiom}
+            committedActions={dayOneCommitted}
+            onToggleAction={(i) =>
+              setDayOneCommitted((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]))
+            }
+            canComplete={false}
+            onComplete={() => {}}
+            onClose={() => setReaderOpen(false)}
+            outro={
+              subscribed === false ? (
+                <div className="rounded-2xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] p-5 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#00D4FF]">Up next: Day 2</p>
+                  <p className="mt-1 text-lg font-bold text-white">{days[1]?.title}</p>
+                  <p className="mt-2 text-sm text-white/60">Day 1 was free. Your card unlocks Days 2 to 7.</p>
+                  <button
+                    onClick={closeReaderToUnlock}
+                    className="mt-4 w-full rounded-full bg-gradient-to-r from-[#00D4FF] to-[#FF006E] px-6 py-3 text-base font-bold text-white"
+                  >
+                    Unlock Days 2 to 7 →
+                  </button>
+                </div>
+              ) : undefined
+            }
+          />
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-3">
@@ -284,7 +342,19 @@ export default function PreviewPage() {
             Locking it gained nothing and made the reader judge the course
             sight-unseen. It is written just after the plan appears, so the
             reader sees the whole course while it finishes. */}
-        <div className="mb-5 w-full rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] px-4 py-4 shadow-[0_0_20px_rgba(0,212,255,0.12)]">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={tapDayOne}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              tapDayOne();
+            }
+          }}
+          aria-label={dayOneReady ? `Read Day 1: ${days[0]?.title}` : `Day 1: ${days[0]?.title}`}
+          className="mb-5 w-full cursor-pointer rounded-xl border border-[#00D4FF]/40 bg-[#00D4FF]/[0.06] px-4 py-4 text-left shadow-[0_0_20px_rgba(0,212,255,0.12)] transition-colors hover:bg-[#00D4FF]/[0.1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00D4FF]"
+        >
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#00D4FF]">Day 1</p>
@@ -295,29 +365,25 @@ export default function PreviewPage() {
             </span>
           </div>
 
-          {days[0]?.lesson ? (
-            <details className="group" onToggle={(e) => setDayOneOpen(e.currentTarget.open)}>
-              <summary className="cursor-pointer list-none text-sm font-bold text-[#00D4FF] transition-opacity hover:opacity-80">
-                <span className="group-open:hidden">Read Day 1 now →</span>
-                <span className="hidden group-open:inline">Hide Day 1</span>
-              </summary>
-              <div className="mt-3 border-t border-white/10 pt-3">
-                <LessonPreview lesson={days[0].lesson} />
-              </div>
-            </details>
+          {dayOneReady ? (
+            <p className="text-sm font-bold text-[#00D4FF]">Read Day 1 now →</p>
           ) : (
             <>
               <p className="text-sm text-white/60">{days[0]?.previewText}</p>
               {firstDayStatus === "writing" && (
-                <p className="mt-2 animate-pulse text-xs font-semibold text-[#00D4FF]">
-                  Writing your Day 1 lesson now. A full lesson can take a minute or two, so have a look at the rest of your course while you wait.
-                </p>
+                <DayLoader dayNumber={1} startedAt={writingSince} className="mt-4 border-t border-white/10 pt-5 pb-1" />
               )}
               {firstDayStatus === "failed" && (
                 <div className="mt-2 text-xs text-white/50">
                   <p>We couldn&apos;t finish Day 1 here. The error is on our end, and it will be written for you as soon as you open your course.</p>
                   {firstDayTries < 2 && (
-                    <button onClick={startFirstDay} className="mt-2 font-bold text-[#00D4FF] hover:opacity-80">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startFirstDay();
+                      }}
+                      className="mt-2 font-bold text-[#00D4FF] hover:opacity-80"
+                    >
                       Try Day 1 again →
                     </button>
                   )}
@@ -334,7 +400,8 @@ export default function PreviewPage() {
         {/* Only for readers who haven't paid. While `subscribed` is still
             unknown the ask is held back rather than shown and retracted. */}
         <div
-          className={`mb-6 w-full rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.05] px-4 py-4 ${
+          id="unlock"
+          className={`mb-6 w-full scroll-mt-6 rounded-xl border border-[#00D4FF]/30 bg-[#00D4FF]/[0.05] px-4 py-4 ${
             subscribed === false ? "" : "hidden"
           }`}
         >
@@ -399,33 +466,13 @@ export default function PreviewPage() {
   );
 }
 
-/**
- * Day 1's lesson, rendered with the same parser and reading serif the real
- * reader uses, so the free sample looks like the product rather than a teaser.
- */
-function LessonPreview({ lesson }: { lesson: string }) {
-  return (
-    <article className="font-reading">
-      {parseLesson(lesson).map((b, i) =>
-        b.type === "heading" ? (
-          <h4 key={i} className="mb-2 mt-5 text-[1.375rem] font-bold leading-snug text-white first:mt-0">
-            {b.text}
-          </h4>
-        ) : (
-          <p key={i} className="mb-4 text-[1.125rem] leading-[1.75] text-white/85">
-            {b.text}
-          </p>
-        )
-      )}
-    </article>
-  );
-}
-
 function SoftGateForm({ onActivated }: { onActivated: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The card box pulses gently until the reader taps into it.
+  const [cardTouched, setCardTouched] = useState(false);
 
   const handleSubmit = async () => {
     if (!stripe || !elements) return;
@@ -477,8 +524,9 @@ function SoftGateForm({ onActivated }: { onActivated: () => void }) {
 
   return (
     <div className="w-full">
-      <div className="rounded-xl border border-white/15 bg-[#1a1a1a] px-4 py-4">
+      <div className={`rounded-xl border bg-[#1a1a1a] px-4 py-4 ${cardTouched ? "border-[#00D4FF]/60" : "card-attention border-[#00D4FF]/60"}`}>
         <CardElement
+          onFocus={() => setCardTouched(true)}
           options={{
             style: {
               base: {

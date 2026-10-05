@@ -11,11 +11,14 @@ import { READING_LEVELS, DEFAULT_READING_LEVEL } from "@/lib/reading-levels";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { destinationAfterOnboarding } from "@/lib/pending-invite";
 import { useBackStep } from "@/lib/useBackStep";
+import { ReadingDisplayPicker } from "@/components/reading-display-picker";
+import { DEFAULT_FONT_SIZE, DEFAULT_READING_MODE, type ReadingFontSize, type ReadingMode } from "@/lib/reading-prefs";
 
 /**
  * First-run onboarding, shown once right after a new account is created (email
- * OR Google). Two steps: topics to grow in, then reading level and the
- * language lessons are written in. All of these are
+ * OR Google). Two steps: topics to grow in, then reading level, the language
+ * lessons are written in, and how they look (text size, scroll or pages), so
+ * the free Day 1 already reads the way they chose. All of these are
  * preferences about the reader rather than about any one book, so they are
  * settled here - that way choosing a first book on /search leads straight into
  * a generated course instead of another form. Existing users never see this;
@@ -32,6 +35,8 @@ export default function OnboardingPage() {
   // being handed a blank three-way decision.
   const [level, setLevel] = useState<string>(DEFAULT_READING_LEVEL);
   const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
+  const [fontSize, setFontSize] = useState<ReadingFontSize>(DEFAULT_FONT_SIZE);
+  const [readingMode, setReadingMode] = useState<ReadingMode>(DEFAULT_READING_MODE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +74,15 @@ export default function OnboardingPage() {
         lastBookRead: lastBook.trim(),
         readingLevel: level,
         preferredLanguage: language,
+        readingFontSize: fontSize,
+        readingMode,
       });
+      // The reader opens at these straight away, before the profile is read back.
+      try {
+        localStorage.setItem(`bookworm_reading_prefs_${user.uid}`, JSON.stringify({ fontSize, readingMode }));
+      } catch {
+        // Storage blocked: the profile copy above is what counts.
+      }
       // Normally straight to picking a first book, but someone who arrived
       // here from a Book Club invite goes back to finish joining it first -
       // now that they have the reading level a course actually needs.
@@ -175,7 +188,7 @@ export default function OnboardingPage() {
               How do you want to learn?
             </h1>
             <p className="mb-6 text-center text-sm text-white/60">
-              This sets the voice and the language every lesson is written in. You can change both anytime.
+              Choose how every lesson is written and how it looks. You can change all of this anytime in Profile.
             </p>
 
             <div className="grid w-full grid-cols-1 gap-2.5">
@@ -236,6 +249,16 @@ export default function OnboardingPage() {
                   </button>
                 );
               })}
+            </div>
+
+            <h2 className="mb-2 mt-6 text-center text-base font-bold">How your lessons look</h2>
+            <div className="w-full rounded-2xl border border-white/10 bg-[#1a1a1a]/50 p-3.5">
+              <ReadingDisplayPicker
+                fontSize={fontSize}
+                readingMode={readingMode}
+                onFontSize={setFontSize}
+                onReadingMode={setReadingMode}
+              />
             </div>
 
             {error && (

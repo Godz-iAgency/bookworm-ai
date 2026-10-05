@@ -240,6 +240,52 @@
   html {
     font-size: 112.5%;
   }
+
+  /* Text alone takes one more step, so reading text lands near LinkedIn's
+     on the same tablet (body about 18px, small print about 14 to 16px)
+     without widening the spacing around it, which is set by the rule above. */
+  :root {
+    --text-xs: 0.875rem;
+    --text-sm: 1rem;
+    --text-base: 1.0625rem;
+    --text-lg: 1.1875rem;
+  }
+  .text-\[0\.5625rem\],
+  .text-\[0\.625rem\] {
+    font-size: 0.75rem;
+  }
+  .text-\[0\.6875rem\] {
+    font-size: 0.8125rem;
+  }
+  .text-\[0\.75rem\] {
+    font-size: 0.875rem;
+  }
+  .text-\[0\.8125rem\] {
+    font-size: 0.9375rem;
+  }
+}
+
+/* A soft, slow pulse on the card box at the soft gate, so the one field the
+   reader has to fill in is the thing their eye goes to. It stops once they
+   tap into it (see app/preview/page.tsx). */
+@keyframes card-attention {
+  0%, 100% {
+    border-color: rgba(0, 212, 255, 0.35);
+    box-shadow: 0 0 0 0 rgba(0, 212, 255, 0);
+  }
+  50% {
+    border-color: rgba(0, 212, 255, 0.95);
+    box-shadow: 0 0 18px 2px rgba(0, 212, 255, 0.35);
+  }
+}
+.card-attention {
+  animation: card-attention 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-attention {
+    animation: none;
+    border-color: rgba(0, 212, 255, 0.8);
+  }
 }
 
 html {
@@ -293,8 +339,8 @@ body {
   }
   /* Small text goes the other way: a touch of positive tracking keeps caps and
      tabular figures legible at 10-12px, where Nunito's counters get tight. */
-  .text-\[10px\],
-  .text-\[11px\],
+  .text-\[0\.625rem\],
+  .text-\[0\.6875rem\],
   .text-xs {
     letter-spacing: 0.006em;
   }

@@ -6,7 +6,7 @@ import { signInWithCustomToken } from "firebase/auth";
 import { db, auth } from "@/lib/firebase/config";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Camera, LogOut, ChevronDown, ScrollText, BookOpen, AlertTriangle, ShieldCheck, Languages } from "lucide-react";
+import { Camera, LogOut, ChevronDown, AlertTriangle, ShieldCheck, Languages } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { postAuthed } from "@/lib/api-client";
 import { CHRISTOPHER_READER_UID } from "@/lib/admin";
@@ -26,7 +26,7 @@ import {
 import { useBookwormContext } from "@/lib/BookwormContext";
 import { personalCourses } from "@/lib/book-club";
 import { useReadingPrefs } from "@/lib/ReadingPrefsContext";
-import { FONT_SCALE, FONT_SIZE_ORDER } from "@/lib/reading-prefs";
+import { ReadingDisplayPicker } from "@/components/reading-display-picker";
 
 // Max size we accept from the file picker before resizing. The output stored
 // in Firestore is tiny (~10–40KB), but we bound the input to avoid decoding a
@@ -450,68 +450,12 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
       <div className="mb-6">
         <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-white/50">Reading Display</h3>
         <div className="rounded-2xl p-3.5" style={gradientBorder}>
-          <p className="mb-2 text-xs font-bold text-white/70">Text size</p>
-          <div className="flex gap-2">
-            {FONT_SIZE_ORDER.map((id) => (
-              <button
-                key={id}
-                onClick={() => setFontSize(id)}
-                aria-pressed={fontSize === id}
-                className={`flex flex-1 flex-col items-center justify-end gap-1 rounded-xl border py-2.5 transition-all ${
-                  fontSize === id
-                    ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
-                    : "border-white/10 text-white/50 hover:border-white/25"
-                }`}
-              >
-                <span className="font-reading font-bold leading-none" style={{ fontSize: FONT_SCALE[id].body }}>
-                  A
-                </span>
-                <span className="text-[0.625rem] font-bold uppercase tracking-wide">{FONT_SCALE[id].label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Live sample in the real reading font, so the choice is visible
-              here instead of only after opening a lesson. */}
-          <p
-            className="mt-3 rounded-xl border border-white/10 bg-black/40 px-3.5 py-3 font-reading text-white/80"
-            style={{ fontSize: FONT_SCALE[fontSize].body, lineHeight: FONT_SCALE[fontSize].lineHeight }}
-          >
-            The universe conspires to help you achieve your Personal Legend.
-          </p>
-
-          <p className="mb-2 mt-5 text-xs font-bold text-white/70">Lesson layout</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setReadingMode("scroll")}
-              aria-pressed={readingMode === "scroll"}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-bold transition-all ${
-                readingMode === "scroll"
-                  ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
-                  : "border-white/10 text-white/50 hover:border-white/25"
-              }`}
-            >
-              <ScrollText className="h-4 w-4" strokeWidth={2} />
-              Scroll
-            </button>
-            <button
-              onClick={() => setReadingMode("page")}
-              aria-pressed={readingMode === "page"}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-bold transition-all ${
-                readingMode === "page"
-                  ? "border-[#00D4FF] bg-[#00D4FF]/10 text-white shadow-[0_0_14px_rgba(0,212,255,0.2)]"
-                  : "border-white/10 text-white/50 hover:border-white/25"
-              }`}
-            >
-              <BookOpen className="h-4 w-4" strokeWidth={2} />
-              Pages
-            </button>
-          </div>
-          <p className="mt-2 text-[0.6875rem] leading-snug text-white/40">
-            {readingMode === "page"
-              ? "Swipe or tap the arrows to turn pages, like a real book."
-              : "One continuous page you scroll through."}
-          </p>
+          <ReadingDisplayPicker
+            fontSize={fontSize}
+            readingMode={readingMode}
+            onFontSize={setFontSize}
+            onReadingMode={setReadingMode}
+          />
         </div>
       </div>
 
