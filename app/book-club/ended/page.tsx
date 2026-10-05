@@ -141,7 +141,7 @@ export default function BookClubEndedPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-6 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 flex w-full max-w-lg flex-col items-center px-5 pb-16">
+      <div className="z-10 flex w-full max-w-lg flex-col items-center px-3 pb-16">
         <Logo variant="stacked" priority className="mb-6 w-32 opacity-90" />
 
         <Users className="mb-3 h-9 w-9 text-[#00D4FF]" strokeWidth={1.75} />

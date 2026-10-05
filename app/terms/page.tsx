@@ -38,7 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function TermsPage() {
   return (
-    <main className="flex min-h-dvh flex-col items-center bg-[hsl(222,94%,5%)] px-4 py-10">
+    <main className="flex min-h-dvh flex-col items-center bg-[hsl(222,94%,5%)] px-3 py-10">
       <Link href="/" className="shrink-0">
         <Logo variant="stacked" priority className="w-44 drop-shadow-2xl sm:w-52" />
       </Link>

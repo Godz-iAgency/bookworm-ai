@@ -313,7 +313,7 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
   } as const;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
+    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-8 flex flex-col min-h-full">
       {/* Identity - laid out as a row rather than a stack. Centred, the avatar
           and email alone ate a third of a phone screen before any setting the
           reader actually came here to change was visible. */}

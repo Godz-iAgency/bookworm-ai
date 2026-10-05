@@ -164,7 +164,7 @@ export default function SearchPage() {
       {/* Header with logo and step indicator - compact, matching the
           dashboard's header treatment, so it isn't competing with the
           confirmation card for a phone's limited height. */}
-      <div className="w-full max-w-4xl px-4 py-2.5 flex justify-between items-center z-10">
+      <div className="w-full max-w-4xl px-3 py-2.5 flex justify-between items-center z-10">
         <div className="flex items-center gap-2">
           {/* Back + logo both return to the shelf. /search is only reached by a
               signed-in user, so /dashboard is always the right destination (a
@@ -185,7 +185,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl px-4 py-4 z-10">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xl px-3 py-4 z-10">
         {!searchedBook ? (
           /* STATE 1: SEARCH SCREEN */
           <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">

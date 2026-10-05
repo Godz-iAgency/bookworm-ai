@@ -51,7 +51,7 @@ export default function LandingPage() {
     <div className="relative min-h-dvh w-full overflow-hidden bg-black">
 
       {/* Top navigation */}
-      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-4 py-5 sm:px-5">
+      <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-3 py-5 sm:px-4">
         {/* Left - opens the explainer video, playing. */}
         <VslLink />
         {/* Right - returning users log in here */}
@@ -64,7 +64,7 @@ export default function LandingPage() {
       </header>
 
       {/* Content overlay */}
-      <div className="relative z-10 flex min-h-dvh flex-col items-center px-5 pb-10 pt-16 sm:px-6 sm:pt-20">
+      <div className="relative z-10 flex min-h-dvh flex-col items-center px-3 pb-10 pt-16 sm:px-4 sm:pt-20">
         {/* The entropy field is anchored to the logo rather than to the page.
             It used to be `absolute inset-0` on a container as tall as the
             whole scrollable page, which centred it far below the fold. */}
@@ -89,7 +89,7 @@ export default function LandingPage() {
         </div>
 
         {/* Hero text */}
-        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 px-5 py-6 sm:p-8 rounded-3xl border border-white/10 shadow-2xl word-float">
+        <div className="max-w-3xl text-center backdrop-blur-sm bg-black/20 px-4 py-6 sm:px-6 sm:py-8 rounded-3xl border border-white/10 shadow-2xl word-float">
           <p className="mb-6 text-base sm:text-lg leading-relaxed text-white/90">
             Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.
             Turn any book into a 7-day learning journey.

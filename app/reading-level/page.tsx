@@ -69,7 +69,7 @@ export default function ReadingLevelPage() {
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
       {/* Header - back arrow returns to the book step */}
-      <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-5">
+      <div className="z-10 mb-4 flex w-full max-w-3xl items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <BackButton to="/search" label="Back to book search" />
           <Logo variant="lockup" size={26} priority className="opacity-90" />
@@ -77,7 +77,7 @@ export default function ReadingLevelPage() {
       </div>
 
       {/* Main */}
-      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-4">
+      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-3">
         {/* Reminder of the book they picked */}
         <div className="mb-3 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-sm">
           <span className="text-xs font-semibold text-white/90">📖 {currentBook.title}</span>

@@ -108,7 +108,7 @@ export default function HomeTab({
   const toastBadge = toast ? BADGES.find((b) => b.id === toast.badgeId) : null;
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-8">
+    <div className="w-full max-w-5xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-8">
       <div className="mb-5 text-center">
         <h2 className="text-2xl md:text-4xl font-bold tracking-tight">Your Shelf</h2>
         <p className="mt-1 text-sm text-white/60 md:text-base">Pick up where you left off, or start something new.</p>

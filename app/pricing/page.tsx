@@ -143,12 +143,12 @@ export default function PricingPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-4 flex w-full max-w-3xl items-center gap-2 px-5">
+      <div className="z-10 mb-4 flex w-full max-w-3xl items-center gap-2 px-3">
         <BackButton to="/dashboard" label="Back to your shelf" />
         <Logo variant="lockup" size={26} priority className="opacity-90" />
       </div>
 
-      <div className="z-10 flex w-full max-w-3xl flex-col items-center px-4 pb-16">
+      <div className="z-10 flex w-full max-w-3xl flex-col items-center px-3 pb-16">
         <h1 className="mb-1.5 text-center text-2xl font-bold tracking-tight">Choose how you read</h1>
         <p className="mb-6 max-w-md text-center text-sm text-white/60">
           Every book still disappears in 7 days. That is kind of the whole point.

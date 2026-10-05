@@ -262,14 +262,14 @@ export default function PreviewPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center bg-[#0a0a0a] py-5 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-5">
+      <div className="z-10 mb-4 flex w-full max-w-2xl items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <BackButton to="/reading-level" label="Back to reading level" />
           <Logo variant="lockup" size={26} priority className="opacity-90" />
         </div>
       </div>
 
-      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-4 pb-16">
+      <div className="z-10 flex w-full max-w-2xl flex-col items-center px-3 pb-16">
         {/* Book + level recap */}
         <div className="mb-2 flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-sm">
           <span className="text-xs font-semibold text-white/90">

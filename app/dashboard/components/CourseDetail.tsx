@@ -61,7 +61,7 @@ export default function CourseDetail({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 md:p-8 animate-in fade-in duration-500 pb-24 md:pb-8">
+    <div className="w-full max-w-3xl mx-auto px-3 py-4 md:px-4 md:py-8 animate-in fade-in duration-500 pb-24 md:pb-8">
       {/* Cover + identity */}
       <div className="flex flex-col items-center text-center">
         <StoredBookCover

@@ -232,7 +232,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-dvh w-full bg-[#0a0a0a] text-white">
-      <div className="mx-auto w-full max-w-6xl px-5 py-6 pb-16">
+      <div className="mx-auto w-full max-w-6xl px-3 py-6 pb-16 sm:px-4">
         <div className="mb-7 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Logo variant="mark" size={30} alt="" className="opacity-80" />

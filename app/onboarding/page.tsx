@@ -80,14 +80,14 @@ export default function OnboardingPage() {
     <div className="relative flex min-h-dvh w-full flex-col items-center overflow-y-auto bg-[#0a0a0a] py-3 text-white">
       <div className="pointer-events-none absolute inset-0 z-0 bg-black/60" />
 
-      <div className="z-10 mb-3 flex w-full max-w-2xl items-center justify-between px-5">
+      <div className="z-10 mb-3 flex w-full max-w-2xl items-center justify-between px-3">
         <Logo variant="lockup" size={26} priority className="opacity-90" />
         <span className="text-xs font-medium uppercase tracking-widest text-[#00D4FF]">
           Step {step} of 2
         </span>
       </div>
 
-      <div className="z-10 flex w-full max-w-2xl flex-col px-4">
+      <div className="z-10 flex w-full max-w-2xl flex-col px-3">
         {step === 1 ? (
           <>
             <h1 className="mb-1 text-center text-xl font-bold tracking-tight md:text-3xl">

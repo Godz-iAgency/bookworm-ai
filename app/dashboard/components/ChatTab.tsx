@@ -108,7 +108,7 @@ export default function ChatTab({
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto overflow-hidden animate-in fade-in duration-500">
 
       {/* Messages Area */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-4">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-[#1a1a1a] shadow-[0_0_30px_rgba(0,212,255,0.1)]">

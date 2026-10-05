@@ -163,7 +163,7 @@ export default function BookClubTab({
 
   if (!overview.inClub) {
     return (
-      <div className="mx-auto w-full max-w-2xl p-6 text-center md:p-8">
+      <div className="mx-auto w-full max-w-3xl px-3 py-6 text-center md:px-4 md:py-8">
         <Users className="mx-auto mb-4 h-10 w-10 text-white/30" strokeWidth={1.75} />
         <h2 className="text-xl font-bold">You&rsquo;re not in a Book Club</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/60">
@@ -177,7 +177,7 @@ export default function BookClubTab({
   const seatsUsed = overview.members.length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl animate-in fade-in p-4 pb-10 duration-500 md:p-8">
+    <div className="mx-auto w-full max-w-5xl animate-in fade-in px-3 py-4 pb-10 duration-500 md:px-4 md:py-8">
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold tracking-tight md:text-4xl">Book Club</h2>
         <p className="mt-1 text-sm text-white/60 md:text-base">

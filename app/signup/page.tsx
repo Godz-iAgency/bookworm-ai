@@ -110,7 +110,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <section className="relative flex min-h-dvh items-center justify-center bg-[hsl(222,94%,5%)] px-4 py-10">
+    <section className="relative flex min-h-dvh items-center justify-center bg-[hsl(222,94%,5%)] px-3 py-10">
       <div className="absolute left-4 top-4 z-10">
         <BackButton to="/" label="Back to home" />
       </div>
