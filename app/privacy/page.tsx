@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 /**
  * Public privacy policy.
@@ -24,10 +25,10 @@ import Link from "next/link";
  */
 const LAST_UPDATED = "September 27, 2026";
 const OPERATOR = "GODZ-i LLC";
-const CONTACT_EMAIL = "christopher@godz-iagency.com";
+const CONTACT_EMAIL = SUPPORT_EMAIL;
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Bookworm AI",
+  title: "Privacy Policy",
   description:
     "What Bookworm AI collects, why, who it is shared with, and how to get your data deleted.",
 };

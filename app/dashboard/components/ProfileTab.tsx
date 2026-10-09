@@ -17,6 +17,7 @@ import { LANGUAGES, DEFAULT_LANGUAGE, languageFromId } from "@/lib/languages";
 import { GenreGrid } from "@/components/genre-grid";
 import { toggleGenre, knownGenres, GENRE_PICK_COUNT } from "@/lib/genres";
 import { planFromId } from "@/lib/plans";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 import {
   getBillingProfile,
   getEffectivePlanId,
@@ -745,6 +746,16 @@ export default function ProfileTab({ onOpenBookClub }: { onOpenBookClub: () => v
               </>
             ) : (
               <>
+                <p className="mb-4 text-[0.75rem] leading-relaxed text-white/45">
+                  Need help? Email{" "}
+                  <a
+                    href={`mailto:${SUPPORT_EMAIL}?subject=Bookworm%20AI%20support`}
+                    className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline"
+                  >
+                    {SUPPORT_EMAIL}
+                  </a>
+                  .
+                </p>
                 <p className="text-[0.75rem] leading-relaxed text-white/45">
                   Deleting your account removes your books, your preferences and your sign-in, and
                   cancels any subscription. It can&apos;t be undone.

@@ -4,6 +4,8 @@ import { GeistMono } from "geist/font/mono"
 import { Caveat, Nunito, Lora } from "next/font/google"
 import { PrivateAnalytics } from "@/components/private-analytics"
 import { AttributionCapture } from "@/components/attribution-capture"
+import { SiteJsonLd } from "@/components/json-ld"
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/site"
 
 // Warm handwritten display font, used only for the personal Home greeting.
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", weight: ["500", "600", "700"] })
@@ -22,10 +24,15 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Bookworm AI - Making Every Book Smarter",
-  description:
-    "Transform your reading experience with AI-powered courses, interactive lessons, and personalized flashcards.",
-  generator: "v0.app",
+  metadataBase: new URL(SITE_URL),
+  // A page that sets its own title is shown as "Pricing | Bookworm AI".
+  title: { default: SITE_TITLE, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  // Each page's own title and description are used for its link preview; the
+  // picture comes from app/opengraph-image.tsx.
+  openGraph: { type: "website", siteName: SITE_NAME },
+  twitter: { card: "summary_large_image" },
   // Standalone-app behaviour on iOS, which ignores the web app manifest and
   // reads these instead. Android takes its equivalents from manifest.ts.
   appleWebApp: {
@@ -55,6 +62,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${nunito.variable} ${lora.variable} ${GeistMono.variable} ${caveat.variable}`}>
       <body className="font-sans bg-[#080808]">
+        <SiteJsonLd />
         <AuthProvider>
           <BookwormProvider>
             <Suspense fallback={<div>Loading...</div>}>

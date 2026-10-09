@@ -278,6 +278,37 @@ module.exports = async function(load) {
   }
 
   {
+    // Search engines are shown the public pages and kept out of everything private.
+    const site = load('lib/site.ts', {});
+    const robots = load('app/robots.ts', {'@/lib/site': site}).default();
+    const rule = robots.rules[0];
+    for (const hidden of ['/api/', '/admin', '/dashboard', '/go/']) assert.ok(rule.disallow.includes(hidden), hidden + ' is kept from crawlers');
+    assert.equal(robots.sitemap, 'https://bookworm-ai.app/sitemap.xml');
+    const map = load('app/sitemap.ts', {'@/lib/site': site}).default();
+    const urls = map.map(e => e.url);
+    for (const page of ['https://bookworm-ai.app', 'https://bookworm-ai.app/pricing', 'https://bookworm-ai.app/contact', 'https://bookworm-ai.app/privacy']) assert.ok(urls.includes(page), page + ' is in the sitemap');
+    for (const u of urls) {
+      const pathname = new URL(u).pathname;
+      assert.ok(!site.PRIVATE_PATHS.some(h => pathname === h || pathname.startsWith(h.endsWith('/') ? h : h + '/')), u + ' is public, so it must not be a private path');
+    }
+    assert.ok(!urls.some(u => /\/(go|admin|dashboard|api|preview)(\/|$)/.test(u)), 'No private page is offered to search engines');
+
+    // One support address for everyone, and no personal address on any page.
+    const contact = load('lib/contact.ts', {});
+    assert.equal(contact.SUPPORT_EMAIL, 'bookworm-support@godz-iagency.com');
+    const fs = require('node:fs'), path = require('node:path');
+    const hits = [];
+    const walk = dir => fs.readdirSync(dir, {withFileTypes: true}).forEach(e => {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) return walk(full);
+      if (/\.(ts|tsx)$/.test(e.name) && /christopher@godz-iagency/i.test(fs.readFileSync(full, 'utf8'))) hits.push(path.relative(path.join(__dirname, '..'), full));
+    });
+    for (const dir of ['app', 'components']) walk(path.join(__dirname, '..', dir));
+    assert.deepEqual(hits, [], 'A personal email address is shown to readers in: ' + hits.join(', '));
+    assert.ok(/christopher@godz-iagency/.test(fs.readFileSync(path.join(__dirname, '..', 'lib', 'admin.ts'), 'utf8')), 'The admin sign-in address is a separate thing and stays');
+  }
+
+  {
     // French or Spanish that lost its accents and apostrophes is a bad lesson, not a finished one.
     const {spellingProblem} = load('lib/lesson.ts', {});
     const fr = "Aujourd'hui, nous allons voir pourquoi l'identité compte plus que les résultats. C'est déjà là, à côté de vous, et ça change très vite. ";

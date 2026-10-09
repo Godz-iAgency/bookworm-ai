@@ -8,6 +8,7 @@ import { Logo } from "@/components/logo"
 import { FeatureFlipCard } from "@/components/feature-flip-card"
 import { VslLink, VslVideo } from "@/components/vsl-video"
 import { CalendarDays, MessageCircle, Layers, ChevronDown } from "lucide-react"
+import { AppJsonLd } from "@/components/json-ld"
 import { useEffect, useState } from "react"
 
 export default function LandingPage() {
@@ -49,6 +50,9 @@ export default function LandingPage() {
   // taller than the screen actually shows, pushing the CTA under the fold.
   return (
     <div className="relative min-h-dvh w-full overflow-hidden bg-black">
+      <AppJsonLd />
+      {/* The hero is a logo and a sentence, so the page's main heading is read by search engines and screen readers rather than shown. */}
+      <h1 className="sr-only">Bookworm AI: turn any book into a 7-day learning course</h1>
 
       {/* Top navigation */}
       <header className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-3 py-5">
@@ -148,6 +152,65 @@ export default function LandingPage() {
           />
         </div>
 
+        {/* How it works and the common questions. Real, readable text: a page
+            that is only a logo and one sentence tells a search engine almost
+            nothing about what the product is. Every claim here is one the app
+            already makes elsewhere. */}
+        <section aria-labelledby="how-it-works" className="mt-20 w-full max-w-5xl">
+          <h2 id="how-it-works" className="text-center text-2xl font-black tracking-tight text-white sm:text-3xl">
+            How Bookworm AI works
+          </h2>
+          <ol className="mt-8 grid gap-5 md:grid-cols-3">
+            {[
+              ["1", "Pick a book", "Type the title or scan the cover with your camera. Bookworm AI turns it into a 7-day course."],
+              ["2", "Choose how you learn", "Pick the reading level that suits you, Explorer, Scholar or Architect, and read in English, Spanish or French."],
+              ["3", "Read one lesson a day", "Each day brings a focused lesson, three actions to apply the idea, flashcards, and an AI chat that answers questions about the book."],
+            ].map(([n, title, text]) => (
+              <li key={n} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00D4FF]/15 text-sm font-black text-[#00D4FF]">
+                  {n}
+                </span>
+                <h3 className="mt-3 text-base font-bold text-white">{title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/65">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section aria-labelledby="faq" className="mt-16 w-full max-w-3xl">
+          <h2 id="faq" className="text-center text-2xl font-black tracking-tight text-white sm:text-3xl">
+            Questions
+          </h2>
+          <div className="mt-6 space-y-3">
+            {[
+              ["What is Bookworm AI?", "Bookworm AI turns any book into a 7-day course. Each day has one focused lesson, three actions to apply the idea, three flashcards, and an AI chat that answers questions about the book."],
+              ["Is it free to try?", "Day 1 is free to read. Add a card to unlock Days 2 to 7. You are not charged during the 7-day trial, and you can cancel before it ends."],
+              ["Which languages and reading levels are there?", "Lessons are written in English, Spanish or French, at three reading levels: Explorer for plain, simple explanations, Scholar for the author's own depth, and Architect for direct, action-first teaching."],
+              ["How long does a course stay on my shelf?", "A course stays on your shelf for about a week, then clears to keep your shelf focused. Read one lesson a day and finish all seven before it goes."],
+              ["Can I share Bookworm AI with family or friends?", "The Book Club plan lets up to four people share one subscription and see the books each other shares."],
+            ].map(([q, a]) => (
+              <details key={q} className="group rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-bold text-white">
+                  {q}
+                  <ChevronDown className="h-4 w-4 shrink-0 text-white/40 transition-transform group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <p className="mt-2.5 text-sm leading-relaxed text-white/65">{a}</p>
+              </details>
+            ))}
+          </div>
+          <p className="mt-5 text-center text-sm text-white/55">
+            See{" "}
+            <Link href="/pricing" className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline">
+              pricing
+            </Link>{" "}
+            or{" "}
+            <Link href="/contact" className="font-semibold text-[#00D4FF] underline-offset-2 hover:underline">
+              contact us
+            </Link>
+            .
+          </p>
+        </section>
+
         {/* No account-deletion link here on purpose. Play requires the
             deletion route to work for someone with no app installed and no
             session - /delete-account does, and that URL is what gets declared
@@ -155,6 +218,12 @@ export default function LandingPage() {
             privacy policy; it does not also need to sit in this footer. */}
         <footer className="mt-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-14 text-xs text-white/40">
           <span>&copy; {new Date().getFullYear()} Bookworm AI</span>
+          <Link href="/pricing" className="transition-colors hover:text-white/70">
+            Pricing
+          </Link>
+          <Link href="/contact" className="transition-colors hover:text-white/70">
+            Contact
+          </Link>
           <Link href="/terms" className="transition-colors hover:text-white/70">
             Terms
           </Link>

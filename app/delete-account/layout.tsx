@@ -8,7 +8,7 @@ import type { Metadata } from "next";
  * the marketing title from the root layout.
  */
 export const metadata: Metadata = {
-  title: "Delete your Bookworm AI account",
+  title: { absolute: "Delete your Bookworm AI account" },
   description:
     "Permanently delete your Bookworm AI account, your courses and your reading data. No app install required.",
 };

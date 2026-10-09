@@ -7,6 +7,7 @@ import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { friendlyAuthError } from "@/lib/firebase/auth";
 import { postAuthed } from "@/lib/api-client";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 /**
  * Public account-deletion page.
@@ -23,8 +24,6 @@ import { postAuthed } from "@/lib/api-client";
  * yours has to happen before anything is destroyed.
  */
 
-/** Optional. Set NEXT_PUBLIC_SUPPORT_EMAIL to offer a route for anyone locked out of their sign-in. */
-const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
 
 export default function DeleteAccountPage() {
   const { user, loading, signInWithEmail, signInWithGoogle, logout, redirectError } = useAuth();

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
+import { SUPPORT_EMAIL } from "@/lib/contact";
 
 /**
  * Public Terms of Service.
@@ -18,12 +19,12 @@ import Link from "next/link";
 /** Bumped by hand, never generated - see the same note in app/privacy/page.tsx. */
 const LAST_UPDATED = "September 26, 2026";
 const OPERATOR = "GODZ-i LLC";
-const CONTACT_EMAIL = "christopher@godz-iagency.com";
+const CONTACT_EMAIL = SUPPORT_EMAIL;
 /** GODZ-i LLC is registered in Texas (formed 06/30/2026, per its business profile). */
 const GOVERNING_LAW_STATE = "Texas";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Bookworm AI",
+  title: "Terms of Service",
   description: "The terms that apply when you use Bookworm AI, including subscriptions, trials and cancellation.",
 };
 
